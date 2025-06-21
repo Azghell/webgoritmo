@@ -290,6 +290,42 @@ document.addEventListener('DOMContentLoaded', function() {
             return parseFloat(processedExpr);
         }
 
+        // NEW: Direct array access handling (e.g., "miArray[1]", "miArray[varIndice]")
+        // This handles cases where the expression itself is a direct array access.
+        const directArrayAccessMatch = processedExpr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+)\s*\]$/);
+        if (directArrayAccessMatch) {
+            const arrName = directArrayAccessMatch[1];
+            const indexPart = directArrayAccessMatch[2].trim();
+
+            // Check if arrName is a defined variable and is an array
+            if (scope.hasOwnProperty(arrName) && scope[arrName] && scope[arrName].type === 'array') {
+                const arrayData = scope[arrName];
+                let indexValue;
+                try {
+                    // Evaluate the index part (which could be a number, a variable, or an expression)
+                    indexValue = evaluarExpresion(indexPart, scope); // Recursive call
+                } catch (e) {
+                    throw new Error(`Error evaluating index "${indexPart}" for array "${arrName}": ${e.message}`);
+                }
+
+                if (typeof indexValue !== 'number' || !Number.isInteger(indexValue)) {
+                    throw new Error(`Array index for "${arrName}" must be an integer. Got: "${indexValue}" from expression "${indexPart}".`);
+                }
+                // PSeInt arrays are 1-based.
+                if (indexValue <= 0 || indexValue > arrayData.size) {
+                    throw new Error(`Array index ${indexValue} is out of bounds for "${arrName}" (valid: 1 to ${arrayData.size}).`);
+                }
+                return arrayData.value[indexValue]; // Return the value directly
+            }
+            // If arrName is in scope but not an array, it's an error to use []
+            else if (scope.hasOwnProperty(arrName) && scope[arrName] && scope[arrName].type !== 'array') {
+                 throw new Error(`Variable "${arrName}" is not an array and cannot be accessed with an index.`);
+            }
+            // If arrName is not in scope, it will be caught by the general undefined variable logic later,
+            // or eval will fail if the expression becomes invalid JS.
+            // So, we let it fall through if it's not a recognized array in scope (it won't be an array access then).
+        }
+
         // 4. Convierte operadores y funciones de PSeint a equivalentes de JavaScript.
         // ESTRATEGIA DE MARCADORES TEMPORALES para evitar conflictos de reemplazo.
 
