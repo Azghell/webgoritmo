@@ -5,7 +5,7 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; /* Fuente principal actualizada */
 }
 
 html, body {
@@ -14,9 +14,8 @@ html, body {
 }
 
 html {
-    /* Ajuste global del tamaño de fuente para escalar el diseño.
-       Reducido a 70% para un efecto más compacto, entre el 80% y 90% de un zoom normal. */
-    font-size: 70%;
+    /* Ajuste global del tamaño de fuente para escalar el diseño. */
+    font-size: 100%; /* Establece 1rem a ~16px por defecto en la mayoría de navegadores */
 }
 
 body {
@@ -126,7 +125,8 @@ body {
 
 .CodeMirror {
     height: 100%;
-    font-size: 0.95rem; /* Mantenido o ajustado según pruebas */
+    font-family: 'Fira Code', 'JetBrains Mono', Consolas, Menlo, Monaco, monospace;
+    font-size: 16px; /* Tamaño de fuente del editor a 16px */
     line-height: 1.4em; /* IMPORTANTE: Usar 'em' para que se adapte al font-size */
     background-color: #282a36;
     color: #f8f8f2;
