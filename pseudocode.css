@@ -171,8 +171,8 @@ body {
 
 .console-line.normal { color: #e0e0e0; }
 .console-line.user-input { color: #8bc34a; }
-.console-line.error { color: #ef5350; font-weight: bold; }
-.console-line.warning { color: #ffeb3b; }
+.console-line.error { color: #D93025; font-weight: bold; } /* Rojo de error actualizado */
+.console-line.warning { color: #F9A825; } /* Ámbar para advertencias */
 .console-line.input-prompt { color: #8be9fd; }
 
 
