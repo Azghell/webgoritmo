@@ -19,8 +19,8 @@ html {
 }
 
 body {
-    background: linear-gradient(135deg, #1a2a6c, #2a5298); /* Degradado de azul oscuro a azul medio */
-    color: #333;
+    background-color: #F4F6F8; /* Nuevo fondo claro */
+    color: #212121; /* Nuevo color de texto principal */
     min-height: 100vh;
     padding: 0.5rem; /* REDUCIDO AÚN MÁS el padding del body */
     display: flex;
@@ -54,21 +54,22 @@ body {
 }
 
 .header {
-    background: linear-gradient(90deg, #6a11cb, #2575fc);
-    color: #fff;
-    padding: 0.6rem 1rem; /* REDUCIDO el padding del header */
+    background-color: #FFFFFF; /* Fondo blanco para el header */
+    color: #212121; /* Texto oscuro para el header */
+    padding: 0.6rem 1rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Sombra más sutil */
+    border-bottom: 1px solid #E0E0E0; /* Borde inferior sutil */
     flex-wrap: wrap;
-    flex-shrink: 0; /* IMPORTANTE: Asegura que el header no se encoja */
+    flex-shrink: 0;
 }
 
 .header h1 {
-    font-size: 1.5rem; /* Se escalará con el font-size del html */
+    font-size: 1.375rem; /* Ajustado a 22px (era 1.5rem -> 24px). Se puede ajustar más si es necesario. */
     margin: 0;
-    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+    /* text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3); */ /* Eliminado para tema claro */
     white-space: nowrap;
 }
 
@@ -128,8 +129,8 @@ body {
     font-family: 'Fira Code', 'JetBrains Mono', Consolas, Menlo, Monaco, monospace;
     font-size: 16px; /* Tamaño de fuente del editor a 16px */
     line-height: 1.4em; /* IMPORTANTE: Usar 'em' para que se adapte al font-size */
-    background-color: #282a36;
-    color: #f8f8f2;
+    background-color: #1E1E1E; /* Nuevo fondo oscuro para el editor (Modo Claro UI) */
+    color: #D4D4D4; /* Nuevo color de texto base para el editor (Modo Claro UI) */
 }
 
 .CodeMirror-lines {
