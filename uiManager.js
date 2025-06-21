@@ -1,70 +1,84 @@
 // uiManager.js
 // Contiene funciones que actualizan la UI y manejan interacciones de UI.
 
-// Se asume que las constantes de elementos DOM (ej. salidaConsola) y estadoApp
-// son accesibles globalmente (definidas en configGlobal.js y utilidadesDOM.js).
-// También se asume que 'editorCodigo' (instancia de CodeMirror) es global o accesible.
+window.Webgoritmo = window.Webgoritmo || {};
+Webgoritmo.UI = Webgoritmo.UI || {};
 
-function añadirSalida(mensaje, tipo = 'normal') {
+Webgoritmo.UI.añadirSalida = function(mensaje, tipo = 'normal') {
+    if (!Webgoritmo.DOM || !Webgoritmo.DOM.salidaConsola) {
+        console.error("Error en añadirSalida: Webgoritmo.DOM.salidaConsola no está definido.");
+        return;
+    }
     const elementoLinea = document.createElement('div');
     elementoLinea.textContent = mensaje;
     elementoLinea.classList.add('console-line', tipo);
-    salidaConsola.appendChild(elementoLinea);
-    salidaConsola.scrollTop = salidaConsola.scrollHeight;
-}
+    Webgoritmo.DOM.salidaConsola.appendChild(elementoLinea);
+    Webgoritmo.DOM.salidaConsola.scrollTop = Webgoritmo.DOM.salidaConsola.scrollHeight;
+};
 
-function añadirAlertaSintaxis(mensaje) {
+Webgoritmo.UI.añadirAlertaSintaxis = function(mensaje) {
+    if (!Webgoritmo.DOM || !Webgoritmo.DOM.listaSugerencias) {
+        console.error("Error en añadirAlertaSintaxis: Webgoritmo.DOM.listaSugerencias no está definido.");
+        return;
+    }
     const li = document.createElement('li');
     li.className = 'suggestion-item syntax-error';
     li.innerHTML = `<strong>Error de Sintaxis Potencial:</strong><br>${mensaje}`;
-    listaSugerencias.appendChild(li);
-}
+    Webgoritmo.DOM.listaSugerencias.appendChild(li);
+};
 
-function añadirAdvertenciaSugerencia(mensaje) {
+Webgoritmo.UI.añadirAdvertenciaSugerencia = function(mensaje) {
+    if (!Webgoritmo.DOM || !Webgoritmo.DOM.listaSugerencias) {
+        console.error("Error en añadirAdvertenciaSugerencia: Webgoritmo.DOM.listaSugerencias no está definido.");
+        return;
+    }
     const li = document.createElement('li');
     li.className = 'suggestion-item warning-item';
     li.innerHTML = `<strong>Advertencia:</strong><br>${mensaje}`;
-    listaSugerencias.appendChild(li);
-}
+    Webgoritmo.DOM.listaSugerencias.appendChild(li);
+};
 
-function mostrarConfirmacion(message) {
-    modalMessage.textContent = message;
-    confirmationModal.style.display = 'flex';
+Webgoritmo.UI.mostrarConfirmacion = function(message) {
+    if (!Webgoritmo.DOM || !Webgoritmo.DOM.modalMessage || !Webgoritmo.DOM.confirmationModal || !Webgoritmo.DOM.modalConfirmBtn || !Webgoritmo.DOM.modalCancelBtn || !Webgoritmo.estadoApp) {
+        console.error("Error en mostrarConfirmacion: Faltan elementos DOM o Webgoritmo.estadoApp.");
+        return Promise.resolve(false); // Devolver una promesa resuelta para no romper el flujo
+    }
+    Webgoritmo.DOM.modalMessage.textContent = message;
+    Webgoritmo.DOM.confirmationModal.style.display = 'flex';
 
     return new Promise(resolve => {
-        estadoApp.resolverConfirmacion = resolve;
+        Webgoritmo.estadoApp.resolverConfirmacion = resolve;
 
         const handleConfirm = () => {
-            confirmationModal.style.display = 'none';
-            modalConfirmBtn.removeEventListener('click', handleConfirm);
-            modalCancelBtn.removeEventListener('click', handleCancel);
-            estadoApp.resolverConfirmacion = null;
+            Webgoritmo.DOM.confirmationModal.style.display = 'none';
+            Webgoritmo.DOM.modalConfirmBtn.removeEventListener('click', handleConfirm);
+            Webgoritmo.DOM.modalCancelBtn.removeEventListener('click', handleCancel);
+            Webgoritmo.estadoApp.resolverConfirmacion = null;
             resolve(true);
         };
 
         const handleCancel = () => {
-            confirmationModal.style.display = 'none';
-            modalConfirmBtn.removeEventListener('click', handleConfirm);
-            modalCancelBtn.removeEventListener('click', handleCancel);
-            estadoApp.resolverConfirmacion = null;
+            Webgoritmo.DOM.confirmationModal.style.display = 'none';
+            Webgoritmo.DOM.modalConfirmBtn.removeEventListener('click', handleConfirm);
+            Webgoritmo.DOM.modalCancelBtn.removeEventListener('click', handleCancel);
+            Webgoritmo.estadoApp.resolverConfirmacion = null;
             resolve(false);
         };
 
-        modalConfirmBtn.addEventListener('click', handleConfirm);
-        modalCancelBtn.addEventListener('click', handleCancel);
+        Webgoritmo.DOM.modalConfirmBtn.addEventListener('click', handleConfirm);
+        Webgoritmo.DOM.modalCancelBtn.addEventListener('click', handleCancel);
     });
-}
+};
 
-function cargarPlantillaInicial() {
+Webgoritmo.UI.cargarPlantillaInicial = function() {
     const plantilla = `Algoritmo MiAlgoritmo
 	// Escribe tu código aquí
 FinAlgoritmo`;
-    if (editorCodigo) { // Asegurarse que editorCodigo esté definido
-        editorCodigo.setValue(plantilla);
+    if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo) {
+        Webgoritmo.Editor.editorCodigo.setValue(plantilla);
 
         const lineas = plantilla.split('\n');
         let lineaComentario = -1;
-
         for (let i = 0; i < lineas.length; i++) {
             const trimmedLine = lineas[i].trim();
             if (trimmedLine.startsWith('//')) {
@@ -77,40 +91,49 @@ FinAlgoritmo`;
             const inicioComentario = { line: lineaComentario, ch: lineas[lineaComentario].indexOf('//') };
             const finComentario = { line: lineaComentario, ch: lineas[lineaComentario].length };
 
-            editorCodigo.setSelection(inicioComentario, finComentario);
-            editorCodigo.focus();
-            editorCodigo.replaceSelection('');
-            editorCodigo.setCursor(lineaComentario, inicioComentario.ch);
-        }
-    }
-}
-
-function alternarPanelLateral() {
-    const esMovil = window.innerWidth <= 900;
-
-    if (esMovil) {
-        panelLateral.classList.toggle('collapsed-mobile');
-        const icono = btnAlternarPanelLateral.querySelector('i');
-        if (panelLateral.classList.contains('collapsed-mobile')) {
-            icono.classList.replace('fa-chevron-down', 'fa-chevron-up');
-        } else {
-            icono.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            Webgoritmo.Editor.editorCodigo.setSelection(inicioComentario, finComentario);
+            Webgoritmo.Editor.editorCodigo.focus();
+            Webgoritmo.Editor.editorCodigo.replaceSelection('');
+            Webgoritmo.Editor.editorCodigo.setCursor(lineaComentario, inicioComentario.ch);
         }
     } else {
-        panelLateral.classList.toggle('collapsed');
-        const icono = btnAlternarPanelLateral.querySelector('i');
-        if (panelLateral.classList.contains('collapsed')) {
-            icono.classList.replace('fa-chevron-left', 'fa-chevron-right');
-        } else {
-            icono.classList.replace('fa-chevron-right', 'fa-chevron-left');
+        console.error("Error en cargarPlantillaInicial: Webgoritmo.Editor.editorCodigo no está definido.");
+    }
+};
+
+Webgoritmo.UI.alternarPanelLateral = function() {
+    if (!Webgoritmo.DOM || !Webgoritmo.DOM.panelLateral || !Webgoritmo.DOM.btnAlternarPanelLateral) {
+        console.error("Error en alternarPanelLateral: Faltan Webgoritmo.DOM.panelLateral o Webgoritmo.DOM.btnAlternarPanelLateral.");
+        return;
+    }
+    const esMovil = window.innerWidth <= 900;
+    if (esMovil) {
+        Webgoritmo.DOM.panelLateral.classList.toggle('collapsed-mobile');
+        const icono = Webgoritmo.DOM.btnAlternarPanelLateral.querySelector('i');
+        if (icono) {
+            if (Webgoritmo.DOM.panelLateral.classList.contains('collapsed-mobile')) {
+                icono.classList.replace('fa-chevron-down', 'fa-chevron-up');
+            } else {
+                icono.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            }
+        }
+    } else {
+        Webgoritmo.DOM.panelLateral.classList.toggle('collapsed');
+        const icono = Webgoritmo.DOM.btnAlternarPanelLateral.querySelector('i');
+        if (icono) {
+            if (Webgoritmo.DOM.panelLateral.classList.contains('collapsed')) {
+                icono.classList.replace('fa-chevron-left', 'fa-chevron-right');
+            } else {
+                icono.classList.replace('fa-chevron-right', 'fa-chevron-left');
+            }
         }
     }
     setTimeout(() => {
-        if (editorCodigo) editorCodigo.refresh();
+        if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo) Webgoritmo.Editor.editorCodigo.refresh();
     }, 300);
-}
+};
 
-function setupCollapsiblePanel(headerElement, contentElement) {
+Webgoritmo.UI.setupCollapsiblePanel = function(headerElement, contentElement) {
     if (!headerElement || !contentElement) return;
 
     if (!contentElement.classList.contains('expanded')) {
@@ -137,7 +160,47 @@ function setupCollapsiblePanel(headerElement, contentElement) {
             }
         }
         setTimeout(() => {
-            if (editorCodigo) editorCodigo.refresh();
+            if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo) {
+                Webgoritmo.Editor.editorCodigo.refresh();
+            }
         }, 300);
     });
-}
+};
+
+Webgoritmo.UI.inicializarManejoEjemplos = function() {
+    if (Webgoritmo.DOM.exampleDropdownToggle && Webgoritmo.DOM.exampleDropdownMenu) {
+        Webgoritmo.DOM.exampleDropdownToggle.addEventListener('click', function(event) {
+            event.stopPropagation();
+            Webgoritmo.DOM.exampleDropdownMenu.classList.toggle('show');
+            this.classList.toggle('active');
+            if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo) Webgoritmo.Editor.editorCodigo.refresh();
+        });
+
+        window.addEventListener('click', function(event) {
+            if (Webgoritmo.DOM.exampleDropdownMenu && Webgoritmo.DOM.exampleDropdownToggle &&
+                !Webgoritmo.DOM.exampleDropdownMenu.contains(event.target) &&
+                !Webgoritmo.DOM.exampleDropdownToggle.contains(event.target) &&
+                Webgoritmo.DOM.exampleDropdownMenu.classList.contains('show')) {
+                Webgoritmo.DOM.exampleDropdownMenu.classList.remove('show');
+                Webgoritmo.DOM.exampleDropdownToggle.classList.remove('active');
+            }
+        });
+
+        Webgoritmo.DOM.exampleDropdownMenu.addEventListener('click', function(event) {
+            const clickedItem = event.target.closest('.example-item');
+            if (clickedItem) {
+                event.preventDefault();
+                const exampleKey = clickedItem.dataset.exampleId;
+                if (exampleKey && Webgoritmo.Datos && Webgoritmo.Datos.exampleCodes && Webgoritmo.Datos.exampleCodes[exampleKey]) {
+                    if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo) Webgoritmo.Editor.editorCodigo.setValue(Webgoritmo.Datos.exampleCodes[exampleKey]);
+                    if (typeof Webgoritmo.restablecerEstado === "function") Webgoritmo.restablecerEstado();
+                    Webgoritmo.UI.añadirSalida(`> Ejemplo '${clickedItem.textContent.trim()}' cargado.`, 'normal');
+                }
+                Webgoritmo.DOM.exampleDropdownMenu.classList.remove('show');
+                Webgoritmo.DOM.exampleDropdownToggle.classList.remove('active');
+            }
+        });
+    } else {
+        console.error("Error en inicializarManejoEjemplos: Faltan elementos DOM para el menú de ejemplos.");
+    }
+};
