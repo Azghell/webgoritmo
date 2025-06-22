@@ -47,8 +47,48 @@ Webgoritmo.Editor.sugerencias = [
         tip: 'Palabra clave que finaliza una estructura condicional Si-Entonces.',
         code: 'Si <condición> Entonces\n\t...\nFinSi'
     },
-    { keyword: 'para', title: 'Para-Hasta-Hacer', tip: 'Bucle que se repite un número definido de veces, con un un valor inicial, final y paso.', code: 'Para i <- inicio Hasta fin Con Paso paso Hacer\n\t// Código a repetir\nFinPara' },
-    { keyword: 'mientras', title: 'Mientras-Hacer', tip: 'Bucle que se repite mientras una condición booleana sea Verdadera. El código dentro se ejecuta cero o más veces.', code: 'Mientras condicion Hacer\n\t// Código a repetir\nFinMientras' },
+    {
+        keyword: 'mientras',
+        title: 'Mientras-Hacer-FinMientras',
+        tip: 'Bucle que se repite mientras una condición booleana sea Verdadera. El código dentro se ejecuta cero o más veces.',
+        code: 'Mientras <condicion_logica> Hacer\n\t// Acciones a repetir\nFinMientras'
+    },
+    {
+        keyword: 'hacer',
+        title: 'Hacer (parte de Mientras o Para)',
+        tip: 'Palabra clave que inicia el bloque de código de un bucle Mientras o Para.',
+        code: 'Mientras <condicion> Hacer\n\t...'
+    },
+    {
+        keyword: 'finmientras',
+        title: 'FinMientras (cierre de Mientras)',
+        tip: 'Palabra clave que finaliza un bucle Mientras-Hacer.',
+        code: 'Mientras <condicion> Hacer\n\t...\nFinMientras'
+    },
+    {
+        keyword: 'para',
+        title: 'Para-Hasta-Con Paso-Hacer-FinPara',
+        tip: 'Bucle que se repite un número definido de veces, con una variable de control, valor inicial, valor final y un paso (incremento/decremento).',
+        code: 'Para variable_iteradora <- valor_inicial Hasta valor_final Con Paso incremento Hacer\n\t// Acciones a repetir\nFinPara'
+    },
+    {
+        keyword: 'hasta',
+        title: 'Hasta (parte de Para o Repetir)',
+        tip: 'Palabra clave que define el límite superior en un bucle Para, o la condición de terminación en un bucle Repetir.',
+        code: 'Para i <- 1 Hasta 10 Hacer\n\t...\nFinPara\n\nRepetir\n\t...\nHasta Que <condicion>'
+    },
+    {
+        keyword: 'con paso',
+        title: 'Con Paso (parte de Para)',
+        tip: 'Palabra clave opcional en un bucle Para que especifica el incremento o decremento de la variable de control.',
+        code: 'Para i <- 1 Hasta 10 Con Paso 2 Hacer\n\t// i tomará valores 1, 3, 5, 7, 9\nFinPara'
+    },
+    {
+        keyword: 'finpara',
+        title: 'FinPara (cierre de Para)',
+        tip: 'Palabra clave que finaliza un bucle Para-Hacer.',
+        code: 'Para i <- 1 Hasta 5 Hacer\n\t...\nFinPara'
+    },
     { keyword: 'repetir', title: 'Repetir-Hasta Que', tip: 'Bucle que se ejecuta al menos una vez y se repite hasta que una condición booleana sea Verdadera.', code: 'Repetir\n\t// Código a repetir\nHasta Que condicion' },
     { keyword: 'segun', title: 'Segun-Hacer', tip: 'Estructura de selección múltiple que ejecuta diferentes bloques de código según el valor de una expresión.', code: 'Segun variable Hacer\n\tvalor1:\n\t\t// Código para valor1\n\tvalor2:\n\t\t// Código para valor2\n\tDe Otro Modo:\n\t\t// Código para otros valores\nFinSegun' },
     { keyword: 'funcion', title: 'Funcion / SubProceso', tip: 'Define un bloque de código reutilizable que puede o no retornar un valor.', code: 'Funcion [resultado] = [nombre_funcion]([parametros])\n\t// Código de la función\nFinFuncion' },

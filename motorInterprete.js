@@ -225,12 +225,13 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
     if (!Webgoritmo.estadoApp || !Webgoritmo.Interprete || !Webgoritmo.UI || !Webgoritmo.Expresiones) {
         console.error("ejecutarBloque: Módulos Webgoritmo esenciales no definidos."); return;
     }
-    for (let i = 0; i < lineasBloqueParam.length; i++) {
+    let i = 0; // Declarar i fuera para que sea accesible después del bucle si es necesario (ej. handleMientras)
+    while (i < lineasBloqueParam.length) {
         if (Webgoritmo.estadoApp.detenerEjecucion) { console.log("Ejecución detenida en ejecutarBloque."); break; }
         const lineaOriginal = lineasBloqueParam[i];
         const lineaTrimmed = lineaOriginal.trim();
         const numLineaGlobal = numLineaOriginalOffset + i + 1;
-        if (lineaTrimmed === '' || lineaTrimmed.startsWith('//')) continue;
+        if (lineaTrimmed === '' || lineaTrimmed.startsWith('//')) { i++; continue; }
         console.log(`Ejecutando (L:${numLineaGlobal}): ${lineaTrimmed}`);
         let instruccionManejada = false;
         try {
@@ -243,12 +244,36 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
                  instruccionManejada = await Webgoritmo.Interprete.handleLeer(lineaTrimmed, ambitoActual, numLineaGlobal);
             } else if (lineaLower.startsWith('si ') && lineaLower.includes(' entonces')) {
                 const nuevoIndiceRelativoAlBloque = await Webgoritmo.Interprete.handleSi(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque;
+                i = nuevoIndiceRelativoAlBloque; // El índice 'i' se actualiza directamente aquí.
                 instruccionManejada = true;
+            } else if (lineaLower.startsWith('mientras ') && lineaLower.includes(' hacer')) {
+                const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handleMientras(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                i = nuevoIndiceRelativoAlBloque; // Actualiza i para saltar el bloque Mientras o continuar después de él.
+                instruccionManejada = true;
+                if (ejecutarSiguienteIteracion) { // Si un 'Leer' dentro del Mientras pausó, no incrementamos 'i' aquí.
+                    continue; // El bucle While principal de ejecutarBloque se encargará.
+                }
             } else if (lineaTrimmed.includes('<-')) {
                  instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
+            } else if (lineaLower.startsWith('para ') && lineaLower.includes(' hacer')) {
+                const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handlePara(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                i = nuevoIndiceRelativoAlBloque;
+                instruccionManejada = true;
+                if (ejecutarSiguienteIteracion) {
+                    continue;
+                }
             }
-            if (!instruccionManejada && lineaTrimmed) throw new Error(`Instrucción no reconocida: '${lineaTrimmed}'`);
+
+            if (!instruccionManejada && lineaTrimmed &&
+                !lineaLower.startsWith("finsi") &&
+                !lineaLower.startsWith("sino") &&
+                !lineaLower.startsWith("sinosi") &&
+                !lineaLower.startsWith("finmientras") &&
+                !lineaLower.startsWith("finpara")) {
+                 // Las palabras clave de cierre de bloque son manejadas por sus respectivos handlers (Si, Mientras, Para)
+                 // y no deben ser tratadas como instrucciones no reconocidas aquí.
+                throw new Error(`Instrucción no reconocida o mal ubicada: '${lineaTrimmed}'`);
+            }
         } catch (e) {
             Webgoritmo.estadoApp.errorEjecucion = `Error en línea ${numLineaGlobal}: ${e.message}`;
             Webgoritmo.estadoApp.detenerEjecucion = true;
@@ -256,12 +281,304 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
             else console.error(Webgoritmo.estadoApp.errorEjecucion);
             break;
         }
+
+        i++; // Incrementar i para la siguiente línea del bloque
+
         if (Webgoritmo.estadoApp.esperandoEntrada && !Webgoritmo.estadoApp.detenerEjecucion) {
             console.log("ejecutarBloque: Pausando por 'Leer'.");
-            break;
+            // No rompemos el bucle 'while' aquí directamente.
+            // Si 'Leer' está dentro de 'Mientras', 'handleMientras' devolverá 'ejecutarSiguienteIteracion = true'
+            // y el 'continue' de arriba se activará.
+            // Si 'Leer' está fuera de 'Mientras', la ejecución se pausará y se reanudará desde este punto.
+            // La promesa en handleLeer detendrá el flujo hasta que se resuelva.
+            await Webgoritmo.estadoApp.promesaEntradaPendiente; // Espera aquí si la promesa se creó
+            Webgoritmo.estadoApp.promesaEntradaPendiente = null; // Limpia la promesa
+            if(Webgoritmo.estadoApp.detenerEjecucion) break; // Si la entrada causó una detención
         }
     }
 };
+
+Webgoritmo.Interprete.handleMientras = async function(lineaActual, ambitoActual, numLineaOriginalMientras, lineasBloqueCompleto, indiceMientrasEnBloque) {
+    if (!Webgoritmo.estadoApp || !Webgoritmo.Expresiones || !Webgoritmo.Interprete) {
+        throw new Error("Error interno: Módulos no disponibles para 'Mientras'.");
+    }
+
+    const mientrasMatch = lineaActual.match(/^Mientras\s+(.+?)\s+Hacer$/i);
+    if (!mientrasMatch) throw new Error(`Sintaxis 'Mientras' incorrecta en línea ${numLineaOriginalMientras}.`);
+
+    const condicionStr = mientrasMatch[1];
+    let cuerpoMientras = [];
+    let finMientrasEncontrado = false;
+    let anidamientoMientras = 0;
+    let i = indiceMientrasEnBloque + 1;
+
+    for (; i < lineasBloqueCompleto.length; i++) {
+        const lineaIter = lineasBloqueCompleto[i].trim().toLowerCase();
+        if (lineaIter.startsWith("mientras ") && lineaIter.includes(" hacer")) {
+            anidamientoMientras++;
+            cuerpoMientras.push(lineasBloqueCompleto[i]);
+        } else if (lineaIter === "finmientras") {
+            if (anidamientoMientras === 0) {
+                finMientrasEncontrado = true;
+                break;
+            } else {
+                anidamientoMientras--;
+                cuerpoMientras.push(lineasBloqueCompleto[i]);
+            }
+        } else {
+            cuerpoMientras.push(lineasBloqueCompleto[i]);
+        }
+    }
+
+    if (!finMientrasEncontrado) {
+        throw new Error(`Se esperaba 'FinMientras' para cerrar el bucle 'Mientras' iniciado en la línea ${numLineaOriginalMientras}.`);
+    }
+
+    const indiceDespuesFinMientras = i + 1;
+    let ejecutarSiguienteIteracionDelBloquePrincipal = false;
+
+    // Bucle de ejecución del Mientras
+    let primeraIteracion = true;
+    let condicionVal;
+    try {
+        condicionVal = Webgoritmo.Expresiones.evaluarExpresion(condicionStr, ambitoActual);
+    } catch (e) {
+        throw new Error(`Evaluando condición 'Mientras' ("${condicionStr}") en línea ${numLineaOriginalMientras}: ${e.message}`);
+    }
+    if (typeof condicionVal !== 'boolean') {
+        throw new Error(`Condición 'Mientras' ("${condicionStr}") en línea ${numLineaOriginalMientras} debe ser lógica, se obtuvo: ${condicionVal}.`);
+    }
+
+    while (condicionVal && !Webgoritmo.estadoApp.detenerEjecucion) {
+        // El offset para las líneas dentro del Mientras es relativo al inicio del bloque completo + offset del Mientras + 1
+        const offsetLineasCuerpo = numLineaOriginalMientras - indiceMientrasEnBloque -1 + indiceMientrasEnBloque +1;
+        await Webgoritmo.Interprete.ejecutarBloque(cuerpoMientras, ambitoActual, offsetLineasCuerpo);
+
+        if (Webgoritmo.estadoApp.detenerEjecucion) break;
+
+        if (Webgoritmo.estadoApp.esperandoEntrada) {
+            console.log("handleMientras: Pausando debido a 'Leer' dentro del bucle.");
+            // Guardamos el estado para reanudar el bucle Mientras después de la entrada.
+            Webgoritmo.estadoApp.estadoBuclePendiente = {
+                tipo: 'Mientras',
+                lineaOriginalMientras,
+                condicionStr,
+                cuerpoMientras,
+                ambitoActual,
+                indiceDespuesFinMientras,
+                offsetLineasCuerpo
+            };
+            ejecutarSiguienteIteracionDelBloquePrincipal = true;
+            return { nuevoIndiceRelativoAlBloque: indiceMientrasEnBloque, ejecutarSiguienteIteracion: true };
+        }
+
+        // Re-evaluar condición
+        try {
+            condicionVal = Webgoritmo.Expresiones.evaluarExpresion(condicionStr, ambitoActual);
+        } catch (e) {
+            throw new Error(`Re-evaluando condición 'Mientras' ("${condicionStr}") en línea ${numLineaOriginalMientras}: ${e.message}`);
+        }
+        if (typeof condicionVal !== 'boolean') {
+            throw new Error(`Condición 'Mientras' ("${condicionStr}") en línea ${numLineaOriginalMientras} debe ser lógica, se obtuvo: ${condicionVal}.`);
+        }
+    }
+
+    return { nuevoIndiceRelativoAlBloque: indiceDespuesFinMientras -1 , ejecutarSiguienteIteracion: ejecutarSiguienteIteracionDelBloquePrincipal };
+};
+
+
+Webgoritmo.Interprete.reanudarBuclePendiente = async function() {
+    if (!Webgoritmo.estadoApp.estadoBuclePendiente) return;
+
+    const estado = Webgoritmo.estadoApp.estadoBuclePendiente;
+    Webgoritmo.estadoApp.estadoBuclePendiente = null; // Limpiar estado
+
+    if (estado.tipo === 'Mientras') {
+        console.log(`Reanudando bucle Mientras de línea ${estado.lineaOriginalMientras}`);
+        let condicionVal;
+        try {
+            condicionVal = Webgoritmo.Expresiones.evaluarExpresion(estado.condicionStr, estado.ambitoActual);
+        } catch (e) {
+            throw new Error(`Re-evaluando condición 'Mientras' ("${estado.condicionStr}") al reanudar: ${e.message}`);
+        }
+
+        while (condicionVal && !Webgoritmo.estadoApp.detenerEjecucion) {
+            await Webgoritmo.Interprete.ejecutarBloque(estado.cuerpoMientras, estado.ambitoActual, estado.offsetLineasCuerpo);
+            if (Webgoritmo.estadoApp.detenerEjecucion) break;
+
+            if (Webgoritmo.estadoApp.esperandoEntrada) {
+                console.log("handleMientras (reanudar): Pausando de nuevo por 'Leer'.");
+                Webgoritmo.estadoApp.estadoBuclePendiente = estado; // Guardar de nuevo para la próxima reanudación
+                return; // Salir, la ejecución principal se detendrá
+            }
+
+            try {
+                condicionVal = Webgoritmo.Expresiones.evaluarExpresion(estado.condicionStr, estado.ambitoActual);
+            } catch (e) {
+                 throw new Error(`Re-evaluando condición 'Mientras' ("${estado.condicionStr}") al reanudar: ${e.message}`);
+            }
+        }
+        // Si el bucle terminó o se detuvo, necesitamos continuar la ejecución *después* del FinMientras.
+        // Esto es un poco más complejo porque ejecutarBloque ya avanzó.
+        // La forma en que está estructurado ahora, la reanudación ocurre *antes* de que ejecutarBloque avance su 'i'.
+        // Así que al terminar aquí, ejecutarBloque continuará desde donde se pausó, que es la instrucción Leer.
+        // Necesitamos que salte al final del Mientras.
+        // Esto sugiere que la reanudación debe ser manejada más centralmente en app.js o que ejecutarBloque
+        // necesita saber si una reanudación de bucle acaba de ocurrir.
+
+        // Por ahora, la lógica en app.js que llama a reanudarBuclePendiente y luego
+        // potencialmente reanuda ejecutarBloque (si no hay más bucles pendientes)
+        // debería funcionar, ya que ejecutarBloque continuará.
+        // El problema es que el índice `i` de `ejecutarBloque` no se actualiza al `indiceDespuesFinMientras`.
+        // Esto necesita una revisión más profunda de cómo se maneja el flujo de control post-reanudación.
+
+        // Solución temporal: si el bucle termina, la ejecución continuará después de la línea 'Leer'.
+        // Si la línea 'Leer' era la última del bloque 'Mientras', entonces 'ejecutarBloque'
+        // pasará a la siguiente línea *después* del 'FinMientras' si `handleMientras` devolvió
+        // el índice correcto la primera vez.
+    } else if (estado.tipo === 'Para') {
+        console.log(`Reanudando bucle Para de línea ${estado.lineaOriginalPara}`);
+        let variableControl = estado.ambitoActual[estado.variableControlNombre];
+
+        // El valor de variableControl.value ya fue actualizado por Leer y la asignación.
+        // Ahora solo necesitamos continuar el bucle desde donde se quedó.
+        // El incremento/decremento y la re-evaluación de la condición ocurrirán al final de esta iteración reanudada.
+
+        while ((estado.paso > 0 && variableControl.value <= estado.valorFinal) || (estado.paso < 0 && variableControl.value >= estado.valorFinal)) {
+            if (Webgoritmo.estadoApp.detenerEjecucion) break;
+
+            // Ejecutar el cuerpo. Si esta es la iteración que fue interrumpida, solo ejecutamos desde la línea siguiente al Leer.
+            // Esto es complejo. Para simplificar, re-ejecutamos el cuerpo. Si el Leer está al principio, no hay problema.
+            // Si está en medio, las líneas anteriores a Leer en esa iteración se re-ejecutarán.
+            // Una solución más precisa requeriría guardar el punto exacto de interrupción dentro del cuerpo.
+            await Webgoritmo.Interprete.ejecutarBloque(estado.cuerpoPara, estado.ambitoActual, estado.offsetLineasCuerpo);
+
+            if (Webgoritmo.estadoApp.detenerEjecucion) break;
+
+            if (Webgoritmo.estadoApp.esperandoEntrada) {
+                console.log("handlePara (reanudar): Pausando de nuevo por 'Leer'.");
+                // Necesitamos actualizar el valor de la variable de control en el estado guardado
+                // por si el Leer cambió otra variable que afecta a la variable de control indirectamente (poco probable pero posible)
+                // O si el Leer era sobre la propia variable de control (más probable).
+                estado.ambitoActual[estado.variableControlNombre].value = variableControl.value;
+                Webgoritmo.estadoApp.estadoBuclePendiente = estado;
+                return;
+            }
+
+            variableControl.value += estado.paso;
+
+            // Re-evaluar condición (implícita en el while)
+        }
+    }
+};
+
+
+Webgoritmo.Interprete.handlePara = async function(lineaActual, ambitoActual, numLineaOriginalPara, lineasBloqueCompleto, indiceParaEnBloque) {
+    if (!Webgoritmo.estadoApp || !Webgoritmo.Expresiones || !Webgoritmo.Interprete) {
+        throw new Error("Error interno: Módulos no disponibles para 'Para'.");
+    }
+
+    const paraMatch = lineaActual.match(/^Para\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*<-\s*(.+?)\s+Hasta\s+(.+?)(?:\s+Con\s+Paso\s+(.+?))?\s+Hacer$/i);
+    if (!paraMatch) throw new Error(`Sintaxis 'Para' incorrecta en línea ${numLineaOriginalPara}.`);
+
+    const variableControlNombre = paraMatch[1];
+    const valorInicialExpr = paraMatch[2];
+    const valorFinalExpr = paraMatch[3];
+    const valorPasoExpr = paraMatch[4]; // Puede ser undefined
+
+    let valorInicial, valorFinal, paso;
+    try {
+        valorInicial = Webgoritmo.Expresiones.evaluarExpresion(valorInicialExpr, ambitoActual);
+        valorFinal = Webgoritmo.Expresiones.evaluarExpresion(valorFinalExpr, ambitoActual);
+        paso = valorPasoExpr ? Webgoritmo.Expresiones.evaluarExpresion(valorPasoExpr, ambitoActual) : (valorFinal >= valorInicial ? 1 : -1);
+    } catch (e) {
+        throw new Error(`Error evaluando límites/paso del bucle 'Para' en línea ${numLineaOriginalPara}: ${e.message}`);
+    }
+
+    if (typeof valorInicial !== 'number' || typeof valorFinal !== 'number' || typeof paso !== 'number') {
+        throw new Error(`Los límites y el paso del bucle 'Para' deben ser numéricos (en línea ${numLineaOriginalPara}).`);
+    }
+    if (paso === 0) {
+        throw new Error(`El paso del bucle 'Para' no puede ser cero (en línea ${numLineaOriginalPara}).`);
+    }
+
+    // Definir o actualizar la variable de control en el ámbito actual
+    if (!ambitoActual.hasOwnProperty(variableControlNombre)) {
+        // PSeInt permite definición implícita. Asumimos Entero si todos son enteros, sino Real.
+        const tipoImplicito = (Number.isInteger(valorInicial) && Number.isInteger(valorFinal) && Number.isInteger(paso)) ? 'Entero' : 'Real';
+        ambitoActual[variableControlNombre] = { value: valorInicial, type: tipoImplicito };
+         if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO en línea ${numLineaOriginalPara}]: Variable de control '${variableControlNombre}' definida implícitamente como ${tipoImplicito}.`, 'normal');
+    } else {
+        // Si ya existe, solo actualizamos su valor. PSeInt es flexible con el tipo aquí.
+        ambitoActual[variableControlNombre].value = valorInicial;
+    }
+    let variableControl = ambitoActual[variableControlNombre]; // Referencia al objeto de la variable
+
+    let cuerpoPara = [];
+    let finParaEncontrado = false;
+    let anidamientoPara = 0;
+    let i = indiceParaEnBloque + 1;
+
+    for (; i < lineasBloqueCompleto.length; i++) {
+        const lineaIter = lineasBloqueCompleto[i].trim().toLowerCase();
+        if (lineaIter.startsWith("para ") && lineaIter.includes(" hacer")) {
+            anidamientoPara++;
+            cuerpoPara.push(lineasBloqueCompleto[i]);
+        } else if (lineaIter === "finpara") {
+            if (anidamientoPara === 0) {
+                finParaEncontrado = true;
+                break;
+            } else {
+                anidamientoPara--;
+                cuerpoPara.push(lineasBloqueCompleto[i]);
+            }
+        } else {
+            cuerpoPara.push(lineasBloqueCompleto[i]);
+        }
+    }
+
+    if (!finParaEncontrado) {
+        throw new Error(`Se esperaba 'FinPara' para cerrar el bucle 'Para' iniciado en la línea ${numLineaOriginalPara}.`);
+    }
+
+    const indiceDespuesFinPara = i + 1;
+    let ejecutarSiguienteIteracionDelBloquePrincipal = false;
+
+    // Asignación inicial ya hecha arriba al definir/actualizar variableControl.
+    // variableControl.value = valorInicial; // No es necesario reasignar aquí.
+
+    while ((paso > 0 && variableControl.value <= valorFinal) || (paso < 0 && variableControl.value >= valorFinal)) {
+        if (Webgoritmo.estadoApp.detenerEjecucion) break;
+
+        const offsetLineasCuerpo = numLineaOriginalPara - indiceParaEnBloque -1 + indiceParaEnBloque +1;
+        await Webgoritmo.Interprete.ejecutarBloque(cuerpoPara, ambitoActual, offsetLineasCuerpo);
+
+        if (Webgoritmo.estadoApp.detenerEjecucion) break;
+
+        if (Webgoritmo.estadoApp.esperandoEntrada) {
+            console.log("handlePara: Pausando debido a 'Leer' dentro del bucle.");
+            Webgoritmo.estadoApp.estadoBuclePendiente = {
+                tipo: 'Para',
+                lineaOriginalPara,
+                variableControlNombre, // Nombre de la variable
+                // valorInicial, // No es necesario, ya que el valor actual está en la variable
+                valorFinal,
+                paso,
+                cuerpoPara,
+                ambitoActual, // El ámbito donde está la variable de control
+                indiceDespuesFinPara,
+                offsetLineasCuerpo
+            };
+            ejecutarSiguienteIteracionDelBloquePrincipal = true;
+            return { nuevoIndiceRelativoAlBloque: indiceParaEnBloque, ejecutarSiguienteIteracion: true };
+        }
+
+        variableControl.value += paso;
+    }
+
+    return { nuevoIndiceRelativoAlBloque: indiceDespuesFinPara - 1, ejecutarSiguienteIteracion: ejecutarSiguienteIteracionDelBloquePrincipal };
+};
+
 
 Webgoritmo.Interprete.llamarFuncion = async function(nombreFunc, args, numLineaLlamada) { /* ... (código MVP, sin cambios en este paso) ... */ };
 

@@ -43,6 +43,37 @@ body {
     flex-direction: column; /* Para que CodeMirror se expanda */
 }
 
+.editor-controls {
+    padding: 5px;
+    background-color: #e0e0e0;
+    border: 1px solid #ccc;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.example-selector-container label {
+    margin-right: 5px;
+}
+
+#ejemplos-select {
+    padding: 3px;
+    border-radius: 3px;
+    border: 1px solid #aaa;
+}
+
+#cargar-ejemplo-btn {
+    padding: 3px 8px;
+    border-radius: 3px;
+    border: 1px solid #aaa;
+    background-color: #f0f0f0;
+    cursor: pointer;
+}
+#cargar-ejemplo-btn:hover {
+    background-color: #ddd;
+}
+
+
 /* CodeMirror necesita que su contenedor y él mismo tengan altura definida */
 .CodeMirror { /* Aplicar directamente a la clase que CodeMirror genera */
     height: 100% !important; /* Forzar altura completa dentro de .editor-area */

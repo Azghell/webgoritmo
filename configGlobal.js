@@ -13,7 +13,9 @@ Webgoritmo.estadoApp = {
     lineasCodigo: [],           // Array de líneas de código del editor
     indiceLineaActual: 0,       // Índice de la línea actual en ejecución (para depuración futura)
     resolverPromesaEntrada: null, // Para la operación 'Leer' asíncrona
-    errorEjecucion: null        // Almacena mensajes de error de ejecución
+    promesaEntradaPendiente: null, // Referencia a la promesa de handleLeer para que ejecutarBloque pueda esperarla.
+    errorEjecucion: null,       // Almacena mensajes de error de ejecución
+    estadoBuclePendiente: null  // Para guardar el estado de un bucle (ej. Mientras) si es interrumpido por un 'Leer'.
     // resolverConfirmacion: null // Se omite para el MVP inicial
 };
 

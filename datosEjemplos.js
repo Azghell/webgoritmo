@@ -95,6 +95,38 @@ FinAlgoritmo`,
 	FinMientras
 	Escribir "Fin del contador."
 FinAlgoritmo`,
+    while_con_leer: `Algoritmo SumaHastaNegativo
+    Definir num, suma Como Entero
+    suma <- 0
+    num <- 0 // Inicializar para que el bucle comience
+
+    Escribir "Ingrese números para sumar. Ingrese un número negativo para terminar."
+
+    Mientras num >= 0 Hacer
+        Escribir "Suma actual: ", suma, ". Ingrese un número:"
+        Leer num
+        Si num >= 0 Entonces
+            suma <- suma + num
+        FinSi
+    FinMientras
+
+    Escribir "Suma final: ", suma
+FinAlgoritmo`,
+    while_anidado_simple: `Algoritmo TablasMultiplicarBasicas
+    Definir tabla, i Como Entero
+    tabla <- 1
+
+    Mientras tabla <= 2 Hacer // Solo tablas del 1 y 2 para brevedad
+        Escribir "Tabla del ", tabla, ":"
+        i <- 1
+        Mientras i <= 3 Hacer // Solo hasta el 3 para brevedad
+            Escribir tabla, " x ", i, " = ", tabla * i
+            i <- i + 1
+        FinMientras
+        tabla <- tabla + 1
+        Escribir "" // Línea en blanco para separar
+    FinMientras
+FinAlgoritmo`,
     for_loop: `Algoritmo SumaDeNumeros
 	Definir i, suma, num_max Como Entero
 	suma <- 0
@@ -105,6 +137,43 @@ FinAlgoritmo`,
 		suma <- suma + i
 	FinPara
 	Escribir "La suma total hasta ", num_max, " es: ", suma
+FinAlgoritmo`,
+    for_con_paso_negativo: `Algoritmo CuentaRegresiva
+    Definir i Como Entero
+    Escribir "Cuenta regresiva:"
+    Para i <- 5 Hasta 1 Con Paso -1 Hacer
+        Escribir i
+    FinPara
+    Escribir "¡Despegue!"
+FinAlgoritmo`,
+    for_con_leer: `Algoritmo PromedioNotas
+    Definir num_notas, i Como Entero
+    Definir nota, suma_notas, promedio Como Real
+
+    suma_notas <- 0
+    Escribir "Ingrese el número de notas a promediar:"
+    Leer num_notas
+
+    Si num_notas > 0 Entonces
+        Para i <- 1 Hasta num_notas Hacer
+            Escribir "Ingrese la nota ", i, ":"
+            Leer nota
+            suma_notas <- suma_notas + nota
+        FinPara
+        promedio <- suma_notas / num_notas
+        Escribir "El promedio de las ", num_notas, " notas es: ", promedio
+    Sino
+        Escribir "No se ingresaron notas para promediar."
+    FinSi
+FinAlgoritmo`,
+    for_no_ejecuta: `Algoritmo ParaNoEjecuta
+    Definir x Como Entero
+    Escribir "Inicio del algoritmo ParaNoEjecuta"
+    // Este bucle no debería ejecutar ninguna iteración
+    Para x <- 10 Hasta 5 Con Paso 1 Hacer
+        Escribir "Esta línea NO debería aparecer en la consola."
+    FinPara
+    Escribir "Fin del algoritmo ParaNoEjecuta"
 FinAlgoritmo`,
     repeat_until: `Algoritmo AdivinaNumeroSimple
 	Definir intento Como Entero

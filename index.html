@@ -20,17 +20,32 @@
         </header>
 
         <main class="mvp-main-content">
+            <div class="editor-controls">
+                <div class="example-selector-container">
+                    <label for="ejemplos-select">Cargar Ejemplo:</label>
+                    <select id="ejemplos-select">
+                        <option value="">-- Seleccione --</option>
+                    </select>
+                    <button id="cargar-ejemplo-btn">Cargar</button>
+                </div>
+            </div>
             <div class="editor-area">
                 <textarea id="code-input"></textarea>
             </div>
 
             <div class="output-area">
                 <div class="action-buttons">
-                    <button id="run-code-btn">Ejecutar</button>
+                    <button id="run-code-btn"><i class="fas fa-play"></i> Ejecutar</button>
+                    <!-- Otros botones como limpiar consola podrían ir aquí -->
                 </div>
                 <div id="console-output-container">
                     <div id="console-output">
                         <div class="console-line placeholder">Consola de Salida...</div>
+                    </div>
+                    <div class="console-input-area oculto"> <!-- Inicialmente oculto -->
+                        <span id="console-input-prompt">&gt;</span>
+                        <input type="text" id="console-input" disabled placeholder="Ingrese valor aquí y presione Enter">
+                        <button id="send-input-btn" disabled>Enviar</button>
                     </div>
                 </div>
             </div>
@@ -38,9 +53,24 @@
 
         <aside class="mvp-side-panel">
             <h2>Panel Lateral</h2>
-            <p>(Ejemplos, Variables, Sugerencias irán aquí)</p>
+            <div id="sugerencias-panel">
+                 <h3>Sugerencias</h3>
+                 <ul id="lista-sugerencias">
+                     <li class="sugerencia-item placeholder-sugerencia">Escriba para ver sugerencias...</li>
+                 </ul>
+            </div>
+            <div id="variables-panel">
+                <h3>Variables</h3>
+                <ul id="lista-variables">
+                    <li class="variable-item placeholder-variable">Ejecute código para ver variables...</li>
+                </ul>
+            </div>
+             <!-- Más elementos del panel lateral aquí -->
         </aside>
     </div>
+
+    <!-- Font Awesome para iconos (opcional, si se usa) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
     <!-- Scripts de CodeMirror (CDN) - ORDEN IMPORTANTE -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
