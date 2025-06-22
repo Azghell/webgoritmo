@@ -1,146 +1,60 @@
 <!DOCTYPE html>
-<!--
-  Project: pseudocodeweb
-  Author: Pablo Peña
-  Version: 1.0.0.0.5
-  Date: June 18, 2025
--->
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webgoritmo - Laboratorio de pseudocódigo</title>
-    <!-- Font Awesome para íconos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Estilos personalizados -->
-    <link rel="stylesheet" href="pseudocode.css">
+    <title>Webgoritmo - MVP</title>
 
-    <!-- Estilos de CodeMirror -->
+    <!-- CSS de CodeMirror (CDN) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/dracula.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/fold/foldgutter.min.css" />
 
+    <!-- Nuestro CSS Mínimo -->
+    <link rel="stylesheet" href="pseudocode.css">
 </head>
 <body>
-    <div class="pseint-container">
-        <div class="main-panel">
-            <div class="header">
-                <h1>Webgoritmo - Laboratorio de pseudocódigo</h1>
-            </div>
+    <div class="mvp-container">
+        <header class="mvp-header">
+            <h1>Webgoritmo MVP</h1>
+        </header>
 
-            <!-- Área del editor de código -->
-            <div class="code-editor-container">
+        <main class="mvp-main-content">
+            <div class="editor-area">
                 <textarea id="code-input"></textarea>
             </div>
 
-            <!-- SECCIÓN PARA LOS BOTONES DE ACCIÓN PRINCIPALES (entre editor y consola) -->
-            <div class="main-action-buttons">
-                <button id="run-code-btn" class="icon-button" title="Ejecutar Código (Ctrl+R)">
-                    <i class="fas fa-play"></i> Ejecutar
-                </button>
-                <button id="clear-console-btn" class="icon-button" title="Limpiar Consola">
-                    <i class="fas fa-eraser"></i> Limpiar
-                </button>
-                <button id="new-code-btn" class="icon-button" title="Nuevo Archivo (Ctrl+N)">
-                    <i class="fas fa-file"></i> Nuevo
-                </button>
-                <button id="open-code-btn" class="icon-button" title="Abrir Archivo (Ctrl+O)">
-                    <i class="fas fa-folder-open"></i> Abrir
-                </button>
-                <input type="file" id="open-code-input" accept=".psc, .txt" style="display: none;">
-                <button id="save-code-btn" class="icon-button" title="Guardar Código (Ctrl+S)">
-                    <i class="fas fa-save"></i> Guardar
-                </button>
-            </div>
-            <!-- FIN SECCIÓN PARA LOS BOTONES DE ACCIÓN PRINCIPALES -->
-
-            <!-- Consola de salida y entrada -->
-            <div class="console-container">
-                <div id="console-output" class="console-output">
-                    <!-- Las salidas del programa se mostrarán aquí -->
-                    <div class="console-line normal">Bienvenido a Webgoritmo.</div>
+            <div class="output-area">
+                <div class="action-buttons">
+                    <button id="run-code-btn">Ejecutar</button>
                 </div>
-                <!-- Contenedor para el input y el botón de envío de la consola -->
-                <div class="console-input-area">
-                    <input type="text" id="console-input" class="console-input" placeholder="Escribe tu entrada aquí..." disabled>
-                    <button id="send-input-btn" class="icon-button" disabled><i class="fas fa-paper-plane"></i> Enviar</button>
+                <div id="console-output-container">
+                    <div id="console-output">
+                        <div class="console-line placeholder">Consola de Salida...</div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </main>
 
-        <!-- Panel lateral -->
-        <div class="side-panel">
-            <!-- Botón para colapsar/expandir el panel lateral (ubicado aquí para que su posición sea relativa al side-panel) -->
-            <button id="toggle-side-panel-btn" class="toggle-button" title="Contraer/Expandir Panel">
-                <i class="fas fa-chevron-left"></i>
-            </button>
-
-            <!-- Menú Desplegable de Ejemplos (ahora en el panel lateral, con su propio panel-header) -->
-            <div class="panel-header dropdown-toggle" id="example-dropdown-toggle">
-                <i class="fas fa-book"></i>
-                <span>Ejemplos Pre-cargados</span>
-                <i class="fas fa-chevron-down dropdown-arrow"></i> <!-- Flecha para colapsar -->
-            </div>
-            <div class="dropdown-menu" id="example-dropdown-menu">
-                <ul id="example-list" class="example-list">
-                    <!-- Los elementos <li> de ejemplo se añadirán aquí por JS (o pueden estar estáticamente) -->
-                    <li class="example-item" data-example-id="simple_io">Escribir / Leer</li>
-                    <li class="example-item" data-example-id="if_simple">Condicional Simple (Si)</li>
-                    <li class="example-item" data-example-id="if_else">Condicional Doble (Si-Sino)</li>
-                    <li class="example-item" data-example-id="segun">Condicional Múltiple (Segun)</li>
-                    <li class="example-item" data-example-id="while_loop">Bucle Mientras</li>
-                    <li class="example-item" data-example-id="for_loop">Bucle Para</li>
-                    <li class="example-item" data-example-id="repeat_until">Bucle Repetir-Hasta Que</li>
-                    <li class="example-item" data-example-id="arrays">Arreglos</li>
-			        <li class="example-item" data-example-id="mod_example">Módulo (%)</li>
-                </ul>
-            </div>
-
-            <!-- Panel de Sugerencias y Errores (se muestra por defecto, con toggle) -->
-            <div class="panel-header" id="suggestions-header">
-                <i class="fas fa-lightbulb"></i>
-                <span>Sugerencias y Errores</span>
-                <i class="fas fa-chevron-down dropdown-arrow"></i> <!-- Flecha para colapsar/expandir -->
-            </div>
-            <div class="panel-content expanded" id="suggestions-content">
-                <ul id="suggestion-list" class="suggestion-list">
-                    <li class="suggestion-item">Escribe una palabra clave (ej: 'definir', 'si') para ver sugerencias o busca errores de sintaxis.</li>
-                </ul>
-            </div>
-
-            <!-- Los paneles de Variables y Funciones han sido eliminados según tu solicitud. -->
-
-        </div>
+        <aside class="mvp-side-panel">
+            <h2>Panel Lateral</h2>
+            <p>(Ejemplos, Variables, Sugerencias irán aquí)</p>
+        </aside>
     </div>
 
-    <!-- Modal de Confirmación Personalizado (añadido al body) -->
-    <div id="confirmation-modal" class="custom-modal">
-        <div class="modal-content">
-            <p id="modal-message"></p>
-            <div class="modal-buttons">
-                <button id="modal-confirm-btn">Sí</button>
-                <button id="modal-cancel-btn">No</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Scripts de CodeMirror (orden importante) -->
+    <!-- Scripts de CodeMirror (CDN) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/display/linenumbers.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/matchbrackets.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/selection/active-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/display/linenumbers.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/fold/foldcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/fold/foldgutter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/fold/indent-fold.min.js"></script>
 
-    <!-- Scripts Modulares de la Aplicación Webgoritmo -->
+    <!-- Nuestros Scripts (MVP Fase 1 - Editor Básico) -->
     <script src="configGlobal.js"></script>
-    <script src="utilidadesDOM.js"></script>
-    <script src="evaluadorExpresiones.js"></script>
-    <script src="datosEjemplos.js"></script>
-    <script src="uiManager.js"></script>
-    <script src="motorInterprete.js"></script>
     <script src="modoEditor.js"></script>
-    <script src="app.js"></script> <!-- Anteriormente pseudocode.js, ahora el orquestador principal -->
+    <script src="app.js"></script>
+
 </body>
 </html>

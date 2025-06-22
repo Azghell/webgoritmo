@@ -1,26 +1,21 @@
 // configGlobal.js
-// Contendrá la definición inicial del namespace Webgoritmo, estadoApp y constantes globales.
+// Define el namespace global Webgoritmo y el estado inicial de la aplicación para el MVP.
 
-window.Webgoritmo = window.Webgoritmo || {};
+window.Webgoritmo = window.Webgoritmo || {}; // Asegura que el namespace exista
 
 Webgoritmo.estadoApp = {
-    variables: {}, // Almacena variables globales: { nombre: { valor: cualquier, tipo: cadena } }
-    funciones: {}, // Almacena funciones definidas: { nombre: { params: [], body: [], lineaInicio: numero } }
-    colaSalida: [], // Cola para mensajes de la consola de salida
-    colaEntrada: [], // Cola para entradas del usuario (si se precargan o para uso futuro complejo)
-    detenerEjecucion: false, // Bandera para detener la ejecución debido a errores o fin de programa
-    esperandoEntrada: false, // Bandera para indicar si el intérprete está esperando entrada del usuario
-    variableEntradaActual: '', // Nombre de la variable que espera entrada
-    lineasCodigo: [], // Array de líneas de código limpias del editor
-    indiceLineaActual: 0, // Índice de la línea actual en ejecución
-    resolverPromesaEntrada: null, // Función para resolver la promesa de entrada para 'Leer'
-    errorEjecucion: null, // Almacena el mensaje de error de ejecución si ocurre uno
-    resolverConfirmacion: null, // Para el modal de confirmación personalizado
-    ejecucionEnCurso: false // Añadida en un plan conceptual anterior para el botón ejecutar/detener
+    variables: {},              // Almacenará las variables del pseudocódigo: { nombre: { valor: cualquier, tipo: cadena } }
+    funciones: {},              // Almacenará las funciones/subprocesos definidos
+    detenerEjecucion: false,    // Bandera para detener la ejecución actual
+    esperandoEntrada: false,    // Bandera para indicar si se espera un 'Leer'
+    ejecucionEnCurso: false,    // Bandera para el estado del botón Ejecutar/Detener (se manejará en app.js)
+    variableEntradaActual: '',  // Nombre de la variable que espera la entrada de 'Leer'
+    lineasCodigo: [],           // Array de líneas de código del editor
+    indiceLineaActual: 0,       // Índice de la línea actual en ejecución (para depuración futura)
+    resolverPromesaEntrada: null, // Para la operación 'Leer' asíncrona
+    errorEjecucion: null,       // Almacena mensajes de error de ejecución
+    // resolverConfirmacion: null // Se omite para el MVP inicial, se añadirá si se re-implementa el modal
 };
 
-// Otras constantes globales podrían ir aquí si fueran necesarias en múltiples módulos.
-// Por ejemplo:
-// Webgoritmo.Constantes = {
-//     MAX_OUTPUT_LINES: 1000,
-// };
+// Otras configuraciones globales podrían ir aquí en el futuro.
+// Webgoritmo.Config = { /* ... */ };

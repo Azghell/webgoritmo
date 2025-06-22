@@ -1,62 +1,51 @@
 // app.js
-// Punto de entrada principal de la aplicación, manejará DOMContentLoaded y orquestación inicial.
+// Punto de entrada principal de la aplicación Webgoritmo (MVP).
+// Maneja DOMContentLoaded, define referencias DOM iniciales.
+
+// Se asume que configGlobal.js (que define window.Webgoritmo y Webgoritmo.estadoApp)
+// ya ha sido cargado.
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Asegurar que el namespace Webgoritmo exista
+    // Asegurar que el namespace Webgoritmo y Webgoritmo.DOM existan
     window.Webgoritmo = window.Webgoritmo || {};
-
-    // Crear el sub-namespace para referencias DOM
     Webgoritmo.DOM = Webgoritmo.DOM || {};
 
-    // I. REFERENCIAS A ELEMENTOS DEL DOM (Asignadas a Webgoritmo.DOM)
-    // =========================================================================
-    Webgoritmo.DOM.salidaConsola = document.getElementById('console-output');
-    Webgoritmo.DOM.entradaConsola = document.getElementById('console-input');
-    Webgoritmo.DOM.btnEnviarEntrada = document.getElementById('send-input-btn');
-    Webgoritmo.DOM.btnEjecutarCodigo = document.getElementById('run-code-btn');
-    Webgoritmo.DOM.btnLimpiarConsola = document.getElementById('clear-console-btn');
-    Webgoritmo.DOM.btnNuevoCodigo = document.getElementById('new-code-btn');
-    Webgoritmo.DOM.btnGuardarCodigo = document.getElementById('save-code-btn');
-    Webgoritmo.DOM.btnAbrirCodigo = document.getElementById('open-code-btn');
-    Webgoritmo.DOM.inputAbrirCodigo = document.getElementById('open-code-input');
+    // Referencias a elementos del DOM para el MVP
+    Webgoritmo.DOM.editorTextArea = document.getElementById('code-input');
+    Webgoritmo.DOM.consolaSalida = document.getElementById('console-output');
+    Webgoritmo.DOM.btnEjecutar = document.getElementById('run-code-btn');
+    // Webgoritmo.DOM.sidePanel = document.querySelector('.mvp-side-panel'); // Se añadirá si/cuando se necesite
 
-    Webgoritmo.DOM.exampleDropdownToggle = document.getElementById('example-dropdown-toggle');
-    Webgoritmo.DOM.exampleDropdownMenu = document.getElementById('example-dropdown-menu');
+    // Log para depuración inicial
+    if (Webgoritmo.DOM.editorTextArea && Webgoritmo.DOM.consolaSalida && Webgoritmo.DOM.btnEjecutar) {
+        console.log("app.js: DOMContentLoaded. Referencias DOM para MVP (editor, consola, btnEjecutar) asignadas a Webgoritmo.DOM.");
+    } else {
+        console.error("app.js: DOMContentLoaded. ERROR al obtener alguna de las referencias DOM esenciales para el MVP.");
+        if (!Webgoritmo.DOM.editorTextArea) console.error(" - Textarea #code-input no encontrado.");
+        if (!Webgoritmo.DOM.consolaSalida) console.error(" - Div #console-output no encontrado.");
+        if (!Webgoritmo.DOM.btnEjecutar) console.error(" - Botón #run-code-btn no encontrado.");
+    }
 
-    Webgoritmo.DOM.listaSugerencias = document.getElementById('suggestion-list');
-    Webgoritmo.DOM.suggestionsHeader = document.getElementById('suggestions-header');
-    Webgoritmo.DOM.suggestionsContent = document.getElementById('suggestions-content');
+    // En el siguiente paso (Paso 5), llamaremos a Webgoritmo.Editor.inicializarEditor() aquí.
 
-    // Referencias para el panel de Variables (si se implementó según planes anteriores)
-    Webgoritmo.DOM.variablesHeader = document.getElementById('variables-header');
-    Webgoritmo.DOM.variablesContent = document.getElementById('variables-content');
-    Webgoritmo.DOM.listaVariablesUI = document.getElementById('variable-list');
+    // INICIALIZACIÓN DEL EDITOR
+    if (Webgoritmo.Editor && typeof Webgoritmo.Editor.inicializarEditor === "function") {
+        Webgoritmo.Editor.inicializarEditor();
+    } else {
+        console.error("app.js: Webgoritmo.Editor.inicializarEditor no está definido. Asegúrate de que modoEditor.js se carga antes que app.js y define la función correctamente.");
+        if (Webgoritmo.DOM && Webgoritmo.DOM.consolaSalida) { // Intenta mostrar error en UI si es posible
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'console-line error';
+            errorDiv.textContent = '[ERROR CRÍTICO EN APP]: No se pudo encontrar la función para inicializar el editor.';
+            Webgoritmo.DOM.consolaSalida.appendChild(errorDiv);
+        } else {
+            alert("Error crítico: Fallo en la inicialización del editor.");
+        }
+    }
 
-    // Referencias para la barra de estado (si se implementó según planes anteriores)
-    Webgoritmo.DOM.spanLineaCursor = document.getElementById('cursor-pos-line');
-    Webgoritmo.DOM.spanColumnaCursor = document.getElementById('cursor-pos-col');
-
-    Webgoritmo.DOM.panelLateral = document.querySelector('.side-panel');
-    Webgoritmo.DOM.btnAlternarPanelLateral = document.getElementById('toggle-side-panel-btn');
-    Webgoritmo.DOM.codeInputTextArea = document.getElementById('code-input'); // Importante para CodeMirror
-    Webgoritmo.DOM.consoleInputArea = document.querySelector('.console-input-area');
-
-    Webgoritmo.DOM.confirmationModal = document.getElementById('confirmation-modal');
-    Webgoritmo.DOM.modalMessage = document.getElementById('modal-message');
-    Webgoritmo.DOM.modalConfirmBtn = document.getElementById('modal-confirm-btn');
-    Webgoritmo.DOM.modalCancelBtn = document.getElementById('modal-cancel-btn');
-
-    // =========================================================================
-    // INICIALIZACIÓN DE OTROS MÓDULOS Y EVENT LISTENERS PRINCIPALES IRÁ AQUÍ EN PASOS POSTERIORES
-    // =========================================================================
-    console.log("app.js: DOMContentLoaded, referencias DOM asignadas a Webgoritmo.DOM");
-
-    // Ejemplo de cómo se usaría:
-    // if (Webgoritmo.DOM.btnEjecutarCodigo) {
-    //     console.log("Botón Ejecutar Código encontrado.");
+    // Otros listeners y lógica de inicialización principal irán aquí en fases posteriores.
+    // Por ejemplo, la función Webgoritmo.restablecerEstado() se definirá aquí más adelante y se llamará.
+    // if(typeof Webgoritmo.restablecerEstado === "function") {
+    //     Webgoritmo.restablecerEstado();
     // }
-
-    // Aquí es donde se llamaría a Webgoritmo.Editor.inicializarEditor(),
-    // se definiría Webgoritmo.restablecerEstado(), se añadirían listeners, etc.
-
-}); // Fin DOMContentLoaded
+});
