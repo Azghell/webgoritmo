@@ -1,83 +1,139 @@
-// app.js (Punto de Entrada Principal para MVP Fase 1)
-// Maneja DOMContentLoaded, define referencias DOM iniciales, e inicializa el editor.
-
-// Se asume que configGlobal.js (define Webgoritmo y Webgoritmo.estadoApp)
-// y modoEditor.js (define Webgoritmo.Editor.inicializarEditor) ya han sido cargados.
+// app.js (Punto de Entrada Principal para MVP Fase 2)
+// Maneja DOMContentLoaded, define referencias DOM, estado de reseteo, e inicializa el editor y listeners.
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Asegurar que el namespace Webgoritmo exista y preparar sub-namespaces
     window.Webgoritmo = window.Webgoritmo || {};
     Webgoritmo.DOM = Webgoritmo.DOM || {};
-    // Webgoritmo.UI = Webgoritmo.UI || {}; // Se definirá en uiManager.js en Fase 2 del MVP
-    // Webgoritmo.Interprete = Webgoritmo.Interprete || {}; // Se definirá en motorInterprete.js en Fase 2 del MVP
+    // Webgoritmo.UI, Webgoritmo.Interprete, Webgoritmo.Editor, etc., son definidos por sus respectivos archivos.
 
     // I. REFERENCIAS A ELEMENTOS DEL DOM (MVP)
-    // =========================================================================
     Webgoritmo.DOM.editorTextArea = document.getElementById('code-input');
     Webgoritmo.DOM.consolaSalida = document.getElementById('console-output');
     Webgoritmo.DOM.btnEjecutar = document.getElementById('run-code-btn');
-    // Webgoritmo.DOM.sidePanel = document.querySelector('.mvp-side-panel'); // Para fases posteriores
+    Webgoritmo.DOM.entradaConsola = document.getElementById('console-input');
+    Webgoritmo.DOM.btnEnviarEntrada = document.getElementById('send-input-btn');
+    Webgoritmo.DOM.consoleInputArea = document.querySelector('.console-input-area');
+    // Añadir más refs DOM aquí a medida que se necesiten para otros botones/paneles.
 
-    // Log para depuración inicial de referencias DOM
-    if (Webgoritmo.DOM.editorTextArea && Webgoritmo.DOM.consolaSalida && Webgoritmo.DOM.btnEjecutar) {
-        console.log("app.js: DOMContentLoaded. Referencias DOM para MVP (editor, consola, btnEjecutar) asignadas a Webgoritmo.DOM.");
+    // Log para depuración inicial
+    if (!Webgoritmo.DOM.editorTextArea || !Webgoritmo.DOM.consolaSalida || !Webgoritmo.DOM.btnEjecutar) {
+        console.error("app.js: DOMContentLoaded. ERROR al obtener referencias DOM esenciales para el MVP.");
     } else {
-        console.error("app.js: DOMContentLoaded. ERROR al obtener alguna de las referencias DOM esenciales para el MVP.");
-        if (!Webgoritmo.DOM.editorTextArea) console.error(" - Textarea #code-input no encontrado en app.js.");
-        if (!Webgoritmo.DOM.consolaSalida) console.error(" - Div #console-output no encontrado en app.js.");
-        if (!Webgoritmo.DOM.btnEjecutar) console.error(" - Botón #run-code-btn no encontrado en app.js.");
+        console.log("app.js: DOMContentLoaded. Referencias DOM para MVP asignadas.");
     }
 
+    // FUNCIÓN DE ESTADO GLOBAL
+    Webgoritmo.restablecerEstado = function() {
+        if (!Webgoritmo.estadoApp) {
+            console.error("restablecerEstado: Webgoritmo.estadoApp no está definido.");
+            return;
+        }
+        Webgoritmo.estadoApp.variables = {};
+        Webgoritmo.estadoApp.funciones = {};
+        Webgoritmo.estadoApp.detenerEjecucion = false;
+        Webgoritmo.estadoApp.esperandoEntrada = false;
+        // Webgoritmo.estadoApp.ejecucionEnCurso es manejado por el listener de btnEjecutar
+        Webgoritmo.estadoApp.variableEntradaActual = '';
+        Webgoritmo.estadoApp.indiceLineaActual = 0;
+        Webgoritmo.estadoApp.resolverPromesaEntrada = null;
+        Webgoritmo.estadoApp.errorEjecucion = null;
+
+        if (Webgoritmo.DOM.entradaConsola) {
+            Webgoritmo.DOM.entradaConsola.value = '';
+            Webgoritmo.DOM.entradaConsola.disabled = true;
+            Webgoritmo.DOM.entradaConsola.readOnly = true;
+        }
+        if (Webgoritmo.DOM.btnEnviarEntrada) Webgoritmo.DOM.btnEnviarEntrada.disabled = true;
+
+        if (Webgoritmo.DOM.consoleInputArea && Webgoritmo.DOM.consoleInputArea.classList && typeof Webgoritmo.DOM.consoleInputArea.classList.add === 'function') {
+             Webgoritmo.DOM.consoleInputArea.classList.add('oculto'); // Asume que .oculto {display:none} está en CSS
+        }
+
+        if (Webgoritmo.DOM.consolaSalida) {
+            Webgoritmo.DOM.consolaSalida.innerHTML = '<div class="console-line normal placeholder">Bienvenido a Webgoritmo MVP.</div>';
+            Webgoritmo.DOM.consolaSalida.scrollTop = Webgoritmo.DOM.consolaSalida.scrollHeight;
+        }
+        // En el futuro:
+        // if (Webgoritmo.UI && typeof Webgoritmo.UI.actualizarPanelVariables === "function") Webgoritmo.UI.actualizarPanelVariables();
+        // if (Webgoritmo.Editor && typeof Webgoritmo.Editor.actualizarSugerencias === "function" && Webgoritmo.Editor.editorCodigo) Webgoritmo.Editor.actualizarSugerencias();
+        console.log("app.js: Estado restablecido.");
+    };
+
     // INICIALIZACIÓN DEL EDITOR
-    // =========================================================================
     if (Webgoritmo.Editor && typeof Webgoritmo.Editor.inicializarEditor === "function") {
         console.log("app.js: Llamando a Webgoritmo.Editor.inicializarEditor().");
         Webgoritmo.Editor.inicializarEditor();
     } else {
-        console.error("app.js: Webgoritmo.Editor.inicializarEditor no está definida. Asegúrate de que modoEditor.js se carga antes que app.js y define la función correctamente en el namespace.");
-        if (Webgoritmo.DOM && Webgoritmo.DOM.consolaSalida) {
+        console.error("app.js: Webgoritmo.Editor.inicializarEditor no está definido.");
+        if (Webgoritmo.DOM.consolaSalida) {
             const errorDiv = document.createElement('div');
-            errorDiv.className = 'console-line error'; // Asumiendo que esta clase ya está en pseudocode.css
+            errorDiv.className = 'console-line error';
             errorDiv.textContent = '[ERROR CRÍTICO EN APP]: No se pudo encontrar la función para inicializar el editor.';
             Webgoritmo.DOM.consolaSalida.appendChild(errorDiv);
-        } else {
-            // alert("Error crítico: Fallo en la inicialización del editor (función no encontrada).");
         }
     }
 
-    // EVENT LISTENERS INICIALES (MVP)
-    // =========================================================================
+    // EVENT LISTENERS (MVP)
     if (Webgoritmo.DOM.btnEjecutar) {
-        Webgoritmo.DOM.btnEjecutar.addEventListener('click', function() {
-            console.log("Botón 'Ejecutar' presionado (MVP - sin acción de intérprete aún).");
-            if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo) {
-                const codigo = Webgoritmo.Editor.editorCodigo.getValue();
-                console.log("Código actual en el editor:", codigo);
+        Webgoritmo.DOM.btnEjecutar.addEventListener('click', async function() {
+            if (!Webgoritmo.estadoApp || !Webgoritmo.Interprete || !Webgoritmo.UI) {
+                console.error("Faltan módulos esenciales de Webgoritmo para ejecutar.");
+                return;
+            }
 
-                // Simulación de salida a la consola de la UI
-                if (Webgoritmo.DOM.consolaSalida) {
-                    Webgoritmo.DOM.consolaSalida.innerHTML = ''; // Limpiar consola
-                    const placeholderLine = document.createElement('div');
-                    placeholderLine.className = 'console-line placeholder';
-                    placeholderLine.textContent = 'Ejecutando... (simulado)';
-                    Webgoritmo.DOM.consolaSalida.appendChild(placeholderLine);
-
-                    const codeLine = document.createElement('div');
-                    codeLine.className = 'console-line'; // Estilo normal
-                    codeLine.textContent = `Simulación: Se ejecutaría el código (primeras 100 chars):\n${codigo.substring(0,100)}${codigo.length > 100 ? '...' : ''}`;
-                    Webgoritmo.DOM.consolaSalida.appendChild(codeLine);
+            if (Webgoritmo.estadoApp.ejecucionEnCurso) { // Botón actúa como "Detener"
+                Webgoritmo.estadoApp.detenerEjecucion = true;
+                if (Webgoritmo.estadoApp.esperandoEntrada && Webgoritmo.estadoApp.resolverPromesaEntrada) {
+                    if(Webgoritmo.DOM.entradaConsola) Webgoritmo.DOM.entradaConsola.disabled = true;
+                    if(Webgoritmo.DOM.btnEnviarEntrada) Webgoritmo.DOM.btnEnviarEntrada.disabled = true;
+                    Webgoritmo.estadoApp.resolverPromesaEntrada();
+                    Webgoritmo.estadoApp.resolverPromesaEntrada = null;
                 }
-            } else {
-                console.error("El editor no está inicializado. No se puede ejecutar.");
-                 if (Webgoritmo.DOM.consolaSalida) {
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'console-line error';
-                    errorDiv.textContent = 'Error: El editor no está listo.';
-                    Webgoritmo.DOM.consolaSalida.appendChild(errorDiv);
-                 }
+                if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("--- Interrupción solicitada por el usuario ---", "warning");
+            } else { // Botón actúa como "Ejecutar"
+                Webgoritmo.restablecerEstado();
+
+                Webgoritmo.estadoApp.ejecucionEnCurso = true;
+                if (Webgoritmo.DOM.btnEjecutar) { // Chequeo por si acaso el DOM no está listo
+                    Webgoritmo.DOM.btnEjecutar.innerHTML = '<i class="fas fa-stop"></i> Detener';
+                    Webgoritmo.DOM.btnEjecutar.title = "Detener Ejecución";
+                }
+
+                if (typeof Webgoritmo.Interprete.ejecutarPseudocodigo === "function") {
+                    try {
+                        await Webgoritmo.Interprete.ejecutarPseudocodigo();
+                    } catch (e) {
+                        console.error("Error no capturado durante ejecutarPseudocodigo:", e);
+                        if(Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`Error fatal en la ejecución: ${e.message}`, "error");
+                    } finally {
+                        Webgoritmo.estadoApp.ejecucionEnCurso = false;
+                        if (Webgoritmo.DOM.btnEjecutar) {
+                            Webgoritmo.DOM.btnEjecutar.innerHTML = '<i class="fas fa-play"></i> Ejecutar';
+                            Webgoritmo.DOM.btnEjecutar.title = "Ejecutar Código";
+                        }
+                        // if (Webgoritmo.UI && typeof Webgoritmo.UI.actualizarPanelVariables === "function") {
+                        //     Webgoritmo.UI.actualizarPanelVariables();
+                        // }
+                    }
+                } else {
+                    console.error("app.js: Webgoritmo.Interprete.ejecutarPseudocodigo no está definido.");
+                    if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("[ERROR]: Función de ejecución no encontrada.", "error");
+                    Webgoritmo.estadoApp.ejecucionEnCurso = false;
+                    if (Webgoritmo.DOM.btnEjecutar) {
+                        Webgoritmo.DOM.btnEjecutar.innerHTML = '<i class="fas fa-play"></i> Ejecutar';
+                        Webgoritmo.DOM.btnEjecutar.title = "Ejecutar Código";
+                    }
+                }
             }
         });
     }
 
-    console.log("app.js: Fin de la configuración de DOMContentLoaded (MVP Fase 1).");
+    // Estado inicial al cargar la página
+    if (typeof Webgoritmo.restablecerEstado === "function") {
+        Webgoritmo.restablecerEstado();
+    } else {
+        console.error("app.js: Webgoritmo.restablecerEstado no está definido al final de DOMContentLoaded.");
+    }
+
+    console.log("app.js: Fin de la configuración de DOMContentLoaded (MVP Fase 2 - Paso 4).");
 });
