@@ -1,29 +1,30 @@
 // evaluadorExpresiones.js
-// Contiene la función evaluarExpresion() y sus helpers directos.
+// Contiene la función evaluarExpresion() expandida y sus helpers.
 
 window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Expresiones = Webgoritmo.Expresiones || {};
 
-// Estas funciones helper son usadas por las cadenas de reemplazo en evaluarExpresion
-// y necesitan ser accesibles en el scope donde eval() se ejecuta.
-// Definirlas globalmente o en el mismo scope que la llamada a eval() es lo más simple.
+// --- Funciones Helper ---
+// Estas funciones deben ser accesibles globalmente por `eval` o estar en el scope de `evaluarExpresion` si se pasan.
+// Por simplicidad en el contexto de `eval`, se definen aquí y se asume que `eval` las puede alcanzar.
+
 function pseudoAleatorio(min, max) {
+    min = Number(min); // Asegurar que sean números
+    max = Number(max);
+    if (isNaN(min) || isNaN(max)) throw new Error("Argumentos inválidos para Aleatorio(min,max).");
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+Webgoritmo.Expresiones.pseudoAleatorio = pseudoAleatorio;
 
 function pseudoAzar(n) {
+    n = Number(n); // Asegurar que sea número
+    if (isNaN(n)) throw new Error("Argumento inválido para Azar(n).");
     return Math.floor(Math.random() * n);
 }
-
-// También las asignamos al namespace para posible acceso directo estructurado
-Webgoritmo.Expresiones.pseudoAleatorio = pseudoAleatorio;
 Webgoritmo.Expresiones.pseudoAzar = pseudoAzar;
 
-
-// Funciones de cadena y conversión (conceptualizadas en un paso anterior)
-// Deben estar disponibles para las reglas de reemplazo en evaluarExpresion.
 function __pseudoLongitud(cadena) {
     if (cadena === null || cadena === undefined) throw new Error("Argumento inválido para Longitud (nulo o indefinido).");
     return String(cadena).length;
@@ -69,102 +70,122 @@ function __pseudoSubcadena(cadena, inicio, fin) {
         throw new Error("Los argumentos 'inicio' y 'fin' para Subcadena deben ser enteros.");
     }
     if (i <= 0 || f <= 0) { // PSeInt es 1-indexed
-        throw new Error("Los argumentos 'inicio' y 'fin' para Subcadena deben ser positivos.");
+        throw new Error("Los argumentos 'inicio' y 'fin' para Subcadena deben ser positivos (1-indexed).");
     }
-    if (i > f + 1) { // Si inicio está más allá del final + 1 (para permitir subcadena de 1 char donde inicio=fin)
-      return "";
-    }
-    // Corregir: PSeInt fin es inclusivo. JS substring/slice fin es exclusivo.
+    // PSeInt: fin es inclusivo. JS substring/slice fin es exclusivo.
     // inicio 1-based a 0-based: i-1
-    // fin 1-based inclusivo a 0-based exclusivo: f
+    // fin 1-based inclusivo a 0-based exclusivo para slice/substring: f
+    if (i > f + 1 && i > s.length) { // Si inicio está más allá del final o de la longitud de la cadena
+        return "";
+    }
+    if (i > f) { // Si inicio es mayor que fin (ej. Subcadena("hola", 3, 2)) PSeInt devuelve ""
+        return "";
+    }
     return s.substring(i - 1, f);
 }
 Webgoritmo.Expresiones.__pseudoSubcadena = __pseudoSubcadena;
 
+// --- Fin Funciones Helper ---
 
 Webgoritmo.Expresiones.evaluarExpresion = function(expr, scope) {
     let processedExpr = String(expr).trim();
     const originalExpr = processedExpr;
 
+    // 1. MANEJO DE ACCESO DIRECTO A ARREGLOS (MULTIDIMENSIONAL)
     const directArrayAccessMatch = processedExpr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+?)\s*\]$/);
     if (directArrayAccessMatch) {
         const arrName = directArrayAccessMatch[1];
         const indexPart = directArrayAccessMatch[2].trim();
 
-        // El scope pasado es usualmente Webgoritmo.estadoApp.variables o un ambitoFuncion
         if (scope.hasOwnProperty(arrName) && scope[arrName] && scope[arrName].type === 'array') {
             const arrayData = scope[arrName];
             const indicesExpr = indexPart.split(',').map(e => e.trim());
             const indicesValue = [];
 
             if (!arrayData.dimensions || indicesExpr.length !== arrayData.dimensions.length) {
-                throw new Error(`Número incorrecto de dimensiones para acceder al arreglo '${arrName}'. Se esperaban ${arrayData.dimensions ? arrayData.dimensions.length : 'desconocidas/1'}, se dieron ${indicesExpr.length}.`);
+                throw new Error(`Número incorrecto de dimensiones para acceder al arreglo '${arrName}'. Se esperaban ${arrayData.dimensions ? arrayData.dimensions.length : '1 (o desconocido)'}, se dieron ${indicesExpr.length}.`);
             }
 
             for (let k = 0; k < indicesExpr.length; k++) {
                 let idxVal;
                 try {
-                    idxVal = Webgoritmo.Expresiones.evaluarExpresion(indicesExpr[k], scope); // Llamada recursiva
-                } catch (e) {
-                    throw new Error(`Error evaluando índice ${k+1} ("${indicesExpr[k]}") para arreglo '${arrName}': ${e.message}`);
-                }
-                if (typeof idxVal !== 'number' || !Number.isInteger(idxVal)) {
-                    throw new Error(`Índice ${k+1} para arreglo '${arrName}' debe ser entero. Se obtuvo: "${idxVal}" de "${indicesExpr[k]}".`);
-                }
-                if (idxVal <= 0 || idxVal > arrayData.dimensions[k]) {
-                    throw new Error(`Índice ${idxVal} en dimensión ${k+1} fuera de límites para arreglo '${arrName}' (válido: 1 a ${arrayData.dimensions[k]}).`);
-                }
+                    idxVal = Webgoritmo.Expresiones.evaluarExpresion(indicesExpr[k], scope);
+                } catch (e) { throw new Error(`Error evaluando índice ${k+1} ("${indicesExpr[k]}") para arreglo '${arrName}': ${e.message}`); }
+                if (typeof idxVal !== 'number' || !Number.isInteger(idxVal)) { throw new Error(`Índice ${k+1} para arreglo '${arrName}' debe ser entero. Se obtuvo: "${idxVal}" de "${indicesExpr[k]}".`); }
+                if (idxVal <= 0 || idxVal > arrayData.dimensions[k]) { throw new Error(`Índice ${idxVal} en dimensión ${k+1} fuera de límites para arreglo '${arrName}' (válido: 1 a ${arrayData.dimensions[k]}).`); }
                 indicesValue.push(idxVal);
             }
-
             let valorActual = arrayData.value;
             for (const indice of indicesValue) {
-                if (valorActual && valorActual[indice] !== undefined) {
-                    valorActual = valorActual[indice];
-                } else {
-                    throw new Error(`Error accediendo al elemento del arreglo '${arrName}' con índices [${indicesValue.join(', ')}].`);
-                }
+                if (valorActual && valorActual[indice] !== undefined) { valorActual = valorActual[indice]; }
+                else { throw new Error(`Error accediendo al elemento del arreglo '${arrName}' con índices [${indicesValue.join(', ')}]. Estructura interna o índice podrían ser inválidos.`); }
             }
             return valorActual;
         } else if (scope.hasOwnProperty(arrName) && scope[arrName] && scope[arrName].type !== 'array') {
-             throw new Error(`Variable "${arrName}" es not an array and cannot be accessed with an index.`);
+             throw new Error(`Variable "${arrName}" no es un arreglo y no puede ser accedida con índice.`);
+        }
+        // Si no es un arreglo conocido, o el nombre no está en el scope,
+        // se deja que el resto de la lógica lo maneje (podría ser una función, etc.)
+    }
+
+    // 2. MANEJO DE LITERALES
+    if (processedExpr.toLowerCase() === 'verdadero') return true;
+    if (processedExpr.toLowerCase() === 'falso') return false;
+
+    let matchCadenaLit = processedExpr.match(/^"((?:\\.|[^"\\])*)"$/); // Maneja escapes dentro de la cadena
+    if (matchCadenaLit) return matchCadenaLit[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+    matchCadenaLit = processedExpr.match(/^'((?:\\.|[^'\\])*)'$/); // Maneja escapes dentro de la cadena
+    if (matchCadenaLit) return matchCadenaLit[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+
+    // Es importante que este chequeo de número sea robusto y no convierta erróneamente
+    // identificadores que podrían empezar con números o contener 'e' (notación científica).
+    // El `trim()` es importante. `Number()` es más estricto que `parseFloat` para cadenas vacías o solo espacios.
+    const trimmedForNumCheck = processedExpr.trim();
+    if (trimmedForNumCheck !== '' && !isNaN(Number(trimmedForNumCheck))) {
+        // Adicionalmente, verificar que no sea un identificador válido que casualmente es parseable como número.
+        // Esto es complejo. Por ahora, confiamos en !isNaN(Number(...)) para la mayoría de los casos.
+        // PSeInt no tiene hexadecimales ni octales que podrían confundir.
+        if (!/^[a-zA-Z_]/.test(trimmedForNumCheck)) { // No empezar con letra o _, si es así, es variable
+             return parseFloat(trimmedForNumCheck);
         }
     }
 
-    if (processedExpr.toLowerCase() === 'verdadero') return true;
-    if (processedExpr.toLowerCase() === 'falso') return false;
-    const coincidenciaCadena = processedExpr.match(/^"(.*)"$|^'(.*)'$/);
-    if (coincidenciaCadena) return coincidenciaCadena[1] !== undefined ? coincidenciaCadena[1] : coincidenciaCadena[2];
-    if (!isNaN(processedExpr) && processedExpr.trim() !== '') return parseFloat(processedExpr);
+    // 3. REEMPLAZO DE OPERADORES Y FUNCIONES PSeInt A JS
+    // Guardar operandos de cadenas antes de reemplazar operadores que podrían estar en ellas
+    const stringLiterals = [];
+    let tempExprForStrings = processedExpr;
+    tempExprForStrings = tempExprForStrings.replace(/"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'/g, function(match, p1, p2) {
+        stringLiterals.push(match);
+        return `__STRING_LITERAL_${stringLiterals.length - 1}__`;
+    });
+    processedExpr = tempExprForStrings;
+
+    // Orden de reemplazo de operadores es importante
+    processedExpr = processedExpr
+        .replace(/<\s*>/g, ' != ')
+        .replace(/>\s*=/g, ' >= ')
+        .replace(/<\s*=/g, ' <= ');
+
+    // Reemplazo cuidadoso de '=' para evitar afectar '==', '<=', '>='
+    // Se busca un '=' que no esté precedido por '<', '>', '!' o '=' y no esté seguido por '='.
+    processedExpr = processedExpr.replace(/(?<![<>\!=\(])=(?!=)/g, ' == ');
+
 
     processedExpr = processedExpr
-        .replace(/<\s*>/g, '__PSEINT_NEQ__')
-        .replace(/>\s*=/g, '__PSEINT_GTE__')
-        .replace(/<\s*=/g, '__PSEINT_LTE__');
-    processedExpr = processedExpr.replace(/(?<!=)==(?!=)/g, '=='); // Evitar convertir === a ====
-    processedExpr = processedExpr.replace(/(?<![<|>|!|(=)])=(?![=|>])/g, '=='); // Solo reemplazar '=' si no es parte de otro operador
+        .replace(/\bY\b/gi, ' && ')
+        .replace(/\bO\b/gi, ' || ')
+        // Para NO, asegurarse de que no esté pegado a una palabra, ej. "NOTA" vs "NO TA"
+        .replace(/(^|\s)\bNO\b(\s|$|\()/gi, '$1 ! $2') // Maneja NO al inicio, con espacios, o antes de (
+        .replace(/\bMOD\b/gi, ' % ')
+        .replace(/\^/g, '**')
+        .replace(/\bDIV\b/gi, ' / ');
 
-
-    processedExpr = processedExpr
-        .replace(/__PSEINT_NEQ__/g, '!=')
-        .replace(/__PSEINT_GTE__/g, '>=')
-        .replace(/__PSEINT_LTE__/g, '<=');
-
-    processedExpr = processedExpr
-        .replace(/\bY\b/gi, '&&')
-        .replace(/\bO\b/gi, '||')
-        .replace(/\bNo\b/gi, '!')
-        .replace(/\bMod\b/gi, '%') // Reemplazar Mod textual con %
-        .replace(/\^/g, '**')    // Exponenciación
-        .replace(/\bDiv\b/gi, '/');
-
-    // Reemplazos para funciones PSeInt a helpers JS (que deben ser globales o accesibles por eval)
     processedExpr = processedExpr
         .replace(/\bAbs\s*\(([^)]+)\)/gi, 'Math.abs($1)')
         .replace(/\bRC\s*\(([^)]+)\)/gi, 'Math.sqrt($1)')
         .replace(/\bAleatorio\s*\(\s*([^,]+)\s*,\s*([^)]+)\s*\)/gi, 'pseudoAleatorio($1, $2)')
-        .replace(/\bAleatorio\s*\(([^)]+)\)/gi, '(Math.floor(Math.random() * ($1)) + 1)')
-        .replace(/\bAzar\s*\(([^)]+)\)/gi, 'pseudoAzar($1)')
+        .replace(/\bAleatorio\s*\(([^)]+)\)/gi, '(Math.floor(Math.random() * Number($1)) + 1)')
+        .replace(/\bAzar\s*\(([^)]+)\)/gi, 'pseudoAzar(Number($1))')
         .replace(/\bAZAR\b/gi, 'Math.random()')
         .replace(/\bRedon\s*\(([^)]+)\)/gi, 'Math.round($1)')
         .replace(/\bTrunc\s*\(([^)]+)\)/gi, 'Math.trunc($1)')
@@ -178,35 +199,73 @@ Webgoritmo.Expresiones.evaluarExpresion = function(expr, scope) {
         .replace(/\bMinusculas\s*\(([^)]+)\)/gi, '__pseudoMinusculas($1)')
         .replace(/\bConvertirATexto\s*\(([^)]+)\)/gi, '__pseudoConvertirATexto($1)')
         .replace(/\bConvertirANumero\s*\(([^)]+)\)/gi, '__pseudoConvertirANumero($1)')
-        .replace(/\bSubcadena\s*\(([^,]+),([^,]+),([^)]+)\)/gi, '__pseudoSubcadena($1,$2,$3)');
+        .replace(/\bSubcadena\s*\(([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\)/gi, '__pseudoSubcadena($1,$2,$3)');
 
-    let tempProcessedExpr = processedExpr;
+    // Restaurar literales de cadena
+    processedExpr = processedExpr.replace(/__STRING_LITERAL_(\d+)__/g, function(match, index) {
+        return stringLiterals[parseInt(index)];
+    });
+
+    // 4. REEMPLAZO DE VARIABLES
+    let tempProcessedExprForVars = processedExpr;
     const nombresVarOrdenados = Object.keys(scope).sort((a, b) => b.length - a.length);
     for (const nombreVar of nombresVarOrdenados) {
-        if (scope[nombreVar] && typeof scope[nombreVar] === 'object' && scope[nombreVar].hasOwnProperty('value')) {
+        if (scope.hasOwnProperty(nombreVar) && scope[nombreVar] && typeof scope[nombreVar] === 'object' && scope[nombreVar].hasOwnProperty('value')) {
             const regex = new RegExp(`\\b${nombreVar}\\b`, 'g');
             let valorVar = scope[nombreVar].value;
+
             if (scope[nombreVar].type === 'array') {
-                // No stringificar si la expresión original era un acceso directo a array, ya manejado.
-                // Esta parte es para cuando el nombre del array se usa en otro contexto.
-                // La lógica de stringify puede ser problemática si se espera el objeto array.
-                // Por ahora, se mantiene como estaba para la sustitución general.
-                valorVar = JSON.stringify(valorVar);
+                // Los arrays no se reemplazan por su valor JSON aquí para eval,
+                // ya que el acceso directo a elementos se maneja al principio.
+                // Si un nombre de array aparece solo en una expresión que eval va a procesar,
+                // se dejaría como está y eval probablemente daría error si no es un contexto válido.
+                // Esto es más seguro que stringificarlo y que eval intente operar sobre el string.
+                // NO HACER NADA CON valorVar para arrays aquí.
             } else if (typeof valorVar === 'string') {
-                valorVar = `'${valorVar.replace(/'/g, "\\'")}'`;
+                // Se stringifican con comillas simples para que eval los trate como string literal.
+                // Las comillas internas deben escaparse.
+                valorVar = `'${valorVar.replace(/'/g, "\\'").replace(/\n/g, "\\n")}'`;
             } else if (typeof valorVar === 'boolean') {
-                valorVar = String(valorVar);
+                valorVar = String(valorVar); // 'true' o 'false'
+            } else if (valorVar === null) {
+                valorVar = 'null';
+            } else if (valorVar === undefined) {
+                valorVar = 'undefined'; // Aunque PSeInt no maneja undefined
             }
-            tempProcessedExpr = tempProcessedExpr.replace(regex, valorVar);
+            // Los números se convierten a string por String(valorVar) si es necesario.
+
+            // Solo reemplazar si no es un array.
+            if (scope[nombreVar].type !== 'array') {
+                 tempProcessedExprForVars = tempProcessedExprForVars.replace(regex, String(valorVar));
+            }
         }
     }
-    processedExpr = tempProcessedExpr;
+    processedExpr = tempProcessedExprForVars;
 
+    // 5. EVALUAR
     try {
         // eslint-disable-next-line no-eval
         let resultado = eval(processedExpr);
         return resultado;
     } catch (e) {
-        throw new Error(`Expresión inválida: "${originalExpr}" (evaluada como "${processedExpr}") -> ${e.message}`);
+        console.error(`Error evaluando: "${originalExpr}" -> "${processedExpr}"`, e);
+        // Intento heurístico de detectar variables no definidas
+        const posiblesVariablesNoDefinidas = processedExpr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g);
+        if (posiblesVariablesNoDefinidas) {
+            for (const pv of posiblesVariablesNoDefinidas) {
+                if ( (typeof window[pv] === 'undefined' || !window.hasOwnProperty(pv) ) && // No es global de JS (como Math)
+                     (typeof scope[pv] === 'undefined' ) && // No está en el scope local
+                     isNaN(pv) && // No es un número
+                     !['true', 'false', 'null', 'undefined', 'Infinity', 'NaN'].includes(pv.toLowerCase()) && // No es un literal conocido
+                     !pseudoAleatorio.hasOwnProperty(pv) && !pseudoAzar.hasOwnProperty(pv) && // No es una de nuestras helpers globales
+                     !Object.getOwnPropertyNames(Math).includes(pv.split('(')[0]) // No es una función Math
+                   ) {
+                     throw new Error(`Variable o función '${pv}' no definida, o expresión mal formada cerca de '${pv}'.`);
+                }
+            }
+        }
+        throw new Error(`Expresión inválida o error de cálculo en: "${originalExpr}". Detalle del sistema: ${e.message}`);
     }
 };
+
+console.log("evaluadorExpresiones.js cargado y Webgoritmo.Expresiones.evaluarExpresion (expandido) definido.");

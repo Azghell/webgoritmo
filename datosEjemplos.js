@@ -11,180 +11,232 @@ Webgoritmo.Datos.exampleCodes = {
 	Leer nombre
 	Escribir "Hola, ", nombre, " ¡Bienvenido a Webgoritmo!"
 FinAlgoritmo`,
-    if_simple: `Algoritmo NumeroPositivo
-	Definir num Como Entero
-	Escribir "Ingresa un numero:"
-	Leer num
-	Si num > 0 Entonces
-		Escribir "El numero es positivo."
+    if_simple: `Algoritmo EjemploSiSimple
+	Definir edad Como Entero
+	Escribir "Ingrese su edad:"
+	Leer edad
+
+	Escribir "Edad ingresada: ", edad
+	Si edad >= 18 Entonces
+		Escribir "Usted es mayor de edad."
+	FinSi
+	Escribir "Evaluación de edad completada."
+FinAlgoritmo`,
+    if_else: `Algoritmo EjemploSiSino
+	Definir numero Como Entero
+	Escribir "Ingrese un número:"
+	Leer numero
+
+	Escribir "Número ingresado: ", numero
+	Si numero > 0 Entonces
+		Escribir "El número es positivo."
+	Sino
+		Escribir "El número NO es positivo."
 	FinSi
 FinAlgoritmo`,
-    if_else: `Algoritmo ParOImpar
-	Definir num Como Entero
-	Escribir "Ingresa un numero:"
-	Leer num
-	Si (num Mod 2) = 0 Entonces
-		Escribir "El numero es par."
+    condicional_complejo: `Algoritmo EjemploSiSinoSiSino
+	Definir calificacion Como Real
+	Escribir "Ingrese la calificación (0-10):"
+	Leer calificacion
+
+	Escribir "Calificación: ", calificacion
+	Si calificacion >= 9 Y calificacion <= 10 Entonces
+		Escribir "Sobresaliente."
+	SinoSi calificacion >= 7 Y calificacion < 9 Entonces
+		Escribir "Notable."
+	SinoSi calificacion >= 5 Y calificacion < 7 Entonces
+		Escribir "Aprobado."
+	SinoSi calificacion >= 0 Y calificacion < 5 Entonces
+		Escribir "Reprobado."
 	Sino
-		Escribir "El numero es impar."
+		Escribir "Calificación fuera de rango o inválida."
+	FinSi
+FinAlgoritmo`,
+    operadores_logicos: `Algoritmo PruebaLogicaAvanzada
+	Definir a Como Entero
+	Definir b Como Logico
+	a <- 5
+	b <- Falso // O Leer b (después de que Leer Logico funcione bien)
+
+	Escribir "Prueba de operadores lógicos con a=5, b=Falso:"
+	Si a = 5 O b Entonces
+		Escribir "  Condición (a=5 O b) es Verdadera"
+	FinSi
+
+	Si No b Entonces
+		Escribir "  Condición (No b) es Verdadera"
+	FinSi
+
+	Si a > 10 Y (No b) Entonces
+		Escribir "  Esto NO debería aparecer (a > 10 Y No b)"
+	Sino
+		Escribir "  Condición (a > 10 Y No b) es Falsa, se ejecuta Sino"
 	FinSi
 FinAlgoritmo`,
     segun: `Algoritmo DiaSemana
 	Definir dia Como Entero
 	Escribir "Ingresa un numero del 1 al 7 para el dia de la semana:"
 	Leer dia
+    Escribir "Día ingresado: ", dia
 	Segun dia Hacer
-		1: Escribir "Lunes"
-		2: Escribir "Martes"
-		3: Escribir "Miércoles"
-		4: Escribir "Jueves"
-		5: Escribir "Viernes"
-		6: Escribir "Sábado"
-		7: Escribir "Domingo"
+		1: Escribir "Lunes"; 2: Escribir "Martes"; 3: Escribir "Miércoles";
+		4: Escribir "Jueves"; 5: Escribir "Viernes"; 6: Escribir "Sábado";
+		7: Escribir "Domingo";
 		De Otro Modo:
-			Escribir "Numero invalido. Por favor, ingresa un numero entre 1 y 7."
+			Escribir "Numero invalido.";
 	FinSegun
 FinAlgoritmo`,
     while_loop: `Algoritmo ContadorMientras
 	Definir contador Como Entero
 	contador <- 1
-	Mientras contador <= 5 Hacer
+	Mientras contador <= 3 Hacer
 		Escribir "Contador: ", contador
 		contador <- contador + 1
 	FinMientras
 	Escribir "Fin del contador."
 FinAlgoritmo`,
+    while_con_leer: `Algoritmo SumaHastaNegativo
+    Definir num, suma Como Entero
+    suma <- 0
+    num <- 0 // Inicializar para que el bucle comience
+
+    Escribir "Ingrese números para sumar. Ingrese un número negativo para terminar."
+
+    Mientras num >= 0 Hacer
+        Escribir "Suma actual: ", suma, ". Ingrese un número:"
+        Leer num
+        Si num >= 0 Entonces
+            suma <- suma + num
+        FinSi
+    FinMientras
+
+    Escribir "Suma final: ", suma
+FinAlgoritmo`,
+    while_anidado_simple: `Algoritmo TablasMultiplicarBasicas
+    Definir tabla, i Como Entero
+    tabla <- 1
+
+    Mientras tabla <= 2 Hacer // Solo tablas del 1 y 2 para brevedad
+        Escribir "Tabla del ", tabla, ":"
+        i <- 1
+        Mientras i <= 3 Hacer // Solo hasta el 3 para brevedad
+            Escribir tabla, " x ", i, " = ", tabla * i
+            i <- i + 1
+        FinMientras
+        tabla <- tabla + 1
+        Escribir "" // Línea en blanco para separar
+    FinMientras
+FinAlgoritmo`,
     for_loop: `Algoritmo SumaDeNumeros
 	Definir i, suma, num_max Como Entero
 	suma <- 0
-	Escribir "Hasta que numero quieres sumar (ej: 5):"
+	Escribir "Hasta que numero quieres sumar (ej: 3):"
 	Leer num_max
+
 	Para i <- 1 Hasta num_max Con Paso 1 Hacer
 		suma <- suma + i
 	FinPara
-	Escribir "La suma total es: ", suma
+	Escribir "La suma total hasta ", num_max, " es: ", suma
+FinAlgoritmo`,
+    for_con_paso_negativo: `Algoritmo CuentaRegresiva
+    Definir i Como Entero
+    Escribir "Cuenta regresiva:"
+    Para i <- 5 Hasta 1 Con Paso -1 Hacer
+        Escribir i
+    FinPara
+    Escribir "¡Despegue!"
+FinAlgoritmo`,
+    for_con_leer: `Algoritmo PromedioNotas
+    Definir num_notas, i Como Entero
+    Definir nota, suma_notas, promedio Como Real
+
+    suma_notas <- 0
+    Escribir "Ingrese el número de notas a promediar:"
+    Leer num_notas
+
+    Si num_notas > 0 Entonces
+        Para i <- 1 Hasta num_notas Hacer
+            Escribir "Ingrese la nota ", i, ":"
+            Leer nota
+            suma_notas <- suma_notas + nota
+        FinPara
+        promedio <- suma_notas / num_notas
+        Escribir "El promedio de las ", num_notas, " notas es: ", promedio
+    Sino
+        Escribir "No se ingresaron notas para promediar."
+    FinSi
+FinAlgoritmo`,
+    for_no_ejecuta: `Algoritmo ParaNoEjecuta
+    Definir x Como Entero
+    Escribir "Inicio del algoritmo ParaNoEjecuta"
+    // Este bucle no debería ejecutar ninguna iteración
+    Para x <- 10 Hasta 5 Con Paso 1 Hacer
+        Escribir "Esta línea NO debería aparecer en la consola."
+    FinPara
+    Escribir "Fin del algoritmo ParaNoEjecuta"
 FinAlgoritmo`,
     repeat_until: `Algoritmo AdivinaNumeroSimple
-	Definir secreto, intento Como Entero
-	secreto <- Aleatorio(1, 10) // Usando Aleatorio
+	Definir intento Como Entero
+	Definir secreto Como Entero
+	secreto <- 7
 	Repetir
-		Escribir "Adivina el numero (1-10):"
+		Escribir "Adivina el numero secreto (pista: es 7):"
 		Leer intento
 		Si intento <> secreto Entonces
-			Escribir "Incorrecto, intenta de nuevo."
+			Escribir "Incorrecto. Intenta de nuevo."
 		FinSi
 	Hasta Que intento = secreto
 	Escribir "¡Correcto! El numero era ", secreto, "."
 FinAlgoritmo`,
+    leer_varios: `Algoritmo LeerMultiplesValores
+    Definir nombre Como Cadena
+    Definir edad Como Entero
+    Definir ciudad Como Cadena
+
+    Escribir "Ingresa tu nombre, edad y ciudad, separados por coma o espacio:"
+    Leer nombre, edad, ciudad
+
+    Escribir "Te llamas ", nombre, ", tienes ", edad, " años y vives en ", ciudad, "."
+FinAlgoritmo`,
     arrays: `Algoritmo EjemploArregloSimple
-	Dimension numeros[5] Como Entero
-	Definir i, suma Como Entero
-	suma <- 0
-	Para i <- 1 Hasta 5 Con Paso 1 Hacer
-		Escribir "Ingrese el numero ", i, ":"
-		Leer numeros[i]
-	FinPara
-	Escribir "Los numeros ingresados son:"
-	Para i <- 1 Hasta 5 Con Paso 1 Hacer
-		Escribir "  posicion [", i, "] = ", numeros[i]
-		suma <- suma + numeros[i]
-	FinPara
-	Escribir "El promedio es ", suma / 5
+    Escribir "Ejemplo de Arreglos (a implementar en Fase posterior)"
 FinAlgoritmo`,
     mod_example: `Algoritmo ModuloEjemplo
-	Definir N, M Como Real
-	Escribir "Ingrese el numero:"
-	Leer N
-	Escribir "Ingrese el divisor:"
+	Definir N, M, Resultado Como Real
+	Escribir "Ingrese el dividendo:"
+    Leer N
+    Escribir "Ingrese el divisor:"
 	Leer M
+
+	Escribir "Calculando ", N, " MOD ", M
 	Si M = 0 Entonces
 	    Escribir "Error: No se puede calcular módulo por cero."
 	Sino
-	    Si N Mod M = 0 Entonces
-		    Escribir M, " es divisor exacto de ", N, "."
-	    Sino
-		    Escribir "El resto de dividir ", N, " por ", M, " es: ", N Mod M
-	    FinSi
-    FinSi
+        Resultado <- N MOD M
+		Escribir "El resto es: ", Resultado
+	FinSi
 FinAlgoritmo`,
     potencia_conversion: `Algoritmo EjemploPotenciaConversion
 	Definir base, exponente, resultado Como Real
-	Definir textoNum Como Cadena
-	Definir numConvertido Como Real
-	Definir valorLogico Como Logico
+	Escribir "Ingrese la base para la potencia:"
+    Leer base
+    Escribir "Ingrese el exponente:"
+	Leer exponente
 
-	base <- 2
-	exponente <- 3
 	resultado <- base ^ exponente
 	Escribir base, " elevado a ", exponente, " es: ", resultado
 
-	textoNum <- "123.45"
+    Definir textoNum Como Cadena
+    Definir numConvertido Como Real
+    Definir valorLogico Como Logico
+
+	textoNum <- "123.45" // Se puede cambiar a Leer textoNum
 	numConvertido <- ConvertirANumero(textoNum)
 	Escribir "Cadena '", textoNum, "' convertida a número: ", numConvertido
-	Escribir "Prueba de tipo número: ", numConvertido + 0.55
 
 	valorLogico <- Verdadero
 	Escribir "Valor lógico ", valorLogico, " como texto: ", ConvertirATexto(valorLogico)
-	Escribir "Número ", resultado, " como texto: ", ConvertirATexto(resultado)
-FinAlgoritmo`,
-    funciones_cadena: `Algoritmo EjemploFuncionesCadena
-	Definir miCadena, sub, mayus, minus Como Cadena
-	Definir long Como Entero
-
-	miCadena <- "Hola Mundo Feliz!"
-	long <- Longitud(miCadena)
-	Escribir "La cadena es: '", miCadena, "'"
-	Escribir "Longitud: ", long
-
-	mayus <- Mayusculas(miCadena)
-	Escribir "En mayúsculas: ", mayus
-
-	minus <- Minusculas(mayus)
-	Escribir "En minúsculas: ", minus
-
-	sub <- Subcadena(miCadena, 6, 10) // "Mundo"
-	Escribir "Subcadena(6,10): '", sub, "'"
-
-	sub <- Subcadena(miCadena, 1, 4) // "Hola"
-	Escribir "Subcadena(1,4): '", sub, "'"
-FinAlgoritmo`,
-    matriz_2d: `Algoritmo EjemploMatriz
-	Dimension notas[2,3] Como Entero
-	Definir i, j, contador Como Entero
-
-	contador <- 1
-	Escribir "Llenando y mostrando la matriz:"
-	Para i <- 1 Hasta 2 Hacer
-		Para j <- 1 Hasta 3 Hacer
-			notas[i,j] <- contador * 10
-			Escribir "notas[", i, ",", j, "] = ", notas[i,j]
-			contador <- contador + 1
-		FinPara
-	FinPara
-
-	Escribir "Elemento notas[2,2]: ", notas[2,2]
-	Escribir "Intentando escribir la matriz completa (puede variar la visualización):"
-	Escribir notas // Para ver cómo se muestra la estructura anidada
-FinAlgoritmo`,
-    rutinas_funciones: `Proceso PrincipalRutinas
-	Definir miNumero Como Entero
-	miNumero <- 7
-
-	SaludarUsuario("Estimado Estudiante")
-
-	Definir cuadrado Como Entero
-	cuadrado <- CalcularCuadrado(miNumero)
-	Escribir "El cuadrado de ", miNumero, " es ", cuadrado
-FinProceso
-
-Subrutina SaludarUsuario(mensaje)
-	Definir msjFinal Como Cadena
-	msjFinal <- Concatenar(mensaje, ", ¡bienvenido a los ejemplos de rutinas!") // Asumiendo Concatenar o cambiar a Escribir con comas
-	// Escribir mensaje, ", ¡bienvenido a los ejemplos de rutinas!" // Alternativa si Concatenar no está
-	Escribir msjFinal
-FinSubrutina
-
-Funcion resultado = CalcularCuadrado(num)
-	resultado <- num * num
-FinFuncion`
+FinAlgoritmo`
 };
+
+console.log("datosEjemplos.js cargado y Webgoritmo.Datos.exampleCodes actualizado para Fase 4 (Leer).");
