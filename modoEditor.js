@@ -1,62 +1,57 @@
 // modoEditor.js
-// Lógica de CodeMirror: inicialización y, más adelante, definición del modo "pseint" y sugerencias.
+// Lógica de CodeMirror: inicialización para el MVP.
+// El modo "pseint" completo y las sugerencias se añadirán después.
 
 window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Editor = Webgoritmo.Editor || {};
 
-Webgoritmo.Editor.editorCodigo = null; // Instancia del editor
+Webgoritmo.Editor.editorCodigo = null; // Instancia del editor CodeMirror
 
 Webgoritmo.Editor.inicializarEditor = function() {
     // Se espera que Webgoritmo.DOM.editorTextArea ya esté definido por app.js
+    // y que app.js llame a esta función dentro de DOMContentLoaded.
     if (!Webgoritmo.DOM || !Webgoritmo.DOM.editorTextArea) {
         console.error("modoEditor.js: Webgoritmo.DOM.editorTextArea no está definido. No se puede inicializar CodeMirror.");
-        // Intentar añadir salida a la consola si uiManager ya estuviera cargado (no es el caso en este paso aún)
+        // En un caso real, podríamos querer mostrar un error en la UI.
+        // Por ahora, el console.error es la depuración principal.
+        // Si Webgoritmo.UI.añadirSalida estuviera disponible, se podría usar:
         // if (Webgoritmo.UI && typeof Webgoritmo.UI.añadirSalida === 'function') {
         //     Webgoritmo.UI.añadirSalida("[ERROR CRÍTICO]: Textarea del editor no disponible para CodeMirror.", "error");
         // }
-        // Alternativamente, un alert simple si la consola de la UI no está lista:
-        // alert("Error crítico: No se encontró el área del editor.");
         return;
     }
 
     try {
         Webgoritmo.Editor.editorCodigo = CodeMirror.fromTextArea(Webgoritmo.DOM.editorTextArea, {
             lineNumbers: true,
-            mode: 'text/plain', // Modo simple para el MVP inicial
-            theme: 'dracula',   // Usar un tema base de CodeMirror
+            mode: 'text/plain', // Modo muy simple para el MVP inicial. El modo "pseint" se definirá después.
+            theme: 'dracula',   // Usar un tema base de CodeMirror. Los estilos CSS lo adaptarán.
             matchBrackets: true,
-            // autoCloseBrackets: true, // Addon no incluido en el index.html MVP
             styleActiveLine: true
-            // Los addons de foldgutter no se configuran aquí directamente, sino en 'gutters'
-            // foldGutter: true, // Se activa con la opción 'gutters'
-            // gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"] // Se pueden añadir gutters después
+            // Addons como foldGutter se configurarán cuando se implemente el modo "pseint" completo.
         });
-        console.log("modoEditor.js: CodeMirror inicializado exitosamente sobre #code-input.");
+        console.log("modoEditor.js: CodeMirror inicializado exitosamente sobre #code-input (modo text/plain).");
 
-        // En fases posteriores del MVP, aquí se adjuntarían listeners como:
-        // Webgoritmo.Editor.editorCodigo.on('change', Webgoritmo.Editor.actualizarSugerencias);
+        // En fases posteriores del MVP, aquí se adjuntarían listeners como 'change' y 'cursorActivity'
+        // para funcionalidades como sugerencias o la barra de estado.
+        // Ejemplo:
         // Webgoritmo.Editor.editorCodigo.on('cursorActivity', function(cmInstance) {
-        //     if (Webgoritmo.Editor.actualizarSugerencias) Webgoritmo.Editor.actualizarSugerencias();
-        //     if (Webgoritmo.UI && Webgoritmo.UI.actualizarBarraEstadoCursor) {
+        //     if (Webgoritmo.UI && typeof Webgoritmo.UI.actualizarBarraEstadoCursor === "function") {
         //         Webgoritmo.UI.actualizarBarraEstadoCursor(cmInstance);
         //     }
         // });
 
-        // Y se podrían llamar funciones iniciales de UI que dependen del editor:
+        // También se podrían llamar funciones iniciales de UI que dependen del editor,
+        // como cargar una plantilla inicial, si esa lógica estuviera en Webgoritmo.UI.
         // if (Webgoritmo.UI && typeof Webgoritmo.UI.cargarPlantillaInicial === "function") {
         //      Webgoritmo.UI.cargarPlantillaInicial();
         // }
-        // if (Webgoritmo.Editor.actualizarSugerencias) Webgoritmo.Editor.actualizarSugerencias();
-        // if (Webgoritmo.UI && typeof Webgoritmo.UI.actualizarBarraEstadoCursor === "function") {
-        //      Webgoritmo.UI.actualizarBarraEstadoCursor(Webgoritmo.Editor.editorCodigo);
-        // }
 
     } catch (e) {
-        console.error("Error al inicializar CodeMirror:", e);
+        console.error("Error al inicializar CodeMirror en modoEditor.js:", e);
         // if (Webgoritmo.UI && typeof Webgoritmo.UI.añadirSalida === 'function') {
         //     Webgoritmo.UI.añadirSalida(`[ERROR CRÍTICO]: Fallo al inicializar el editor CodeMirror. ${e.message}`, "error");
-        // } else {
-        //     alert(`Error crítico al inicializar el editor: ${e.message}`);
         // }
+        // alert(`Error crítico al inicializar el editor: ${e.message}`); // Fallback si la consola de UI no está
     }
 };
