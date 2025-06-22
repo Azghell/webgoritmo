@@ -24,79 +24,8 @@ Webgoritmo.UI.añadirSalida = function(mensaje, tipo = 'normal') {
     Webgoritmo.DOM.consolaSalida.scrollTop = Webgoritmo.DOM.consolaSalida.scrollHeight;
 };
 
-/**
- * Prepara la UI para recibir entrada del usuario (instrucción Leer).
- * @param {string} mensajePrompt El mensaje a mostrar al usuario antes del input.
- */
-Webgoritmo.UI.prepararParaEntrada = function(mensajePrompt) {
-    const dom = Webgoritmo.DOM; // Copia local de Webgoritmo.DOM
-    const consoleInputAreaEl = dom ? dom.consoleInputArea : null;
-    const entradaConsolaEl = dom ? dom.entradaConsola : null;
-    const btnEnviarEntradaEl = dom ? dom.btnEnviarEntrada : null;
-
-    // DEBUGGING:
-    console.log("DEBUG: Entrando a prepararParaEntrada");
-    console.log("DEBUG: Copia local dom:", dom);
-    console.log("DEBUG: Copia local consoleInputAreaEl:", consoleInputAreaEl);
-    console.log("DEBUG: Copia local entradaConsolaEl:", entradaConsolaEl);
-    console.log("DEBUG: Copia local btnEnviarEntradaEl:", btnEnviarEntradaEl);
-
-    if (!consoleInputAreaEl || !entradaConsolaEl || !btnEnviarEntradaEl) {
-        console.error("prepararParaEntrada: Elementos DOM (copia local) de la consola de entrada no definidos.");
-        if (!consoleInputAreaEl) console.error("DEBUG: consoleInputAreaEl (copia local) es null/undefined");
-        if (!entradaConsolaEl) console.error("DEBUG: entradaConsolaEl (copia local) es null/undefined");
-        if (!btnEnviarEntradaEl) console.error("DEBUG: btnEnviarEntradaEl (copia local) es null/undefined");
-        return;
-    }
-
-    if (mensajePrompt && typeof Webgoritmo.UI.añadirSalida === 'function') {
-        Webgoritmo.UI.añadirSalida(mensajePrompt, 'input-prompt');
-    }
-
-    consoleInputAreaEl.classList.remove('oculto');
-    entradaConsolaEl.disabled = false;
-    entradaConsolaEl.readOnly = false;
-    btnEnviarEntradaEl.disabled = false;
-
-    requestAnimationFrame(() => {
-        if (entradaConsolaEl) entradaConsolaEl.focus(); // Asegurarse de que aún exista
-    });
-    console.log("uiManager.js: UI preparada para entrada.");
-};
-
-/**
- * Restaura la UI después de que se ha procesado una entrada de Leer.
- * @param {object} dom Un objeto que contiene las referencias a los elementos del DOM necesarios.
- */
-Webgoritmo.UI.finalizarEntrada = function(dom) { // Acepta dom como parámetro
-    // const dom = Webgoritmo.DOM; // Ya no se toma de global aquí
-    const consoleInputAreaEl = dom ? dom.consoleInputArea : null;
-    const entradaConsolaEl = dom ? dom.entradaConsola : null;
-    const btnEnviarEntradaEl = dom ? dom.btnEnviarEntrada : null;
-
-    // DEBUGGING:
-    console.log("DEBUG: Entrando a finalizarEntrada");
-    console.log("DEBUG: Copia local dom:", dom);
-    console.log("DEBUG: Copia local consoleInputAreaEl:", consoleInputAreaEl);
-    console.log("DEBUG: Copia local entradaConsolaEl:", entradaConsolaEl);
-    console.log("DEBUG: Copia local btnEnviarEntradaEl:", btnEnviarEntradaEl);
-
-    if (!consoleInputAreaEl || !entradaConsolaEl || !btnEnviarEntradaEl) {
-        console.error("finalizarEntrada: Elementos DOM (copia local) de la consola de entrada no definidos.");
-        if (!consoleInputAreaEl) console.error("DEBUG: consoleInputAreaEl (copia local) es null/undefined al finalizar");
-        if (!entradaConsolaEl) console.error("DEBUG: entradaConsolaEl (copia local) es null/undefined al finalizar");
-        if (!btnEnviarEntradaEl) console.error("DEBUG: btnEnviarEntradaEl (copia local) es null/undefined al finalizar");
-        return;
-    }
-
-    entradaConsolaEl.value = '';
-    entradaConsolaEl.disabled = true;
-    entradaConsolaEl.readOnly = true;
-    btnEnviarEntradaEl.disabled = true;
-    consoleInputAreaEl.classList.add('oculto');
-
-    console.log("uiManager.js: UI finalizada después de entrada.");
-};
+// Las funciones Webgoritmo.UI.prepararParaEntrada y Webgoritmo.UI.finalizarEntrada
+// han sido eliminadas. Su lógica será manejada directamente en app.js.
 
 // Aquí se reincorporarían las otras funciones de UI que teníamos conceptualizadas
 // en la refactorización anterior, adaptadas al namespace Webgoritmo.

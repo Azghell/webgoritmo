@@ -207,8 +207,21 @@ Webgoritmo.Interprete.handleLeer = async function(linea, ambitoActual, numLineaO
         if (ambitoActual[nombreVar].type === 'array') throw new Error(`Lectura en arreglos completos no soportada en MVP ('Leer ${nombreVar}'). Línea ${numLineaOriginal}.`);
     }
     let promptMensaje = nombresVariablesArray.length === 1 ? `Ingrese valor para ${nombresVariablesArray[0]}:` : `Ingrese ${nombresVariablesArray.length} valores (separados por espacio/coma) para ${nombresVariablesArray.join(', ')}:`;
-    if (Webgoritmo.UI.prepararParaEntrada) Webgoritmo.UI.prepararParaEntrada(promptMensaje);
-    else { console.warn("Webgoritmo.UI.prepararParaEntrada no definida."); /* Fallback UI simple */ }
+
+    // Llamar a la función global expuesta por app.js para mostrar el input
+    if (window.WebgoritmoGlobal && typeof window.WebgoritmoGlobal.solicitarEntradaUsuario === 'function') {
+        window.WebgoritmoGlobal.solicitarEntradaUsuario(promptMensaje);
+    } else {
+        console.error("motorInterprete.js: La función global solicitarEntradaUsuario no está disponible.");
+        // Fallback: intentar al menos mostrar el prompt en la consola de salida si la UI principal falla
+        if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) {
+            Webgoritmo.UI.añadirSalida(promptMensaje, 'input-prompt');
+            Webgoritmo.UI.añadirSalida("[Error Interno: No se pudo preparar el área de input. La ejecución podría no continuar correctamente después de este Leer.]", 'error');
+        }
+        // Considerar lanzar un error aquí o detener la ejecución si la UI de input es crítica y no se puede mostrar
+        // throw new Error("No se pudo inicializar la UI para la entrada del usuario.");
+    }
+
     Webgoritmo.estadoApp.esperandoEntrada = true; Webgoritmo.estadoApp.variableEntradaActual = nombresVariablesArray;
     console.log(`handleLeer: Esperando entrada para: ${nombresVariablesArray.join(', ')}`);
     await new Promise(resolve => {
