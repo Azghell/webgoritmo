@@ -123,11 +123,41 @@ Webgoritmo.Interprete.handleAsignacion = function(linea, ambitoActual, numLineaO
     }
     return false;
 };
-Webgoritmo.Interprete.handleEscribir = function(linea, ambitoActual, numLineaOriginal) { /* ... (código como antes) ... */
-    const coincidenciaEscribir = linea.match(/^(Escribir|Imprimir|Mostrar)\s+(.*)/i);
+Webgoritmo.Interprete.handleEscribir = function(linea, ambitoActual, numLineaOriginal) {
+    const regexEscribir = /^(Escribir|Imprimir|Mostrar)\s+(.*)/i;
+    const coincidenciaEscribir = linea.match(regexEscribir);
+
+    console.log(`HANDLEESCRIBIR DEBUG: Recibida línea: "${linea}". Coincidencia con regexEscribir: `, coincidenciaEscribir);
+
     if (coincidenciaEscribir) {
         const cadenaArgs = coincidenciaEscribir[2];
-        const args = cadenaArgs.split(',').map(arg => arg.trim());
+        console.log(`HANDLEESCRIBIR DEBUG: cadenaArgs extraída: "${cadenaArgs}"`);
+
+        // Intento de split más robusto para argumentos de Escribir, considerando comas dentro de strings
+        const args = [];
+        let buffer = "";
+        let dentroDeComillasDobles = false;
+        let dentroDeComillasSimples = false;
+
+        for (let i = 0; i < cadenaArgs.length; i++) {
+            const char = cadenaArgs[i];
+            if (char === '"' && (i === 0 || cadenaArgs[i-1] !== '\\')) {
+                dentroDeComillasDobles = !dentroDeComillasDobles;
+            } else if (char === "'" && (i === 0 || cadenaArgs[i-1] !== '\\')) {
+                dentroDeComillasSimples = !dentroDeComillasSimples;
+            }
+
+            if (char === ',' && !dentroDeComillasDobles && !dentroDeComillasSimples) {
+                args.push(buffer.trim());
+                buffer = "";
+            } else {
+                buffer += char;
+            }
+        }
+        args.push(buffer.trim()); // Añadir el último argumento
+        console.log(`HANDLEESCRIBIR DEBUG: Args parseados: `, args);
+
+
         let partesMensajeSalida = [];
         for (const arg of args) {
             const parteEvaluada = Webgoritmo.Expresiones.evaluarExpresion(arg, ambitoActual);
@@ -244,17 +274,87 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
         const lineaOriginal = lineasBloqueParam[i];
         const lineaTrimmed = lineaOriginal.trim();
         const numLineaGlobal = numLineaOriginalOffset + i + 1;
+
+        console.log(`MOTOR DEBUG: Procesando línea ${numLineaGlobal}: "${lineaTrimmed}"`);
+
         if (lineaTrimmed === '' || lineaTrimmed.startsWith('//')) { i++; continue; }
-        console.log(`Ejecutando (L:${numLineaGlobal}): ${lineaTrimmed}`);
         let instruccionManejada = false;
         try {
             const lineaLower = lineaTrimmed.toLowerCase();
+            console.log(`MOTOR DEBUG: lineaLower para match: "${lineaLower}"`);
+
+            // Intentar un match más específico y loguearlo directamente
+            const matchEscribirDirecto = lineaLower.match(/^escribir\s+.+/);
+            // const matchEscribirAlternativo = lineaLower.match(/^(escribir|imprimir|mostrar)\s/); // Mantenemos el original para comparar si es necesario
+            console.log(`MOTOR DEBUG: Match directo con /^escribir\\s+.+/: `, matchEscribirDirecto);
+            // console.log(`MOTOR DEBUG: Match alternativo con /^(escribir|imprimir|mostrar)\\s/: `, matchEscribirAlternativo);
+
+
             if (lineaLower.startsWith('definir ')) {
                  instruccionManejada = await Webgoritmo.Interprete.handleDefinir(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.match(/^(escribir|imprimir|mostrar)\s/)) {
+            } else if (matchEscribirDirecto) { // Usar el resultado del match directo simplificado
+                 console.log("MOTOR DEBUG: DETECTADO 'escribir' por match directo.");
                  instruccionManejada = await Webgoritmo.Interprete.handleEscribir(lineaTrimmed, ambitoActual, numLineaGlobal);
             } else if (lineaLower.startsWith('leer ')) {
                  instruccionManejada = await Webgoritmo.Interprete.handleLeer(lineaTrimmed, ambitoActual, numLineaGlobal);
+            } else if (lineaLower.startsWith('si ') && lineaLower.includes(' entonces')) {
+                    const nuevoIndiceRelativoAlBloque = await Webgoritmo.Interprete.handleSi(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                    i = nuevoIndiceRelativoAlBloque;
+                    instruccionManejada = true;
+                } else if (lineaLower.startsWith('mientras ') && lineaLower.includes(' hacer')) {
+                    const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handleMientras(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                    i = nuevoIndiceRelativoAlBloque;
+                    instruccionManejada = true;
+                    if (ejecutarSiguienteIteracion) {
+                        continue;
+                    }
+                } else if (lineaTrimmed.includes('<-')) {
+                    instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
+                } else if (lineaLower.startsWith('para ') && lineaLower.includes(' hacer')) {
+                    const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handlePara(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                    i = nuevoIndiceRelativoAlBloque;
+                    instruccionManejada = true;
+                    if (ejecutarSiguienteIteracion) {
+                        continue;
+                    }
+                }
+            }
+
+            if (!instruccionManejada && lineaTrimmed &&
+                !lineaLower.startsWith("finsi") &&
+                !lineaLower.startsWith("sino") &&
+                !lineaLower.startsWith("sinosi") &&
+                !lineaLower.startsWith("finmientras") &&
+                !lineaLower.startsWith("finpara")) {
+                 // Las palabras clave de cierre de bloque son manejadas por sus respectivos handlers (Si, Mientras, Para)
+                 // y no deben ser tratadas como instrucciones no reconocidas aquí.
+                throw new Error(`Instrucción no reconocida o mal ubicada: '${lineaTrimmed}'`);
+            }
+        } catch (e) {
+            Webgoritmo.estadoApp.errorEjecucion = `Error en línea ${numLineaGlobal}: ${e.message}`;
+            Webgoritmo.estadoApp.detenerEjecucion = true;
+            if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error');
+            else console.error(Webgoritmo.estadoApp.errorEjecucion);
+            break;
+        }
+
+        i++; // Incrementar i para la siguiente línea del bloque
+
+        if (Webgoritmo.estadoApp.esperandoEntrada && !Webgoritmo.estadoApp.detenerEjecucion) {
+            console.log("ejecutarBloque: Pausando por 'Leer'.");
+            // No rompemos el bucle 'while' aquí directamente.
+            // Si 'Leer' está dentro de 'Mientras', 'handleMientras' devolverá 'ejecutarSiguienteIteracion = true'
+            // y el 'continue' de arriba se activará.
+            // Si 'Leer' está fuera de 'Mientras', la ejecución se pausará y se reanudará desde este punto.
+            // La promesa en handleLeer detendrá el flujo hasta que se resuelva.
+            await Webgoritmo.estadoApp.promesaEntradaPendiente; // Espera aquí si la promesa se creó
+            Webgoritmo.estadoApp.promesaEntradaPendiente = null; // Limpia la promesa
+            if(Webgoritmo.estadoApp.detenerEjecucion) break; // Si la entrada causó una detención
+        }
+    }
+};
+
+Webgoritmo.Interprete.handleMientras = async function(lineaActual, ambitoActual, numLineaOriginalMientras, lineasBloqueCompleto, indiceMientrasEnBloque) {
             } else if (lineaLower.startsWith('si ') && lineaLower.includes(' entonces')) {
                 const nuevoIndiceRelativoAlBloque = await Webgoritmo.Interprete.handleSi(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
                 i = nuevoIndiceRelativoAlBloque; // El índice 'i' se actualiza directamente aquí.

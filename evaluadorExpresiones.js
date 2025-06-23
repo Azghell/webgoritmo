@@ -88,9 +88,11 @@ Webgoritmo.Expresiones.__pseudoSubcadena = __pseudoSubcadena;
 // --- Fin Funciones Helper ---
 
 Webgoritmo.Expresiones.evaluarExpresion = function(expr, scope) {
-    console.log(`DEBUG evalExpr INICIO: expr cruda = "${expr}"`, "Tipo de expr:", typeof expr); // Log mejorado
+    // ULTRA DEBUG: Ver la entrada cruda a la función.
+    console.log(`ULTRA DEBUG evalExpr: expr CRUDA = "${expr}" (length: ${expr ? expr.length : 'N/A'}) | typeof: ${typeof expr} | JSON: ${JSON.stringify(expr)}`);
     let processedExpr = String(expr).trim();
     const originalExpr = processedExpr;
+    console.log(`ULTRA DEBUG evalExpr: originalExpr (después de trim) = "${originalExpr}"`);
 
     // 1. MANEJO DE ACCESO DIRECTO A ARREGLOS (MULTIDIMENSIONAL)
     const directArrayAccessMatch = processedExpr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+?)\s*\]$/);
@@ -137,12 +139,16 @@ Webgoritmo.Expresiones.evaluarExpresion = function(expr, scope) {
     // Esto es más seguro y evita problemas con eval() para cadenas simples.
     let matchCadenaOriginal = originalExpr.match(/^"((?:\\.|[^"\\])*)"$/);
     if (matchCadenaOriginal) {
+        console.log(`ULTRA DEBUG evalExpr: Detectado literal de cadena DOBLE: ${JSON.stringify(matchCadenaOriginal)}`);
         return matchCadenaOriginal[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
     }
     matchCadenaOriginal = originalExpr.match(/^'((?:\\.|[^'\\])*)'$/);
     if (matchCadenaOriginal) {
+        console.log(`ULTRA DEBUG evalExpr: Detectado literal de cadena SIMPLE: ${JSON.stringify(matchCadenaOriginal)}`);
         return matchCadenaOriginal[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\');
     }
+    // Si no es un literal de cadena reconocido directamente por originalExpr, loguear y continuar con el procesamiento.
+    console.log(`ULTRA DEBUG evalExpr: NO detectado como literal de cadena simple/doble. originalExpr="${originalExpr}"`);
 
     // Es importante que este chequeo de número sea robusto y no convierta erróneamente
     // identificadores que podrían empezar con números o contener 'e' (notación científica).
