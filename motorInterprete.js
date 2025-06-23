@@ -158,18 +158,37 @@ Webgoritmo.Interprete.handleDimension = async function(linea, ambitoActual, numL
 
     for (let decl of declaracionesIndividuales) {
         decl = decl.trim();
-        const matchArr = decl.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*([\[\(])\s*(.+?)\s*([\]\)])$/);
+        // Regex para capturar: nombre[dims] o nombre(dims) opcionalmente seguido por "Como/Es Tipo"
+        // Grupo 1: nombreArr
+        // Grupo 2: bracketOpen ('[' o '(')
+        // Grupo 3: dimsStr
+        // Grupo 4: bracketClose (']' o ')')
+        // Grupo 5 (opcional): tipoEspecificado (e.g., "Entero", "Cadena")
+        const matchArr = decl.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*([\[\(])\s*(.+?)\s*([\]\)])(?:\s+(?:Como|Es)\s+([a-zA-Z_][a-zA-Z0-9_]+))?\s*$/i);
+
         if (!matchArr) {
-            throw new Error(`Sintaxis incorrecta en declaración de dimensión para '${decl}' en línea ${numLineaOriginal}. Se esperaba 'nombre[dim1,dim2,...]' o 'nombre(dim1,dim2,...)'`);
+            throw new Error(`Sintaxis incorrecta en declaración de dimensión para '${decl}' en línea ${numLineaOriginal}. Se esperaba 'nombre[dims] [Como/Es Tipo]' o 'nombre(dims) [Como/Es Tipo]'`);
         }
 
         const nombreArr = matchArr[1];
         const bracketOpen = matchArr[2];
         const dimsStr = matchArr[3];
         const bracketClose = matchArr[4];
+        const tipoEspecificadoStr = matchArr[5]; // Puede ser undefined
+
+        let baseTypeParaArray = 'entero'; // Default para Dimension
 
         if ((bracketOpen === '[' && bracketClose !== ']') || (bracketOpen === '(' && bracketClose !== ')')) {
             throw new Error(`Paréntesis/corchetes no coincidentes en la declaración de dimensión para '${nombreArr}' en línea ${numLineaOriginal}.`);
+        }
+
+        if (tipoEspecificadoStr) {
+            const tipoLower = tipoEspecificadoStr.toLowerCase();
+            const tiposConocidos = ['entero', 'real', 'logico', 'caracter', 'cadena'];
+            if (!tiposConocidos.includes(tipoLower)) {
+                throw new Error(`Tipo de dato '${tipoEspecificadoStr}' no reconocido para el arreglo '${nombreArr}' en línea ${numLineaOriginal}.`);
+            }
+            baseTypeParaArray = tipoLower;
         }
 
         if (ambitoActual.hasOwnProperty(nombreArr)) {
@@ -197,11 +216,12 @@ Webgoritmo.Interprete.handleDimension = async function(linea, ambitoActual, numL
 
         ambitoActual[nombreArr] = {
             type: 'array',
-            baseType: 'entero', // PSeInt 'Dimension' defaults to numeric (Entero)
+            baseType: baseTypeParaArray,
             dimensions: evalDimensiones,
-            value: Webgoritmo.Interprete.inicializarArray(evalDimensiones, 'entero', ambitoActual)
+            value: Webgoritmo.Interprete.inicializarArray(evalDimensiones, baseTypeParaArray, ambitoActual)
         };
-         if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArr}' (tipo base Entero por defecto) dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
+        const tipoMsg = tipoEspecificadoStr ? `tipo base '${baseTypeParaArray}'` : "tipo base Entero por defecto";
+         if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArr}' (${tipoMsg}) dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
     }
     return true; // Indica que la instrucción fue manejada
 };
@@ -209,11 +229,11 @@ Webgoritmo.Interprete.handleDimension = async function(linea, ambitoActual, numL
 
 // --- MANEJADORES DE INSTRUCCIONES ---
 Webgoritmo.Interprete.handleDefinir = async function(linea, ambitoActual, numLineaOriginal) {
-    // Regex actualizada para capturar opcionalmente las dimensiones del arreglo
+    // Regex actualizada para capturar opcionalmente las dimensiones del arreglo y aceptar "Como" o "Es"
     // Grupo 1: Lista de nombres de variables
     // Grupo 2: Tipo base (Entero, Real, etc.)
     // Grupo 3 (opcional): Cadena de dimensiones (ej. "10, 5" o "N+1, M")
-    const coincidenciaDefinir = linea.match(/^Definir\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*)*)\s+Como\s+([a-zA-Z_][a-zA-Z0-9_]+)(?:\s*\[\s*(.+?)\s*\])?$/i);
+    const coincidenciaDefinir = linea.match(/^Definir\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*)*)\s+(?:Como|Es)\s+([a-zA-Z_][a-zA-Z0-9_]+)(?:\s*\[\s*(.+?)\s*\])?$/i);
 
     if (coincidenciaDefinir) {
         const nombresVariables = coincidenciaDefinir[1].split(',').map(s => s.trim());
@@ -272,55 +292,46 @@ Webgoritmo.Interprete.handleDefinir = async function(linea, ambitoActual, numLin
     }
     return false;
 };
-Webgoritmo.Interprete.handleAsignacion = function(linea, ambitoActual, numLineaOriginal) { /* ... (código como antes, adaptado para arreglos si es necesario) ... */
-    const coincidenciaAsignacion = linea.match(/^([a-zA-Z_][a-zA-Z0-9_]*(?:\[.+?\])?)\s*<-\s*(.*)/);
-    if (coincidenciaAsignacion) {
-        const destinoCompleto = coincidenciaAsignacion[1];
-        const expresion = coincidenciaAsignacion[2].trim();
-        let nombreVarAcceso = destinoCompleto;
-        let esAccesoArreglo = false;
-        let indicesExpr = [];
-        const coincidenciaAccesoArreglo = destinoCompleto.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+?)\s*\]$/);
-        if (coincidenciaAccesoArreglo) {
-            nombreVarAcceso = coincidenciaAccesoArreglo[1];
-            esAccesoArreglo = true;
-            indicesExpr = coincidenciaAccesoArreglo[2].split(',').map(e => e.trim());
-        }
-        if (!ambitoActual.hasOwnProperty(nombreVarAcceso)) {
-            throw new Error(`Variable '${nombreVarAcceso}' no ha sido definida (en línea ${numLineaOriginal}).`);
-        }
-        let valorEvaluado = Webgoritmo.Expresiones.evaluarExpresion(expresion, ambitoActual);
-        const varMeta = ambitoActual[nombreVarAcceso];
-        if (esAccesoArreglo) {
-            if (!varMeta || varMeta.type !== 'array') throw new Error(`'${nombreVarAcceso}' no es un arreglo.`);
-            if (!varMeta.dimensions || indicesExpr.length !== varMeta.dimensions.length) throw new Error(`Dimensiones incorrectas para '${nombreVarAcceso}'.`);
-            const indicesValue = [];
-            for(let k=0; k < indicesExpr.length; k++) {
-                let idxVal = Webgoritmo.Expresiones.evaluarExpresion(indicesExpr[k], ambitoActual);
-                if (typeof idxVal !== 'number' || !Number.isInteger(idxVal) || idxVal <= 0 || idxVal > varMeta.dimensions[k]) {
-                    throw new Error(`Índice inválido en dimensión ${k+1} para '${nombreVarAcceso}'.`);
-                }
-                indicesValue.push(idxVal);
-            }
-            let subArreglo = varMeta.value;
-            for (let k = 0; k < indicesValue.length - 1; k++) subArreglo = subArreglo[indicesValue[k]];
-            let tipoEsperado = varMeta.baseType;
-            if (tipoEsperado === 'desconocido') {
-                tipoEsperado = Webgoritmo.Interprete.inferirTipo(valorEvaluado).toLowerCase();
-                if (tipoEsperado === 'desconocido' && valorEvaluado !== null) throw new Error(`Tipo desconocido para inferir tipo base de '${nombreVarAcceso}'.`);
-                varMeta.baseType = tipoEsperado;
-            }
-            subArreglo[indicesValue[indicesValue.length - 1]] = Webgoritmo.Interprete.convertirValorParaAsignacion(valorEvaluado, tipoEsperado);
-        } else {
-            if (!varMeta) throw new Error(`Metadatos no encontrados para '${nombreVarAcceso}'.`);
-            varMeta.value = Webgoritmo.Interprete.convertirValorParaAsignacion(valorEvaluado, varMeta.type);
-        }
-        return true;
+
+Webgoritmo.Interprete.convertirElementosArrayAString = function(arrayValue, dimensions, currentDimIndex = 0) {
+    // arrayValue: el arreglo (o subarreglo) de JS actual.
+    // dimensions: el arreglo de tamaños máximos de PSeInt (ej. [5, 3] para A[5,3]).
+    // currentDimIndex: el índice de la dimensión actual que se está procesando.
+    if (!arrayValue) {
+        console.warn("convertirElementosArrayAString fue llamado con un arrayValue nulo/indefinido.");
+        return;
     }
-    return false;
+
+    const maxIndexThisDim = dimensions[currentDimIndex];
+
+    for (let i = 1; i <= maxIndexThisDim; i++) { // Iterar desde 1 hasta el tamaño de la dimensión
+        if (arrayValue[i] === undefined && currentDimIndex < dimensions.length -1 ) {
+             console.warn(`Sub-arreglo indefinido encontrado en dimensión ${currentDimIndex + 1}, índice ${i} durante conversión a string. Saltando.`);
+             continue;
+        }
+
+        if (currentDimIndex === dimensions.length - 1) { // Última dimensión (elementos de datos)
+            if (arrayValue[i] !== null && arrayValue[i] !== undefined) {
+                arrayValue[i] = String(arrayValue[i]);
+            } else {
+                arrayValue[i] = "";
+            }
+        } else { // No es la última dimensión, recursar
+            if (Array.isArray(arrayValue[i])) {
+                Webgoritmo.Interprete.convertirElementosArrayAString(arrayValue[i], dimensions, currentDimIndex + 1);
+            } else {
+                console.warn(`Elemento en dimensión ${currentDimIndex + 1}, índice ${i} no es un sub-arreglo durante conversión a string. Valor:`, arrayValue[i]);
+                if (arrayValue[i] !== null && arrayValue[i] !== undefined) {
+                     arrayValue[i] = String(arrayValue[i]);
+                } else {
+                     arrayValue[i] = "";
+                }
+            }
+        }
+    }
 };
 
-// Nueva implementación de handleAsignacion
+// Implementación ÚNICA Y CORRECTA de handleAsignacion
 Webgoritmo.Interprete.handleAsignacion = async function(linea, ambitoActual, numLineaOriginal) {
     // Regex para soportar '<-' y '=' como operadores de asignación.
     // No incluye '==' para evitar conflicto con el operador de comparación.
@@ -656,12 +667,30 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
     while (i < lineasBloqueParam.length) {
         if (Webgoritmo.estadoApp.detenerEjecucion) { console.log("Ejecución detenida en ejecutarBloque."); break; }
         const lineaOriginal = lineasBloqueParam[i];
-        const lineaTrimmed = lineaOriginal.trim();
+        let lineaTrimmed = lineaOriginal.trim(); // Use 'let' as it will be modified
         const numLineaGlobal = numLineaOriginalOffset + i + 1;
 
-        console.log(`MOTOR DEBUG: Procesando línea ${numLineaGlobal}: "${lineaTrimmed}"`);
+        // 1. Strip trailing '//' comments
+        const commentIndex = lineaTrimmed.indexOf('//');
+        if (commentIndex !== -1) {
+            lineaTrimmed = lineaTrimmed.substring(0, commentIndex).trim();
+        }
 
-        if (lineaTrimmed === '' || lineaTrimmed.startsWith('//')) { i++; continue; }
+        // 2. Handle full-line single-line block comments /* ... */ (simple case)
+        // Note: This does NOT handle multi-line block comments.
+        if (lineaTrimmed.startsWith('/*') && lineaTrimmed.endsWith('*/')) {
+            lineaTrimmed = ''; // Treat as empty line
+        }
+
+        console.log(`MOTOR DEBUG: Procesando línea ${numLineaGlobal} (post-comment strip): "${lineaTrimmed}"`);
+
+        // If line becomes empty after stripping comments, or was only a full-line '//' comment initially
+        if (lineaTrimmed === '') {
+            i++;
+            continue;
+        }
+        // The original check `lineaTrimmed.startsWith('//')` is now covered by the above logic making lineaTrimmed empty.
+
         let instruccionManejada = false;
         try {
             const lineaLower = lineaTrimmed.toLowerCase();
@@ -673,43 +702,49 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
             console.log(`MOTOR DEBUG: Match directo con /^escribir\\s+.+/: `, matchEscribirDirecto);
             // console.log(`MOTOR DEBUG: Match alternativo con /^(escribir|imprimir|mostrar)\\s/: `, matchEscribirAlternativo);
 
+            // Prioritized order of instruction handling:
+            // 1. Declarations
+            // 2. Control structures
+            // 3. I/O
+            // 4. Assignment (should be checked after specific keywords that might contain assignment-like symbols)
 
             if (lineaLower.startsWith('definir ')) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleDefinir(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (matchEscribirDirecto) { // Usar el resultado del match directo simplificado
-                 console.log("MOTOR DEBUG: DETECTADO 'escribir' por match directo.");
-                 instruccionManejada = await Webgoritmo.Interprete.handleEscribir(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.startsWith('leer ')) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleLeer(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.startsWith('si ') && lineaLower.includes(' entonces')) {
-                    const nuevoIndiceRelativoAlBloque = await Webgoritmo.Interprete.handleSi(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                    i = nuevoIndiceRelativoAlBloque;
-                    instruccionManejada = true;
-            } else if (lineaLower.startsWith('mientras ') && lineaLower.includes(' hacer')) {
-                const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handleMientras(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque;
-                instruccionManejada = true;
-                if (ejecutarSiguienteIteracion) {
-                    continue;
-                }
-            } else if (lineaTrimmed.includes('<-')) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.startsWith('para ') && lineaLower.includes(' hacer')) {
-                const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handlePara(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque;
-                instruccionManejada = true;
-            } else if (lineaLower.startsWith('repetir')) { // REPETIR ... HASTA QUE
-                const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handleRepetir(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque;
-                instruccionManejada = true;
-            } else if (lineaLower.startsWith('segun ') && lineaLower.includes(' hacer')) { // SEGUN ... HACER
-                const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handleSegun(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque;
-                instruccionManejada = true;
+                instruccionManejada = await Webgoritmo.Interprete.handleDefinir(lineaTrimmed, ambitoActual, numLineaGlobal);
             } else if (lineaLower.startsWith('dimension ') || lineaLower.startsWith('dimensionar ')) {
                 instruccionManejada = await Webgoritmo.Interprete.handleDimension(lineaTrimmed, ambitoActual, numLineaGlobal);
+            } else if (lineaLower.startsWith('si ') && lineaLower.includes(' entonces')) {
+                const nuevoIndiceRelativoAlBloque = await Webgoritmo.Interprete.handleSi(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                i = nuevoIndiceRelativoAlBloque; // handleSi returns the index of FinSi
+                instruccionManejada = true;
+            } else if (lineaLower.startsWith('mientras ') && lineaLower.includes(' hacer')) {
+                // Assuming handleMientras is updated to not need 'ejecutarSiguienteIteracion' for Leer
+                const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handleMientras(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                i = nuevoIndiceRelativoAlBloque; // handleMientras returns the index of FinMientras
+                instruccionManejada = true;
+            } else if (lineaLower.startsWith('para ') && lineaLower.includes(' hacer')) {
+                const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handlePara(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                i = nuevoIndiceRelativoAlBloque; // handlePara returns the index of FinPara
+                instruccionManejada = true;
+            } else if (lineaLower.startsWith('repetir')) {
+                const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handleRepetir(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                i = nuevoIndiceRelativoAlBloque; // handleRepetir returns the index of HastaQue
+                instruccionManejada = true;
+            } else if (lineaLower.startsWith('segun ') && lineaLower.includes(' hacer')) {
+                const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handleSegun(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                i = nuevoIndiceRelativoAlBloque; // handleSegun returns the index of FinSegun
+                instruccionManejada = true;
+            } else if (lineaLower.startsWith('leer ')) {
+                instruccionManejada = await Webgoritmo.Interprete.handleLeer(lineaTrimmed, ambitoActual, numLineaGlobal);
+            } else if (matchEscribirDirecto) { // Escribir, Imprimir, Mostrar
+                console.log("MOTOR DEBUG: DETECTADO 'escribir' por match directo.");
+                instruccionManejada = await Webgoritmo.Interprete.handleEscribir(lineaTrimmed, ambitoActual, numLineaGlobal);
+            } else if (lineaTrimmed.includes('<-') || (lineaTrimmed.includes('=') && !lineaTrimmed.match(/^(?:si|mientras|para|segun|caso|opcion)\s+/i) && !lineaTrimmed.match(/(?:<|>|!)=|=</i) && !lineaTrimmed.match(/=\s*>/)) ) {
+                // Check for '=' as assignment only if it's not part of comparison operators or keywords that use '='.
+                // This is a simplified check; a more robust parser would tokenize first.
+                // The check for keywords helps avoid treating 'Si a=b Entonces' as an assignment.
+                // The check for comparison operators avoids 'a == b', 'a <= b', 'a >= b'.
+                instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
             }
-
 
             if (!instruccionManejada && lineaTrimmed &&
                 !lineaLower.startsWith("finsi") &&
@@ -1239,46 +1274,75 @@ Webgoritmo.Interprete.ejecutarPseudocodigo = async function() {
     }
 
     Webgoritmo.estadoApp.lineasCodigo = Webgoritmo.Editor.editorCodigo.getValue().split('\n');
-    let lineasDelPrincipal = Webgoritmo.estadoApp.lineasCodigo;
-    let inicioBloquePrincipalLineaNum = 1;
-    let enBloquePrincipalDetectado = false;
+    let lineasDelPrincipal = [];
+    let inicioBloquePrincipalLineaNum = -1; // -1 indica no encontrado
+    let processingState = 'buscar_inicio'; // 'buscar_inicio', 'en_bloque', 'bloque_terminado'
+    Webgoritmo.estadoApp.errorEjecucion = null; // Limpiar errores previos de estructura
+    Webgoritmo.estadoApp.detenerEjecucion = false;
+
 
     for (let i = 0; i < Webgoritmo.estadoApp.lineasCodigo.length; i++) {
-        const linea = Webgoritmo.estadoApp.lineasCodigo[i].trim().toLowerCase();
-        if (linea.startsWith("proceso") || linea.startsWith("algoritmo")) {
-            if (enBloquePrincipalDetectado) { Webgoritmo.estadoApp.errorEjecucion = "Múltiples bloques Proceso/Algoritmo."; Webgoritmo.estadoApp.detenerEjecucion = true; break; }
-            enBloquePrincipalDetectado = true;
-            lineasDelPrincipal = []; // Empezar a recolectar desde aquí
-            inicioBloquePrincipalLineaNum = i + 1;
-            continue;
+        const lineaOriginal = Webgoritmo.estadoApp.lineasCodigo[i];
+        let lineaParaAnalisis = lineaOriginal.split('//')[0].trim(); // Quitar comentarios //
+        if (lineaParaAnalisis.startsWith('/*') && lineaParaAnalisis.endsWith('*/')) { // Quitar comentarios /* */ en una sola linea
+            lineaParaAnalisis = '';
         }
-        if (linea.startsWith("finproceso") || linea.startsWith("finalgoritmo")) {
-            if (!enBloquePrincipalDetectado) { Webgoritmo.estadoApp.errorEjecucion = "FinProceso/Algoritmo sin bloque."; Webgoritmo.estadoApp.detenerEjecucion = true; break; }
-            enBloquePrincipalDetectado = false; // Fin del bloque
-            break;
-        }
-        if (enBloquePrincipalDetectado) {
-            lineasDelPrincipal.push(Webgoritmo.estadoApp.lineasCodigo[i]);
+        const lineaLower = lineaParaAnalisis.toLowerCase();
+
+        if (processingState === 'buscar_inicio') {
+            if (lineaLower.startsWith("proceso") || lineaLower.startsWith("algoritmo")) {
+                inicioBloquePrincipalLineaNum = i + 1;
+                processingState = 'en_bloque';
+                 // Extraer nombre del algoritmo/proceso si se desea (no hecho actualmente)
+            } else if (lineaParaAnalisis !== "") {
+                Webgoritmo.estadoApp.errorEjecucion = `Error en línea ${i+1}: Se encontró código ('${lineaOriginal.trim()}') fuera de un bloque 'Algoritmo' o 'Proceso'. Todo código debe estar contenido en dicho bloque.`;
+                Webgoritmo.estadoApp.detenerEjecucion = true;
+                break;
+            }
+        } else if (processingState === 'en_bloque') {
+            if (lineaLower.startsWith("finproceso") || lineaLower.startsWith("finalgoritmo")) {
+                processingState = 'bloque_terminado';
+            } else if (lineaLower.startsWith("proceso") || lineaLower.startsWith("algoritmo")) {
+                Webgoritmo.estadoApp.errorEjecucion = `Error en línea ${i+1}: No se permiten bloques 'Algoritmo' o 'Proceso' anidados.`;
+                Webgoritmo.estadoApp.detenerEjecucion = true;
+                break;
+            } else {
+                lineasDelPrincipal.push(lineaOriginal); // Guardar la línea original para ejecutarla (con sus comentarios si los tuviera internamente)
+            }
+        } else if (processingState === 'bloque_terminado') {
+            if (lineaParaAnalisis !== "") {
+                Webgoritmo.estadoApp.errorEjecucion = `Error en línea ${i+1}: Se encontró código ('${lineaOriginal.trim()}') después de 'FinAlgoritmo' o 'FinProceso'.`;
+                Webgoritmo.estadoApp.detenerEjecucion = true;
+                break;
+            }
         }
     }
 
-    if (enBloquePrincipalDetectado && Webgoritmo.estadoApp.lineasCodigo.length > 0) { // Si terminó el for y seguía en bloque (no hubo FinProceso)
-        Webgoritmo.estadoApp.errorEjecucion = "Bloque Proceso/Algoritmo no cerrado."; Webgoritmo.estadoApp.detenerEjecucion = true;
+    if (!Webgoritmo.estadoApp.errorEjecucion) {
+        const tieneCodigoEfectivo = Webgoritmo.estadoApp.lineasCodigo.some(l => {
+            let temp = l.split('//')[0].trim();
+            if (temp.startsWith('/*') && temp.endsWith('*/')) temp = '';
+            return temp !== '';
+        });
+
+        if (processingState === 'buscar_inicio' && tieneCodigoEfectivo) {
+            Webgoritmo.estadoApp.errorEjecucion = "No se encontró un bloque 'Algoritmo' o 'Proceso' principal.";
+        } else if (processingState === 'en_bloque') {
+            Webgoritmo.estadoApp.errorEjecucion = `Bloque 'Algoritmo' o 'Proceso' iniciado en línea ${inicioBloquePrincipalLineaNum} no fue cerrado con 'FinAlgoritmo' o 'FinProceso'.`;
+        }
     }
 
-    if (Webgoritmo.estadoApp.errorEjecucion) { // Si hubo error de parseo de bloque principal
-         if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error');
-    } else if (lineasDelPrincipal.length === 0 && Webgoritmo.estadoApp.lineasCodigo.some(l => l.trim() !== '')) {
-        // Si no se usó Proceso/Algoritmo pero hay código, ejecutarlo todo (comportamiento anterior del MVP)
-        // O decidir lanzar error si Proceso/Algoritmo es obligatorio. Por ahora, mantenemos ejecución.
-        // Para ser más estrictos, esto debería ser un error:
-        // Webgoritmo.estadoApp.errorEjecucion = "No se encontró bloque Proceso/Algoritmo.";
-        // Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error');
-        // Webgoritmo.estadoApp.detenerEjecucion = true;
-        // Por ahora, ejecutamos todo si no hay bloque explícito:
-        await Webgoritmo.Interprete.ejecutarBloque(Webgoritmo.estadoApp.lineasCodigo, Webgoritmo.estadoApp.variables, 0);
-    } else if (lineasDelPrincipal.length > 0) {
-        await Webgoritmo.Interprete.ejecutarBloque(lineasDelPrincipal, Webgoritmo.estadoApp.variables, inicioBloquePrincipalLineaNum -1);
+    if (Webgoritmo.estadoApp.errorEjecucion) {
+        if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error');
+        Webgoritmo.estadoApp.detenerEjecucion = true; // Asegurar detención si hay error estructural
+    } else if (inicioBloquePrincipalLineaNum !== -1 && processingState === 'bloque_terminado') { // Solo ejecutar si se encontró un bloque y se cerró
+        if (lineasDelPrincipal.length > 0) {
+            await Webgoritmo.Interprete.ejecutarBloque(lineasDelPrincipal, Webgoritmo.estadoApp.variables, inicioBloquePrincipalLineaNum -1 );
+        } else if (Webgoritmo.UI.añadirSalida) { // Bloque principal encontrado y cerrado, pero vacío
+             Webgoritmo.UI.añadirSalida("Advertencia: El bloque Algoritmo/Proceso está vacío.", "warning");
+        }
+    } else if (inicioBloquePrincipalLineaNum === -1 && !Webgoritmo.estadoApp.lineasCodigo.some(l => l.trim() !== '')) {
+        // No hay código en absoluto, no es un error, simplemente no hacer nada.
     }
 
 
