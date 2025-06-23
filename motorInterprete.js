@@ -368,13 +368,19 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
             } else if (lineaTrimmed.includes('<-')) {
                  instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
             } else if (lineaLower.startsWith('para ') && lineaLower.includes(' hacer')) {
-                const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handlePara(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handlePara(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
                 i = nuevoIndiceRelativoAlBloque;
                 instruccionManejada = true;
-                if (ejecutarSiguienteIteracion) {
-                    continue;
-                }
+            } else if (lineaLower.startsWith('repetir')) { // REPETIR ... HASTA QUE
+                const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handleRepetir(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                i = nuevoIndiceRelativoAlBloque;
+                instruccionManejada = true;
+            } else if (lineaLower.startsWith('segun ') && lineaLower.includes(' hacer')) { // SEGUN ... HACER
+                const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handleSegun(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                i = nuevoIndiceRelativoAlBloque;
+                instruccionManejada = true;
             }
+
 
             if (!instruccionManejada && lineaTrimmed &&
                 !lineaLower.startsWith("finsi") &&
@@ -496,6 +502,88 @@ Webgoritmo.Interprete.handleMientras = async function(lineaActual, ambitoActual,
     }
 
     return { nuevoIndiceRelativoAlBloque: indiceDespuesFinMientras -1 , ejecutarSiguienteIteracion: ejecutarSiguienteIteracionDelBloquePrincipal };
+};
+
+Webgoritmo.Interprete.handleRepetir = async function(lineaActual, ambitoActual, numLineaOriginalRepetir, lineasBloqueCompleto, indiceRepetirEnBloque) {
+    if (!Webgoritmo.estadoApp || !Webgoritmo.Expresiones || !Webgoritmo.Interprete) {
+        throw new Error("Error interno: Módulos no disponibles para 'Repetir'.");
+    }
+
+    // lineaActual es "Repetir". El cuerpo comienza en la siguiente línea.
+    let cuerpoRepetir = [];
+    let condicionHastaQueStr = null;
+    let numLineaOriginalHastaQue = -1;
+    let finBloqueEncontrado = false;
+    let anidamientoRepetir = 0; // Para manejar 'Repetir' anidados correctamente
+    let i = indiceRepetirEnBloque + 1;
+
+    for (; i < lineasBloqueCompleto.length; i++) {
+        const lineaIter = lineasBloqueCompleto[i]; // Mantener espacios iniciales para reconstruir si es necesario
+        const lineaIterTrimmedLower = lineaIter.trim().toLowerCase();
+
+        if (lineaIterTrimmedLower.startsWith("repetir")) {
+            anidamientoRepetir++;
+            cuerpoRepetir.push(lineaIter);
+        } else {
+            const hastaQueMatch = lineaIter.trim().match(/^Hasta Que\s+(.+)/i);
+            if (hastaQueMatch) {
+                if (anidamientoRepetir === 0) {
+                    condicionHastaQueStr = hastaQueMatch[1].trim();
+                    // Calcular numLineaOriginalHastaQue:
+                    // numLineaOriginalRepetir es la línea del 'Repetir'.
+                    // indiceRepetirEnBloque es el índice de 'Repetir' en lineasBloqueCompleto.
+                    // i es el índice actual de 'Hasta Que' en lineasBloqueCompleto.
+                    // La diferencia de índices (i - indiceRepetirEnBloque) es el número de líneas *entre* Repetir y Hasta Que, MÁS UNO.
+                    // O más simple: numLineaOriginalRepetir + (i - indiceRepetirEnBloque).
+                    numLineaOriginalHastaQue = numLineaOriginalRepetir + (i - indiceRepetirEnBloque);
+                    finBloqueEncontrado = true;
+                    break;
+                } else {
+                    anidamientoRepetir--;
+                    cuerpoRepetir.push(lineaIter);
+                }
+            } else {
+                cuerpoRepetir.push(lineaIter);
+            }
+        }
+    }
+
+    if (!finBloqueEncontrado) {
+        throw new Error(`Se esperaba 'Hasta Que <condicion>' para cerrar el bucle 'Repetir' iniciado en la línea ${numLineaOriginalRepetir}.`);
+    }
+    if (!condicionHastaQueStr) {
+        throw new Error(`La cláusula 'Hasta Que' en la línea ${numLineaOriginalHastaQue} debe tener una condición.`);
+    }
+
+    const indiceDespuesHastaQue = i + 1; // Índice de la línea después del 'Hasta Que'
+
+    let condicionVal;
+    do {
+        if (Webgoritmo.estadoApp.detenerEjecucion) break;
+
+        // El offset para las líneas dentro del Repetir es numLineaOriginalRepetir.
+        // La primera línea del cuerpo (índice 0) se reportará como numLineaOriginalRepetir + 0 + 1.
+        await Webgoritmo.Interprete.ejecutarBloque(cuerpoRepetir, ambitoActual, numLineaOriginalRepetir);
+
+        if (Webgoritmo.estadoApp.detenerEjecucion) break;
+
+        // Si ejecutarBloque pausó por 'Leer', esta función también habrá pausado.
+        // Al reanudar, se evalúa la condición.
+
+        try {
+            condicionVal = Webgoritmo.Expresiones.evaluarExpresion(condicionHastaQueStr, ambitoActual);
+        } catch (e) {
+            throw new Error(`Evaluando condición 'Hasta Que' ("${condicionHastaQueStr}") en línea ${numLineaOriginalHastaQue}: ${e.message}`);
+        }
+        if (typeof condicionVal !== 'boolean') {
+            throw new Error(`Condición 'Hasta Que' ("${condicionHastaQueStr}") en línea ${numLineaOriginalHastaQue} debe ser lógica, se obtuvo: ${condicionVal}.`);
+        }
+
+    } while (!condicionVal && !Webgoritmo.estadoApp.detenerEjecucion); // El bucle continúa si la condición es FALSA
+
+    // Devolver el índice de la línea 'Hasta Que'.
+    // El bucle en ejecutarBloque que llamó a handleRepetir incrementará este índice para pasar a la siguiente.
+    return { nuevoIndiceRelativoAlBloque: i }; // 'i' es el índice de la línea 'Hasta Que'
 };
 
 
@@ -653,42 +741,159 @@ Webgoritmo.Interprete.handlePara = async function(lineaActual, ambitoActual, num
         throw new Error(`Se esperaba 'FinPara' para cerrar el bucle 'Para' iniciado en la línea ${numLineaOriginalPara}.`);
     }
 
-    const indiceDespuesFinPara = i + 1;
-    let ejecutarSiguienteIteracionDelBloquePrincipal = false;
+    const indiceDespuesFinPara = i + 1; // Index in lineasBloqueCompleto right after FinPara
 
-    // Asignación inicial ya hecha arriba al definir/actualizar variableControl.
-    // variableControl.value = valorInicial; // No es necesario reasignar aquí.
+    // Asignación inicial del valor de la variable de control ya está hecha
+    // cuando se define o actualiza variableControl antes de este punto.
 
     while ((paso > 0 && variableControl.value <= valorFinal) || (paso < 0 && variableControl.value >= valorFinal)) {
         if (Webgoritmo.estadoApp.detenerEjecucion) break;
 
-        const offsetLineasCuerpo = numLineaOriginalPara - indiceParaEnBloque -1 + indiceParaEnBloque +1;
-        await Webgoritmo.Interprete.ejecutarBloque(cuerpoPara, ambitoActual, offsetLineasCuerpo);
+        // El offset para las líneas dentro del Para es numLineaOriginalPara.
+        // Así, la primera línea del cuerpo (índice 0) se reportará como numLineaOriginalPara + 0 + 1.
+        await Webgoritmo.Interprete.ejecutarBloque(cuerpoPara, ambitoActual, numLineaOriginalPara);
 
-        if (Webgoritmo.estadoApp.detenerEjecucion) break;
+        if (Webgoritmo.estadoApp.detenerEjecucion) break; // Salir del bucle si se solicitó detener.
 
-        if (Webgoritmo.estadoApp.esperandoEntrada) {
-            console.log("handlePara: Pausando debido a 'Leer' dentro del bucle.");
-            Webgoritmo.estadoApp.estadoBuclePendiente = {
-                tipo: 'Para',
-                lineaOriginalPara,
-                variableControlNombre, // Nombre de la variable
-                // valorInicial, // No es necesario, ya que el valor actual está en la variable
-                valorFinal,
-                paso,
-                cuerpoPara,
-                ambitoActual, // El ámbito donde está la variable de control
-                indiceDespuesFinPara,
-                offsetLineasCuerpo
-            };
-            ejecutarSiguienteIteracionDelBloquePrincipal = true;
-            return { nuevoIndiceRelativoAlBloque: indiceParaEnBloque, ejecutarSiguienteIteracion: true };
-        }
+        // Si ejecutarBloque pausó por un 'Leer', la ejecución de esta función 'handlePara'
+        // también habrá pausado en el 'await' anterior. Cuando se reanude,
+        // la variable de control se incrementará y el bucle continuará si es necesario.
+        // No se necesita una lógica especial de 'estadoBuclePendiente' aquí dentro.
 
         variableControl.value += paso;
     }
 
-    return { nuevoIndiceRelativoAlBloque: indiceDespuesFinPara - 1, ejecutarSiguienteIteracion: ejecutarSiguienteIteracionDelBloquePrincipal };
+    // Devolver el índice de la línea FinPara en el contexto de lineasBloqueCompleto.
+    // El bucle en ejecutarBloque que llamó a handlePara incrementará este índice.
+    return { nuevoIndiceRelativoAlBloque: indiceDespuesFinPara - 1 };
+};
+
+Webgoritmo.Interprete.handleSegun = async function(lineaActual, ambitoActual, numLineaOriginalSegun, lineasBloqueCompleto, indiceSegunEnBloque) {
+    if (!Webgoritmo.estadoApp || !Webgoritmo.Expresiones || !Webgoritmo.Interprete) {
+        throw new Error("Error interno: Módulos no disponibles para 'Segun'.");
+    }
+
+    const segunMatch = lineaActual.match(/^Segun\s+(.+?)\s+Hacer$/i);
+    if (!segunMatch) {
+        throw new Error(`Sintaxis 'Segun' incorrecta en línea ${numLineaOriginalSegun}. Se esperaba 'Segun <expresion> Hacer'.`);
+    }
+    const expresionAEvaluarStr = segunMatch[1].trim();
+    let valorSegun;
+    try {
+        valorSegun = Webgoritmo.Expresiones.evaluarExpresion(expresionAEvaluarStr, ambitoActual);
+    } catch (e) {
+        throw new Error(`Error evaluando expresión de 'Segun' ("${expresionAEvaluarStr}") en línea ${numLineaOriginalSegun}: ${e.message}`);
+    }
+
+    let casos = [];
+    let deOtroModo = { cuerpo: [], lineaOriginal: -1, encontrado: false };
+    let bufferBloqueActual = null; // Temporalmente null, se asignará al cuerpo de un caso o deOtroModo
+    let anidamientoSegun = 0;
+    let i = indiceSegunEnBloque + 1;
+    let numLineaGlobalActualBase = numLineaOriginalSegun - (indiceSegunEnBloque + 1);
+
+    for (; i < lineasBloqueCompleto.length; i++) {
+        const lineaIter = lineasBloqueCompleto[i];
+        const lineaIterTrimmed = lineaIter.trim();
+        const lineaIterTrimmedLower = lineaIterTrimmed.toLowerCase();
+        const numLineaGlobalIter = numLineaGlobalActualBase + i + 1;
+
+        if (lineaIterTrimmedLower.startsWith("segun ") && lineaIterTrimmedLower.includes(" hacer")) {
+            anidamientoSegun++;
+            if (bufferBloqueActual) bufferBloqueActual.push(lineaIter); else throw new Error(`'Segun' anidado inesperado en línea ${numLineaGlobalIter} fuera de un bloque Caso/Opcion válido.`);
+            continue;
+        }
+        if (lineaIterTrimmedLower === "finsegun") {
+            if (anidamientoSegun === 0) {
+                bufferBloqueActual = null; // Termina el bloque actual
+                break; // Fin del Segun actual
+            } else {
+                anidamientoSegun--;
+                if (bufferBloqueActual) bufferBloqueActual.push(lineaIter); else throw new Error(`'FinSegun' anidado inesperado en línea ${numLineaGlobalIter}.`);
+                continue;
+            }
+        }
+
+        if (anidamientoSegun > 0) { // Si estamos dentro de un Segun anidado, solo añadir al buffer actual.
+            if (bufferBloqueActual) bufferBloqueActual.push(lineaIter);
+            else throw new Error(`Línea ${numLineaGlobalIter} ('${lineaIterTrimmed}') encontrada dentro de un 'Segun' anidado pero fuera de un bloque 'Caso'/'Opcion'.`);
+            continue;
+        }
+
+        // Parseo de Caso/Opcion y De Otro Modo
+        const casoMatch = lineaIterTrimmed.match(/^(?:Caso|Opcion)\s+(.+?)\s*:/i);
+        if (casoMatch) {
+            bufferBloqueActual = []; // Iniciar nuevo cuerpo para este caso
+            const valoresCasoStr = casoMatch[1];
+            let valoresCaso = [];
+
+            // Parsear los valores del caso (pueden ser literales numéricos, strings, o variables/constantes)
+            // Esta es una forma simple de split por comas, no maneja comas dentro de strings.
+            // Para un manejo robusto de comas en strings, se necesitaría un parser más avanzado.
+            const partesValores = valoresCasoStr.split(',').map(v => v.trim());
+            for (const parte of partesValores) {
+                if (parte.match(/^".*"$/) || parte.match(/^'.*'$/)) { // String literal
+                    valoresCaso.push(parte.substring(1, parte.length - 1));
+                } else if (!isNaN(parseFloat(parte)) && isFinite(parte)) { // Number literal
+                    valoresCaso.push(parseFloat(parte));
+                } else { // Podría ser una constante o variable, evaluarla
+                    try {
+                        valoresCaso.push(Webgoritmo.Expresiones.evaluarExpresion(parte, ambitoActual));
+                    } catch (e) {
+                        throw new Error(`Error evaluando valor de Caso/Opcion '${parte}' en línea ${numLineaGlobalIter}: ${e.message}`);
+                    }
+                }
+            }
+            casos.push({ valores: valoresCaso, cuerpo: bufferBloqueActual, lineaOriginal: numLineaGlobalIter });
+        } else if (lineaIterTrimmedLower === "de otro modo:") {
+            if (deOtroModo.encontrado) throw new Error(`Múltiples bloques 'De Otro Modo' encontrados. El primero en línea ${deOtroModo.lineaOriginal}.`);
+            deOtroModo.encontrado = true;
+            deOtroModo.lineaOriginal = numLineaGlobalIter;
+            bufferBloqueActual = deOtroModo.cuerpo;
+        } else { // Línea dentro del cuerpo de un caso o deOtroModo
+            if (bufferBloqueActual) {
+                bufferBloqueActual.push(lineaIter);
+            } else if (lineaIterTrimmed !== "") {
+                // Ignorar líneas vacías entre casos, pero alertar por otras.
+                // Opcionalmente, lanzar error si hay código entre casos no dentro de un bloque.
+                console.warn(`[ADVERTENCIA en línea ${numLineaGlobalIter}]: Línea '${lineaIterTrimmed}' ignorada, no pertenece a ningún bloque Caso/Opcion o De Otro Modo.`);
+            }
+        }
+    }
+
+    if (i >= lineasBloqueCompleto.length && !(lineasBloqueCompleto[i-1] && lineasBloqueCompleto[i-1].trim().toLowerCase() === "finsegun") ) {
+        throw new Error(`Se esperaba 'FinSegun' para cerrar el bloque 'Segun' iniciado en la línea ${numLineaOriginalSegun}.`);
+    }
+
+    // --- Lógica de Ejecución ---
+    let casoEjecutado = false;
+    for (const caso of casos) {
+        if (Webgoritmo.estadoApp.detenerEjecucion) break;
+        let coincidenciaEncontrada = false;
+        for (const valorCaso of caso.valores) {
+            // Comparación: PSeInt es generalmente flexible con tipos en Segun.
+            // Ej: Segun num Hacer 1: Escribir "Uno"; "2": Escribir "Dos" (si num es 2 o "2")
+            // JS '==' hace coerción de tipo, lo cual puede ser similar.
+            // Si se necesita comparación estricta, habría que ser más cuidadoso.
+            if (valorSegun == valorCaso) { // Usar '==' para permitir coerción (ej. 2 == "2")
+                coincidenciaEncontrada = true;
+                break;
+            }
+        }
+
+        if (coincidenciaEncontrada) {
+            await Webgoritmo.Interprete.ejecutarBloque(caso.cuerpo, ambitoActual, caso.lineaOriginal);
+            casoEjecutado = true;
+            break; // Salir del bucle de casos, solo se ejecuta uno
+        }
+    }
+
+    if (!casoEjecutado && deOtroModo.encontrado && !Webgoritmo.estadoApp.detenerEjecucion) {
+        await Webgoritmo.Interprete.ejecutarBloque(deOtroModo.cuerpo, ambitoActual, deOtroModo.lineaOriginal);
+    }
+
+    // 'i' es el índice de FinSegun (o la línea después si FinSegun fue la última)
+    return { nuevoIndiceRelativoAlBloque: i };
 };
 
 
