@@ -34,12 +34,22 @@ Webgoritmo.Interprete.convertirValorParaAsignacion = function(valor, tipoDestino
         switch (tipoDestinoLower) {
             case 'entero':
                 const intVal = parseInt(valor);
-                if (isNaN(intVal) || String(intVal) !== valor.trim()) throw new Error(`La cadena '${valor}' no es un entero válido.`);
+                // Check ensures the entire string was a valid integer representation
+                if (isNaN(intVal) || String(intVal) !== valor.trim()) {
+                    throw new Error(`La cadena '${valor}' no es un entero válido.`);
+                }
                 return intVal;
             case 'real':
-                const floatVal = parseFloat(valor);
-                if (isNaN(floatVal)) throw new Error(`La cadena '${valor}' no es un número real válido.`);
-                return floatVal;
+                // Stricter check for real numbers: the entire string must represent a valid finite number.
+                const valTrimmed = valor.trim();
+                if (valTrimmed === "") { // Empty string is not a valid number
+                    throw new Error(`La cadena '${valor}' (vacía) no es un número real válido.`);
+                }
+                const numRepresentation = Number(valTrimmed);
+                if (!isFinite(numRepresentation)) { // Catches NaN, Infinity, -Infinity from non-numeric strings or actual "Infinity" text
+                    throw new Error(`La cadena '${valTrimmed}' no es un número real válido.`);
+                }
+                return numRepresentation; // Use Number() for conversion as it's generally more robust for full string validation
             case 'logico':
                 const lowerVal = valor.toLowerCase();
                 if (lowerVal === 'verdadero') return true;
@@ -197,23 +207,38 @@ Webgoritmo.Interprete.handleSi = async function(lineaActual, ambitoActual, numLi
         const lineaIter = lineasBloque[i].trim(), lineaIterLower = lineaIter.toLowerCase();
         const numLineaGlobalIter = numLineaGlobalActualBase + i + 1;
 
-
         if (lineaIterLower.startsWith("si ") && lineaIterLower.includes(" entonces")) {
-            siAnidados++; bufferBloqueActual.push(lineasBloque[i]);
+            siAnidados++;
+            // Si bufferBloqueActual es null (inicio del Si o después de un SinoSi/Sino sin cuerpo aún)
+            // esto es un error o un Si anidado que debería estar en el buffer de su padre.
+            // Sin embargo, bufferBloqueActual es inicializado a bloqueEntonces.
+            bufferBloqueActual.push(lineasBloque[i]);
         } else if (lineaIterLower === "finsi") {
-            if (siAnidados > 0) { siAnidados--; bufferBloqueActual.push(lineasBloque[i]); }
-            else { i++; break; } // Fin del bloque Si-SinoSi-Sino actual
-        } else if (siAnidados === 0) { // Solo procesar SinoSi, Sino si no estamos dentro de un Si anidado
-            const sinoSiMatch = lineaIter.match(/^SinoSi\s+(.+?)\s+Entonces$/i);
-            if (sinoSiMatch) {
-                const nuevoBloqueSinoSi = { condicionStr: sinoSiMatch[1], cuerpo: [], lineaOriginal: numLineaGlobalIter };
-                bloquesSinoSi.push(nuevoBloqueSinoSi);
-                bufferBloqueActual = nuevoBloqueSinoSi.cuerpo;
-            } else if (lineaIterLower === "sino") {
-                bloqueSino.lineaOriginal = numLineaGlobalIter; // Guardar la línea original del Sino
+            if (siAnidados > 0) {
+                siAnidados--;
+                bufferBloqueActual.push(lineasBloque[i]);
+            } else {
+                i++; // Avanzar más allá del FinSi para el valor de retorno
+                break; // Fin del bloque Si-Sino-Si actual
+            }
+        } else if (siAnidados === 0) { // Solo procesar Sino si no estamos dentro de un Si anidado
+            // Ya no se busca "SinoSi" como una sola palabra/construcción especial.
+            // Un "Sino" seguido de un "Si" será un bloque Sino que contiene un Si anidado.
+            if (lineaIterLower === "sino") {
+                // Verificar que no estemos ya en un bloque Sino o SinoSi
+                if (bufferBloqueActual === bloqueSino.cuerpo) {
+                    throw new Error(`Múltiples 'Sino' consecutivos o mal ubicados cerca de la línea ${numLineaGlobalIter}.`);
+                }
+                // Si antes estábamos en bloqueEntonces o un bloqueSinoSi, ahora cambiamos a bloqueSino.
+                // No hay más bloquesSinoSi explícitos, así que bloqueSino es el único colector para "else".
+                bloqueSino.lineaOriginal = numLineaGlobalIter;
                 bufferBloqueActual = bloqueSino.cuerpo;
-            } else { bufferBloqueActual.push(lineasBloque[i]); }
-        } else { // Estamos dentro de un Si anidado, simplemente añadir la línea al buffer actual
+            } else {
+                // Cualquier otra línea que no sea un Si anidado, FinSi, o Sino, se añade al buffer actual
+                // (que podría ser bloqueEntonces o bloqueSino.cuerpo).
+                bufferBloqueActual.push(lineasBloque[i]);
+            }
+        } else { // Estamos dentro de un Si anidado (siAnidados > 0)
             bufferBloqueActual.push(lineasBloque[i]);
         }
         i++;
