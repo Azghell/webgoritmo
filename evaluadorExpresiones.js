@@ -88,6 +88,7 @@ Webgoritmo.Expresiones.__pseudoSubcadena = __pseudoSubcadena;
 // --- Fin Funciones Helper ---
 
 Webgoritmo.Expresiones.evaluarExpresion = function(expr, scope) {
+    console.log(`DEBUG evalExpr INICIO: expr cruda = "${expr}"`, "Tipo de expr:", typeof expr); // Log mejorado
     let processedExpr = String(expr).trim();
     const originalExpr = processedExpr;
 
