@@ -301,70 +301,12 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
                     const nuevoIndiceRelativoAlBloque = await Webgoritmo.Interprete.handleSi(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
                     i = nuevoIndiceRelativoAlBloque;
                     instruccionManejada = true;
-                } else if (lineaLower.startsWith('mientras ') && lineaLower.includes(' hacer')) {
-                    const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handleMientras(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                    i = nuevoIndiceRelativoAlBloque;
-                    instruccionManejada = true;
-                    if (ejecutarSiguienteIteracion) {
-                        continue;
-                    }
-                } else if (lineaTrimmed.includes('<-')) {
-                    instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
-                } else if (lineaLower.startsWith('para ') && lineaLower.includes(' hacer')) {
-                    const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handlePara(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                    i = nuevoIndiceRelativoAlBloque;
-                    instruccionManejada = true;
-                    if (ejecutarSiguienteIteracion) {
-                        continue;
-                    }
-                }
-            }
-
-            if (!instruccionManejada && lineaTrimmed &&
-                !lineaLower.startsWith("finsi") &&
-                !lineaLower.startsWith("sino") &&
-                !lineaLower.startsWith("sinosi") &&
-                !lineaLower.startsWith("finmientras") &&
-                !lineaLower.startsWith("finpara")) {
-                 // Las palabras clave de cierre de bloque son manejadas por sus respectivos handlers (Si, Mientras, Para)
-                 // y no deben ser tratadas como instrucciones no reconocidas aquí.
-                throw new Error(`Instrucción no reconocida o mal ubicada: '${lineaTrimmed}'`);
-            }
-        } catch (e) {
-            Webgoritmo.estadoApp.errorEjecucion = `Error en línea ${numLineaGlobal}: ${e.message}`;
-            Webgoritmo.estadoApp.detenerEjecucion = true;
-            if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error');
-            else console.error(Webgoritmo.estadoApp.errorEjecucion);
-            break;
-        }
-
-        i++; // Incrementar i para la siguiente línea del bloque
-
-        if (Webgoritmo.estadoApp.esperandoEntrada && !Webgoritmo.estadoApp.detenerEjecucion) {
-            console.log("ejecutarBloque: Pausando por 'Leer'.");
-            // No rompemos el bucle 'while' aquí directamente.
-            // Si 'Leer' está dentro de 'Mientras', 'handleMientras' devolverá 'ejecutarSiguienteIteracion = true'
-            // y el 'continue' de arriba se activará.
-            // Si 'Leer' está fuera de 'Mientras', la ejecución se pausará y se reanudará desde este punto.
-            // La promesa en handleLeer detendrá el flujo hasta que se resuelva.
-            await Webgoritmo.estadoApp.promesaEntradaPendiente; // Espera aquí si la promesa se creó
-            Webgoritmo.estadoApp.promesaEntradaPendiente = null; // Limpia la promesa
-            if(Webgoritmo.estadoApp.detenerEjecucion) break; // Si la entrada causó una detención
-        }
-    }
-};
-
-Webgoritmo.Interprete.handleMientras = async function(lineaActual, ambitoActual, numLineaOriginalMientras, lineasBloqueCompleto, indiceMientrasEnBloque) {
-            } else if (lineaLower.startsWith('si ') && lineaLower.includes(' entonces')) {
-                const nuevoIndiceRelativoAlBloque = await Webgoritmo.Interprete.handleSi(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque; // El índice 'i' se actualiza directamente aquí.
-                instruccionManejada = true;
             } else if (lineaLower.startsWith('mientras ') && lineaLower.includes(' hacer')) {
                 const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handleMientras(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque; // Actualiza i para saltar el bloque Mientras o continuar después de él.
+                i = nuevoIndiceRelativoAlBloque;
                 instruccionManejada = true;
-                if (ejecutarSiguienteIteracion) { // Si un 'Leer' dentro del Mientras pausó, no incrementamos 'i' aquí.
-                    continue; // El bucle While principal de ejecutarBloque se encargará.
+                if (ejecutarSiguienteIteracion) {
+                    continue;
                 }
             } else if (lineaTrimmed.includes('<-')) {
                  instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
