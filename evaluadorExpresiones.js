@@ -95,43 +95,64 @@ Webgoritmo.Expresiones.evaluarExpresion = function(expr, scope) {
     console.log(`ULTRA DEBUG evalExpr: originalExpr (después de trim) = "${originalExpr}"`);
 
     // 1. MANEJO DE ACCESO DIRECTO A ARREGLOS (MULTIDIMENSIONAL)
+    // 1. MANEJO DE ACCESO DIRECTO A ARREGLOS (MULTIDIMENSIONAL)
+    // Este bloque maneja el caso donde la expresión COMPLETA es un acceso a arreglo, ej. "miVec[3]" o "miMat[i,j+1]"
     const directArrayAccessMatch = processedExpr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+?)\s*\]$/);
     if (directArrayAccessMatch) {
         const arrName = directArrayAccessMatch[1];
-        const indexPart = directArrayAccessMatch[2].trim();
+        const indicesStr = directArrayAccessMatch[2].trim();
 
         if (scope.hasOwnProperty(arrName) && scope[arrName] && scope[arrName].type === 'array') {
             const arrayData = scope[arrName];
-            const indicesExpr = indexPart.split(',').map(e => e.trim());
-            const indicesValue = [];
+            const indiceExprs = indicesStr.split(',').map(e => e.trim()); // Simple split, PSeInt indices usually simple.
 
-            if (!arrayData.dimensions || indicesExpr.length !== arrayData.dimensions.length) {
-                throw new Error(`Número incorrecto de dimensiones para acceder al arreglo '${arrName}'. Se esperaban ${arrayData.dimensions ? arrayData.dimensions.length : '1 (o desconocido)'}, se dieron ${indicesExpr.length}.`);
+            if (indiceExprs.some(s => s === "")) {
+                throw new Error(`Expresión de índice vacía para el arreglo '${arrName}' al leer su valor.`);
+            }
+            if (indiceExprs.length !== arrayData.dimensions.length) {
+                throw new Error(`Número incorrecto de dimensiones para acceder al arreglo '${arrName}'. Se esperaban ${arrayData.dimensions.length}, se proporcionaron ${indiceExprs.length}.`);
             }
 
-            for (let k = 0; k < indicesExpr.length; k++) {
+            const evalIndices = [];
+            for (let k = 0; k < indiceExprs.length; k++) {
                 let idxVal;
                 try {
-                    idxVal = Webgoritmo.Expresiones.evaluarExpresion(indicesExpr[k], scope);
-                } catch (e) { throw new Error(`Error evaluando índice ${k+1} ("${indicesExpr[k]}") para arreglo '${arrName}': ${e.message}`); }
-                if (typeof idxVal !== 'number' || !Number.isInteger(idxVal)) { throw new Error(`Índice ${k+1} para arreglo '${arrName}' debe ser entero. Se obtuvo: "${idxVal}" de "${indicesExpr[k]}".`); }
-                if (idxVal <= 0 || idxVal > arrayData.dimensions[k]) { throw new Error(`Índice ${idxVal} en dimensión ${k+1} fuera de límites para arreglo '${arrName}' (válido: 1 a ${arrayData.dimensions[k]}).`); }
-                indicesValue.push(idxVal);
+                    // Evaluar cada expresión de índice recursivamente
+                    idxVal = Webgoritmo.Expresiones.evaluarExpresion(indiceExprs[k], scope);
+                } catch (e) {
+                    throw new Error(`Error evaluando índice '${indiceExprs[k]}' (dimensión ${k+1}) para arreglo '${arrName}': ${e.message}`);
+                }
+
+                if (typeof idxVal !== 'number' || (!Number.isInteger(idxVal) && Math.floor(idxVal) !== idxVal)) {
+                    throw new Error(`Índice para la dimensión ${k+1} del arreglo '${arrName}' debe ser un entero. Se obtuvo '${indiceExprs[k]}' (valor: ${idxVal}).`);
+                }
+                idxVal = Math.trunc(idxVal); // Asegurar que sea entero
+
+                if (idxVal <= 0 || idxVal > arrayData.dimensions[k]) {
+                    throw new Error(`Índice [${idxVal}] fuera de los límites para la dimensión ${k+1} del arreglo '${arrName}' (válido: 1 a ${arrayData.dimensions[k]}).`);
+                }
+                evalIndices.push(idxVal);
             }
+
             let valorActual = arrayData.value;
-            for (const indice of indicesValue) {
-                if (valorActual && valorActual[indice] !== undefined) { valorActual = valorActual[indice]; }
-                else { throw new Error(`Error accediendo al elemento del arreglo '${arrName}' con índices [${indicesValue.join(', ')}]. Estructura interna o índice podrían ser inválidos.`); }
+            for (const indice of evalIndices) {
+                if (valorActual && valorActual[indice] !== undefined) { // Usar 1-based index
+                    valorActual = valorActual[indice];
+                } else {
+                    // Esto podría ocurrir si el arreglo no está completamente inicializado o índice es incorrecto a pesar de las validaciones
+                    // (lo cual no debería pasar si las validaciones son correctas).
+                    console.error("Error Interno: Elemento de arreglo no encontrado durante lectura.", arrName, evalIndices, arrayData);
+                    throw new Error(`Error accediendo al elemento del arreglo '${arrName}' con índices [${evalIndices.join(', ')}]. El elemento podría no existir o ser inaccesible.`);
+                }
             }
-            return valorActual;
-        } else if (scope.hasOwnProperty(arrName) && scope[arrName] && scope[arrName].type !== 'array') {
-             throw new Error(`Variable "${arrName}" no es un arreglo y no puede ser accedida con índice.`);
+            return valorActual; // Devuelve el valor del elemento del arreglo
+        } else if (scope.hasOwnProperty(arrName) && (!scope[arrName] || scope[arrName].type !== 'array')) {
+             throw new Error(`Variable "${arrName}" no es un arreglo y no puede ser accedida con índices.`);
         }
-        // Si no es un arreglo conocido, o el nombre no está en el scope,
-        // se deja que el resto de la lógica lo maneje (podría ser una función, etc.)
+        // Si arrName no está en scope, la lógica de reemplazo de variables más adelante lo manejará o fallará.
     }
 
-    // 2. MANEJO DE LITERALES
+    // 2. MANEJO DE LITERALES (después del acceso a arreglo, ya que un arreglo podría llamarse "verdadero" etc.)
     if (processedExpr.toLowerCase() === 'verdadero') return true;
     if (processedExpr.toLowerCase() === 'falso') return false;
 
