@@ -89,8 +89,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("app.js: Estado restablecido.");
     };
 
-    // EVENT LISTENERS
-
     // Funciones Helper para controlar la UI de Input de Consola (definidas dentro de DOMContentLoaded)
     function appMostrarAreaInputConsola(promptMsg) {
         if (Webgoritmo.DOM.consoleInputArea && Webgoritmo.DOM.entradaConsola && Webgoritmo.DOM.btnEnviarEntrada) {
@@ -131,10 +129,23 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     // Fin Funciones Helper
 
+    // EVENT LISTENERS
     if (Webgoritmo.DOM.btnEjecutar) {
         Webgoritmo.DOM.btnEjecutar.addEventListener('click', async function() {
+            // Logs de depuración para los módulos esenciales
+            console.log("APP.JS BTN_EJECUTAR: Verificando módulos...");
+            console.log("APP.JS BTN_EJECUTAR: Webgoritmo.estadoApp:", typeof Webgoritmo.estadoApp, Webgoritmo.estadoApp);
+            console.log("APP.JS BTN_EJECUTAR: Webgoritmo.Interprete:", typeof Webgoritmo.Interprete, Webgoritmo.Interprete);
+            console.log("APP.JS BTN_EJECUTAR: Webgoritmo.UI:", typeof Webgoritmo.UI, Webgoritmo.UI);
+            console.log("APP.JS BTN_EJECUTAR: Webgoritmo.Editor:", typeof Webgoritmo.Editor, Webgoritmo.Editor);
+
             if (!Webgoritmo.estadoApp || !Webgoritmo.Interprete || !Webgoritmo.UI || !Webgoritmo.Editor) {
-                console.error("Faltan módulos esenciales de Webgoritmo para ejecutar."); return;
+                console.error("Faltan módulos esenciales de Webgoritmo para ejecutar.");
+                if (!Webgoritmo.estadoApp) console.error("APP.JS BTN_EJECUTAR: Webgoritmo.estadoApp FALTA");
+                if (!Webgoritmo.Interprete) console.error("APP.JS BTN_EJECUTAR: Webgoritmo.Interprete FALTA");
+                if (!Webgoritmo.UI) console.error("APP.JS BTN_EJECUTAR: Webgoritmo.UI FALTA");
+                if (!Webgoritmo.Editor) console.error("APP.JS BTN_EJECUTAR: Webgoritmo.Editor FALTA");
+                return;
             }
 
             if (Webgoritmo.estadoApp.ejecucionEnCurso) {
