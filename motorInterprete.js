@@ -175,8 +175,8 @@ Webgoritmo.Interprete.handleDimension = async function(linea, ambitoActual, numL
         const dimsStr = matchArr[3];
         const bracketClose = matchArr[4];
         const tipoEspecificadoStr = matchArr[5]; // Puede ser undefined
-
-        let baseTypeParaArray = 'entero'; // Default para Dimension
+        let baseTypeParaArray;
+        let isFlexibleType;
 
         if ((bracketOpen === '[' && bracketClose !== ']') || (bracketOpen === '(' && bracketClose !== ')')) {
             throw new Error(`Paréntesis/corchetes no coincidentes en la declaración de dimensión para '${nombreArr}' en línea ${numLineaOriginal}.`);
@@ -189,6 +189,10 @@ Webgoritmo.Interprete.handleDimension = async function(linea, ambitoActual, numL
                 throw new Error(`Tipo de dato '${tipoEspecificadoStr}' no reconocido para el arreglo '${nombreArr}' en línea ${numLineaOriginal}.`);
             }
             baseTypeParaArray = tipoLower;
+            isFlexibleType = false; // Type is explicitly defined
+        } else {
+            baseTypeParaArray = 'entero'; // Default for Dimension without "Como/Es Tipo"
+            isFlexibleType = true;    // Type is flexible by default
         }
 
         if (ambitoActual.hasOwnProperty(nombreArr)) {
@@ -218,9 +222,10 @@ Webgoritmo.Interprete.handleDimension = async function(linea, ambitoActual, numL
             type: 'array',
             baseType: baseTypeParaArray,
             dimensions: evalDimensiones,
-            value: Webgoritmo.Interprete.inicializarArray(evalDimensiones, baseTypeParaArray, ambitoActual)
+            value: Webgoritmo.Interprete.inicializarArray(evalDimensiones, baseTypeParaArray, ambitoActual),
+            isFlexibleType: isFlexibleType
         };
-        const tipoMsg = tipoEspecificadoStr ? `tipo base '${baseTypeParaArray}'` : "tipo base Entero por defecto";
+        const tipoMsg = tipoEspecificadoStr ? `tipo base '${baseTypeParaArray}' (fijo)` : "tipo base Entero (flexible por defecto)";
          if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArr}' (${tipoMsg}) dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
     }
     return true; // Indica que la instrucción fue manejada
@@ -275,11 +280,12 @@ Webgoritmo.Interprete.handleDefinir = async function(linea, ambitoActual, numLin
 
                 ambitoActual[nombre] = {
                     type: 'array',
-                    baseType: tipoBaseStr.toLowerCase(), // Guardar el tipo base en minúsculas
+                    baseType: tipoBaseStr.toLowerCase(),
                     dimensions: evalDimensiones,
-                    value: Webgoritmo.Interprete.inicializarArray(evalDimensiones, tipoBaseStr.toLowerCase(), ambitoActual)
+                    value: Webgoritmo.Interprete.inicializarArray(evalDimensiones, tipoBaseStr.toLowerCase(), ambitoActual),
+                    isFlexibleType: false // Arrays defined with 'Definir' have a fixed type
                 };
-                if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombre}' de tipo '${tipoBaseStr}' dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
+                if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombre}' de tipo '${tipoBaseStr}' (fijo) dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
 
             } else { // Es una declaración de variable escalar
                 ambitoActual[nombre] = {
@@ -397,33 +403,40 @@ Webgoritmo.Interprete.handleAsignacion = async function(linea, ambitoActual, num
             targetLevel = targetLevel[evalIndices[k]];
         }
 
-        const tipoOriginalBaseArray = arrMeta.baseType;
+        // const tipoOriginalBaseArray = arrMeta.baseType; // No necesitamos esta variable local con la nueva lógica
         const tipoValorEntrante = Webgoritmo.Interprete.inferirTipo(valorEvaluado).toLowerCase();
+        let tipoDestinoParaConversion = arrMeta.baseType; // Por defecto, el tipo de destino es el tipo base actual del arreglo
 
-        if (tipoOriginalBaseArray === 'entero' && (tipoValorEntrante === 'cadena' || tipoValorEntrante === 'caracter')) {
-            // Cambio dinámico de tipo de Entero a Cadena para el arreglo
+        if (arrMeta.isFlexibleType === true && arrMeta.baseType === 'entero' &&
+            (tipoValorEntrante === 'cadena' || tipoValorEntrante === 'caracter')) {
+            // Cambio dinámico de tipo de Entero (flexible) a Cadena para el arreglo
             arrMeta.baseType = 'cadena';
+            tipoDestinoParaConversion = 'cadena'; // El destino para esta asignación ahora es cadena
+            arrMeta.isFlexibleType = false; // El tipo ahora está fijado a Cadena
             Webgoritmo.Interprete.convertirElementosArrayAString(arrMeta.value, arrMeta.dimensions);
-            if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArr}' cambió su tipo base a 'Cadena' debido a asignación en línea ${numLineaOriginal}.`, 'normal');
-        } else if (arrMeta.baseType === 'desconocido') { // Debería ser raro si Dimension default es 'entero'
-            if (tipoValorEntrante !== 'desconocido' && valorEvaluado !== null) {
-                arrMeta.baseType = tipoValorEntrante;
-                 if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Tipo base del arreglo '${nombreArr}' inferido como '${arrMeta.baseType}' en línea ${numLineaOriginal}.`, 'normal');
-            }
+            if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArr}' cambió su tipo base a 'Cadena' (y se volvió de tipo fijo) debido a asignación en línea ${numLineaOriginal}.`, 'normal');
         }
+        // El caso 'desconocido' para arrMeta.baseType ya no debería ocurrir para Dimension, ya que por defecto es 'entero'.
+        // Si se reintroduce 'desconocido' como un tipo base posible (ej. para variantes de PSeInt),
+        // la lógica de inferencia necesitaría ser:
+        // else if (arrMeta.baseType === 'desconocido') {
+        //     if (tipoValorEntrante !== 'desconocido' && valorEvaluado !== null) {
+        //         arrMeta.baseType = tipoValorEntrante;
+        //         tipoDestinoParaConversion = tipoValorEntrante;
+        //         arrMeta.isFlexibleType = false; // Una vez que se infiere, se fija.
+        //         // Aquí no se convierte el arreglo existente porque no había un tipo base previo definido.
+        //         if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Tipo base del arreglo '${nombreArr}' inferido como '${arrMeta.baseType}' en línea ${numLineaOriginal}.`, 'normal');
+        //     } else if (valorEvaluado === null) { // Asignando null a un arreglo desconocido
+        //         tipoDestinoParaConversion = 'real'; // O algún otro default para null si no se puede inferir
+        //     }
+        // }
+
 
         let valorConvertido;
         try {
-            // Si el baseType sigue siendo 'desconocido' (ej. asignando null), intentar inferir de nuevo para la conversión
-            let tipoDestinoParaConversion = arrMeta.baseType;
-            if (tipoDestinoParaConversion === 'desconocido') {
-                tipoDestinoParaConversion = Webgoritmo.Interprete.inferirTipo(valorEvaluado).toLowerCase();
-                if (tipoDestinoParaConversion === 'desconocido' && valorEvaluado !== null) tipoDestinoParaConversion = 'real'; // Un fallback si sigue desconocido pero no es null
-                else if (valorEvaluado === null) tipoDestinoParaConversion = 'real'; // O el tipo por defecto que se espera para null
-            }
             valorConvertido = Webgoritmo.Interprete.convertirValorParaAsignacion(valorEvaluado, tipoDestinoParaConversion);
         } catch (e) {
-            throw new Error(`Error de tipo al asignar al arreglo '${nombreArr}' (tipo base: ${arrMeta.baseType}) en línea ${numLineaOriginal}: ${e.message}`);
+            throw new Error(`Error de tipo al asignar al arreglo '${nombreArr}' (tipo base: ${arrMeta.baseType}, intentando convertir a: ${tipoDestinoParaConversion}) en línea ${numLineaOriginal}: ${e.message}`);
         }
 
         targetLevel[evalIndices[evalIndices.length - 1]] = valorConvertido;
