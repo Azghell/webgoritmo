@@ -198,8 +198,35 @@ FinAlgoritmo`,
 
     Escribir "Te llamas ", nombre, ", tienes ", edad, " años y vives en ", ciudad, "."
 FinAlgoritmo`,
-    arrays: `Algoritmo EjemploArregloSimple
-    Escribir "Ejemplo de Arreglos (a implementar en Fase posterior)"
+    arrays_basico: `Algoritmo EjemploArreglosBasico
+    Dimension notas[3] // Se declara como 'entero' por defecto
+    Definir i Como Entero
+
+    Escribir "Cargando notas (numéricas inicialmente):"
+    Para i <- 1 Hasta 3 Hacer
+        notas[i] <- i * 2 // Asigna 2, 4, 6
+        Escribir "Nota ", i, ": ", notas[i]
+    FinPara
+
+    Escribir "Asignando un texto a notas[2]. El arreglo se convertirá a Cadena."
+    notas[2] <- "Sobresaliente" // Dinámicamente cambia el tipo de 'notas' a Cadena
+
+    Escribir "Mostrando todas las notas (ahora como cadenas):"
+    Para i <- 1 Hasta 3 Hacer
+        Escribir "Elemento ", i, ": ", notas[i]
+    FinPara
+
+    Escribir "--- Ejemplo con arreglo definido con tipo ---"
+    Definir nombres Como Cadena[2]
+    nombres[1] <- "Ana"
+    nombres[2] <- "Juan"
+    Escribir "Nombres: ", nombres[1], ", ", nombres[2]
+
+    Definir edades Como Entero[2]
+    edades[1] <- 20
+    //edades[2] <- "treinta" // Esto debería dar error de tipo
+    edades[2] <- 30
+    Escribir "Edades: ", edades[1], ", ", edades[2]
 FinAlgoritmo`,
     mod_example: `Algoritmo ModuloEjemplo
 	Definir N, M, Resultado Como Real

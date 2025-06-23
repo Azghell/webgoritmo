@@ -70,18 +70,204 @@ Webgoritmo.Interprete.convertirValorParaAsignacion = function(valor, tipoDestino
     throw new Error(`Incompatibilidad de tipo: no se puede convertir ${tipoOrigen} a ${tipoDestinoLower}.`);
 };
 
+Webgoritmo.Interprete.inicializarArray = function(dimensions, baseType, ambitoParaDefaultValor) {
+    // dimensions: array of evaluated maximum indices e.g., [5, 3] for Dim A[5,3]
+    // baseType: string like 'Entero', 'Cadena', 'desconocido'
+    // ambitoParaDefaultValor: PSeInt doesn't have complex default values, but if it did, they might need scope. Not used now.
+    const defaultValue = Webgoritmo.Interprete.obtenerValorPorDefecto(baseType);
+
+    function crearDimension(dimIndex) {
+        const dimensionSize = dimensions[dimIndex];
+        if (dimensionSize <= 0) { // Dimensiones deben ser positivas
+            throw new Error(`Las dimensiones de un arreglo deben ser mayores que cero. Se encontró: ${dimensionSize}.`);
+        }
+        // Crear array de tamaño dimensionSize + 1 para 1-based indexing
+        let arr = new Array(dimensionSize + 1);
+
+        if (dimIndex === dimensions.length - 1) { // Última dimensión, llenar con valores por defecto
+            for (let i = 1; i <= dimensionSize; i++) {
+                // Para objetos o arreglos como valor por defecto, se necesitaría una copia profunda.
+                // Para primitivas (numero, string, boolean), la asignación directa está bien.
+                arr[i] = defaultValue;
+            }
+        } else { // No es la última dimensión, llenar con sub-arreglos
+            for (let i = 1; i <= dimensionSize; i++) {
+                arr[i] = crearDimension(dimIndex + 1);
+            }
+        }
+        return arr;
+    }
+
+    if (!dimensions || dimensions.length === 0) {
+        throw new Error("No se pueden inicializar arreglos sin dimensiones.");
+    }
+    return crearDimension(0);
+};
+
+Webgoritmo.Interprete.convertirElementosArrayAString = function(arrayValue, dimensions, currentDimIndex = 0) {
+    // arrayValue: el arreglo (o subarreglo) de JS actual.
+    // dimensions: el arreglo de tamaños máximos de PSeInt (ej. [5, 3] para A[5,3]).
+    // currentDimIndex: el índice de la dimensión actual que se está procesando.
+    if (!arrayValue) {
+        console.warn("convertirElementosArrayAString fue llamado con un arrayValue nulo/indefinido.");
+        return;
+    }
+
+    const maxIndexThisDim = dimensions[currentDimIndex];
+
+    for (let i = 1; i <= maxIndexThisDim; i++) { // Iterar desde 1 hasta el tamaño de la dimensión
+        if (arrayValue[i] === undefined && currentDimIndex < dimensions.length -1 ) {
+             console.warn(`Sub-arreglo indefinido encontrado en dimensión ${currentDimIndex + 1}, índice ${i} durante conversión a string. Saltando.`);
+             continue;
+        }
+
+        if (currentDimIndex === dimensions.length - 1) { // Última dimensión (elementos de datos)
+            if (arrayValue[i] !== null && arrayValue[i] !== undefined) {
+                arrayValue[i] = String(arrayValue[i]);
+            } else {
+                arrayValue[i] = "";
+            }
+        } else { // No es la última dimensión, recursar
+            if (Array.isArray(arrayValue[i])) {
+                Webgoritmo.Interprete.convertirElementosArrayAString(arrayValue[i], dimensions, currentDimIndex + 1);
+            } else {
+                console.warn(`Elemento en dimensión ${currentDimIndex + 1}, índice ${i} no es un sub-arreglo durante conversión a string. Valor:`, arrayValue[i]);
+                if (arrayValue[i] !== null && arrayValue[i] !== undefined) {
+                     arrayValue[i] = String(arrayValue[i]);
+                } else {
+                     arrayValue[i] = "";
+                }
+            }
+        }
+    }
+};
+
+Webgoritmo.Interprete.handleDimension = async function(linea, ambitoActual, numLineaOriginal) {
+    if (!Webgoritmo.Expresiones || !Webgoritmo.Interprete) {
+        throw new Error("Error interno: Módulos no disponibles para 'Dimension'.");
+    }
+    let declaracionStr = linea.trim().substring("Dimension".length).trim();
+    if (declaracionStr === "") {
+        throw new Error(`Declaración 'Dimension' vacía en línea ${numLineaOriginal}.`);
+    }
+
+    // Regex para capturar cada declaración de arreglo: nombre[dims] o nombre(dims)
+    // Esta regex es más simple y asume que las declaraciones están bien formadas y separadas por coma.
+    // No maneja comas dentro de las expresiones de dimensión de forma robusta si no están en paréntesis balanceados.
+    const declaracionesIndividuales = declaracionStr.split(',');
+
+    for (let decl of declaracionesIndividuales) {
+        decl = decl.trim();
+        const matchArr = decl.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*([\[\(])\s*(.+?)\s*([\]\)])$/);
+        if (!matchArr) {
+            throw new Error(`Sintaxis incorrecta en declaración de dimensión para '${decl}' en línea ${numLineaOriginal}. Se esperaba 'nombre[dim1,dim2,...]' o 'nombre(dim1,dim2,...)'`);
+        }
+
+        const nombreArr = matchArr[1];
+        const bracketOpen = matchArr[2];
+        const dimsStr = matchArr[3];
+        const bracketClose = matchArr[4];
+
+        if ((bracketOpen === '[' && bracketClose !== ']') || (bracketOpen === '(' && bracketClose !== ')')) {
+            throw new Error(`Paréntesis/corchetes no coincidentes en la declaración de dimensión para '${nombreArr}' en línea ${numLineaOriginal}.`);
+        }
+
+        if (ambitoActual.hasOwnProperty(nombreArr)) {
+             if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[ADVERTENCIA en línea ${numLineaOriginal}]: El arreglo '${nombreArr}' ya está definido. Sobrescribiendo.`, 'warning');
+        }
+
+        const dimExprs = dimsStr.split(',').map(s => s.trim());
+        if (dimExprs.some(s => s === "")) {
+            throw new Error(`Expresión de dimensión vacía para el arreglo '${nombreArr}' en línea ${numLineaOriginal}.`);
+        }
+
+        const evalDimensiones = [];
+        for (const expr of dimExprs) {
+            let dimVal;
+            try {
+                dimVal = Webgoritmo.Expresiones.evaluarExpresion(expr, ambitoActual);
+            } catch (e) {
+                throw new Error(`Error evaluando dimensión '${expr}' para arreglo '${nombreArr}' en línea ${numLineaOriginal}: ${e.message}`);
+            }
+            if (typeof dimVal !== 'number' || !Number.isInteger(dimVal) || dimVal <= 0) {
+                throw new Error(`Las dimensiones de un arreglo deben ser enteros positivos. Se encontró '${expr}' (valor: ${dimVal}) para '${nombreArr}' en línea ${numLineaOriginal}.`);
+            }
+            evalDimensiones.push(dimVal);
+        }
+
+        ambitoActual[nombreArr] = {
+            type: 'array',
+            baseType: 'entero', // PSeInt 'Dimension' defaults to numeric (Entero)
+            dimensions: evalDimensiones,
+            value: Webgoritmo.Interprete.inicializarArray(evalDimensiones, 'entero', ambitoActual)
+        };
+         if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArr}' (tipo base Entero por defecto) dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
+    }
+    return true; // Indica que la instrucción fue manejada
+};
+
+
 // --- MANEJADORES DE INSTRUCCIONES ---
-Webgoritmo.Interprete.handleDefinir = function(linea, ambitoActual, numLineaOriginal) { /* ... (código como antes) ... */
-    const coincidenciaDefinir = linea.match(/^Definir\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*)*)\s+Como\s+(Entero|Real|Logico|Caracter|Cadena)/i);
+Webgoritmo.Interprete.handleDefinir = async function(linea, ambitoActual, numLineaOriginal) {
+    // Regex actualizada para capturar opcionalmente las dimensiones del arreglo
+    // Grupo 1: Lista de nombres de variables
+    // Grupo 2: Tipo base (Entero, Real, etc.)
+    // Grupo 3 (opcional): Cadena de dimensiones (ej. "10, 5" o "N+1, M")
+    const coincidenciaDefinir = linea.match(/^Definir\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*)*)\s+Como\s+([a-zA-Z_][a-zA-Z0-9_]+)(?:\s*\[\s*(.+?)\s*\])?$/i);
+
     if (coincidenciaDefinir) {
         const nombresVariables = coincidenciaDefinir[1].split(',').map(s => s.trim());
-        const tipoVariable = coincidenciaDefinir[2];
-        nombresVariables.forEach(nombre => {
+        const tipoBaseStr = coincidenciaDefinir[2]; // Tipo base como string
+        const dimsStr = coincidenciaDefinir[3]; // Puede ser undefined si no es un arreglo
+
+        // Validar que el tipoBaseStr sea uno de los tipos conocidos
+        const tiposConocidos = ['entero', 'real', 'logico', 'caracter', 'cadena'];
+        if (!tiposConocidos.includes(tipoBaseStr.toLowerCase())) {
+            throw new Error(`Tipo de dato '${tipoBaseStr}' no reconocido en línea ${numLineaOriginal}.`);
+        }
+
+        for (const nombre of nombresVariables) {
+            if (nombre === "") {
+                throw new Error(`Nombre de variable vacío en definición en línea ${numLineaOriginal}.`);
+            }
             if (ambitoActual.hasOwnProperty(nombre)) {
                 if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[ADVERTENCIA en línea ${numLineaOriginal}]: La variable '${nombre}' ya está definida. Sobrescribiendo.`, 'warning');
             }
-            ambitoActual[nombre] = { value: Webgoritmo.Interprete.obtenerValorPorDefecto(tipoVariable), type: tipoVariable };
-        });
+
+            if (dimsStr) { // Es una declaración de arreglo
+                const dimExprs = dimsStr.split(',').map(s => s.trim());
+                if (dimExprs.some(s => s === "")) {
+                    throw new Error(`Expresión de dimensión vacía para el arreglo '${nombre}' en línea ${numLineaOriginal}.`);
+                }
+                const evalDimensiones = [];
+                for (const expr of dimExprs) {
+                    let dimVal;
+                    try {
+                        dimVal = Webgoritmo.Expresiones.evaluarExpresion(expr, ambitoActual);
+                    } catch (e) {
+                        throw new Error(`Error evaluando dimensión '${expr}' para arreglo '${nombre}' en línea ${numLineaOriginal}: ${e.message}`);
+                    }
+                    if (typeof dimVal !== 'number' || !Number.isInteger(dimVal) || dimVal <= 0) {
+                        throw new Error(`Las dimensiones de un arreglo deben ser enteros positivos. Se encontró '${expr}' (valor: ${dimVal}) para '${nombre}' en línea ${numLineaOriginal}.`);
+                    }
+                    evalDimensiones.push(dimVal);
+                }
+
+                ambitoActual[nombre] = {
+                    type: 'array',
+                    baseType: tipoBaseStr.toLowerCase(), // Guardar el tipo base en minúsculas
+                    dimensions: evalDimensiones,
+                    value: Webgoritmo.Interprete.inicializarArray(evalDimensiones, tipoBaseStr.toLowerCase(), ambitoActual)
+                };
+                if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombre}' de tipo '${tipoBaseStr}' dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
+
+            } else { // Es una declaración de variable escalar
+                ambitoActual[nombre] = {
+                    value: Webgoritmo.Interprete.obtenerValorPorDefecto(tipoBaseStr),
+                    type: tipoBaseStr.toLowerCase() // Guardar el tipo en minúsculas
+                };
+            }
+        }
         return true;
     }
     return false;
@@ -133,6 +319,122 @@ Webgoritmo.Interprete.handleAsignacion = function(linea, ambitoActual, numLineaO
     }
     return false;
 };
+
+// Nueva implementación de handleAsignacion
+Webgoritmo.Interprete.handleAsignacion = async function(linea, ambitoActual, numLineaOriginal) {
+    // Regex para soportar '<-' y '=' como operadores de asignación.
+    // No incluye '==' para evitar conflicto con el operador de comparación.
+    const asignacionMatch = linea.match(/^(.+?)\s*(?:<-|=)\s*(.*)$/);
+    if (!asignacionMatch) return false;
+
+    const destinoStr = asignacionMatch[1].trim();
+    const exprStr = asignacionMatch[2].trim();
+
+    let valorEvaluado;
+    try {
+        valorEvaluado = Webgoritmo.Expresiones.evaluarExpresion(exprStr, ambitoActual);
+    } catch (e) {
+        throw new Error(`Error evaluando expresión RHS ('${exprStr}') para asignación en línea ${numLineaOriginal}: ${e.message}`);
+    }
+
+    const accesoArregloMatch = destinoStr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+?)\s*\]$/);
+
+    if (accesoArregloMatch) { // Asignación a elemento de arreglo
+        const nombreArr = accesoArregloMatch[1];
+        const indicesStr = accesoArregloMatch[2];
+
+        if (!ambitoActual.hasOwnProperty(nombreArr)) {
+            throw new Error(`Arreglo '${nombreArr}' no ha sido definido (en línea ${numLineaOriginal}).`);
+        }
+        const arrMeta = ambitoActual[nombreArr];
+        if (arrMeta.type !== 'array') {
+            throw new Error(`La variable '${nombreArr}' no es un arreglo (en línea ${numLineaOriginal}).`);
+        }
+
+        const indiceExprs = indicesStr.split(',').map(s => s.trim());
+        if (indiceExprs.some(s => s === "")) {
+            throw new Error(`Expresión de índice vacía para el arreglo '${nombreArr}' en línea ${numLineaOriginal}.`);
+        }
+        if (indiceExprs.length !== arrMeta.dimensions.length) {
+            throw new Error(`Número incorrecto de dimensiones para el arreglo '${nombreArr}'. Se esperaban ${arrMeta.dimensions.length}, se proporcionaron ${indiceExprs.length} (en línea ${numLineaOriginal}).`);
+        }
+
+        const evalIndices = [];
+        for (let k = 0; k < indiceExprs.length; k++) {
+            let idxVal;
+            try {
+                idxVal = Webgoritmo.Expresiones.evaluarExpresion(indiceExprs[k], ambitoActual);
+            } catch (e) {
+                throw new Error(`Error evaluando índice '${indiceExprs[k]}' (dimensión ${k+1}) para arreglo '${nombreArr}' en línea ${numLineaOriginal}: ${e.message}`);
+            }
+            if (typeof idxVal !== 'number' || (!Number.isInteger(idxVal) && Math.floor(idxVal) !== idxVal)) {
+                throw new Error(`Índice para la dimensión ${k+1} del arreglo '${nombreArr}' debe ser un entero. Se obtuvo '${indiceExprs[k]}' (valor: ${idxVal}) en línea ${numLineaOriginal}.`);
+            }
+            idxVal = Math.trunc(idxVal);
+            if (idxVal <= 0 || idxVal > arrMeta.dimensions[k]) {
+                throw new Error(`Índice [${idxVal}] fuera de los límites para la dimensión ${k+1} del arreglo '${nombreArr}' (válido: 1 a ${arrMeta.dimensions[k]}) en línea ${numLineaOriginal}.`);
+            }
+            evalIndices.push(idxVal);
+        }
+
+        let targetLevel = arrMeta.value;
+        for (let k = 0; k < evalIndices.length - 1; k++) {
+            if (!targetLevel || !targetLevel[evalIndices[k]]) {
+                 console.error("Error Interno: Sub-arreglo no encontrado durante asignación.", nombreArr, evalIndices, k, arrMeta);
+                 throw new Error(`Error interno accediendo a sub-arreglo de '${nombreArr}' en línea ${numLineaOriginal}.`);
+            }
+            targetLevel = targetLevel[evalIndices[k]];
+        }
+
+        const tipoOriginalBaseArray = arrMeta.baseType;
+        const tipoValorEntrante = Webgoritmo.Interprete.inferirTipo(valorEvaluado).toLowerCase();
+
+        if (tipoOriginalBaseArray === 'entero' && (tipoValorEntrante === 'cadena' || tipoValorEntrante === 'caracter')) {
+            // Cambio dinámico de tipo de Entero a Cadena para el arreglo
+            arrMeta.baseType = 'cadena';
+            Webgoritmo.Interprete.convertirElementosArrayAString(arrMeta.value, arrMeta.dimensions);
+            if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArr}' cambió su tipo base a 'Cadena' debido a asignación en línea ${numLineaOriginal}.`, 'normal');
+        } else if (arrMeta.baseType === 'desconocido') { // Debería ser raro si Dimension default es 'entero'
+            if (tipoValorEntrante !== 'desconocido' && valorEvaluado !== null) {
+                arrMeta.baseType = tipoValorEntrante;
+                 if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO]: Tipo base del arreglo '${nombreArr}' inferido como '${arrMeta.baseType}' en línea ${numLineaOriginal}.`, 'normal');
+            }
+        }
+
+        let valorConvertido;
+        try {
+            // Si el baseType sigue siendo 'desconocido' (ej. asignando null), intentar inferir de nuevo para la conversión
+            let tipoDestinoParaConversion = arrMeta.baseType;
+            if (tipoDestinoParaConversion === 'desconocido') {
+                tipoDestinoParaConversion = Webgoritmo.Interprete.inferirTipo(valorEvaluado).toLowerCase();
+                if (tipoDestinoParaConversion === 'desconocido' && valorEvaluado !== null) tipoDestinoParaConversion = 'real'; // Un fallback si sigue desconocido pero no es null
+                else if (valorEvaluado === null) tipoDestinoParaConversion = 'real'; // O el tipo por defecto que se espera para null
+            }
+            valorConvertido = Webgoritmo.Interprete.convertirValorParaAsignacion(valorEvaluado, tipoDestinoParaConversion);
+        } catch (e) {
+            throw new Error(`Error de tipo al asignar al arreglo '${nombreArr}' (tipo base: ${arrMeta.baseType}) en línea ${numLineaOriginal}: ${e.message}`);
+        }
+
+        targetLevel[evalIndices[evalIndices.length - 1]] = valorConvertido;
+
+    } else { // Asignación a variable escalar
+        const nombreVar = destinoStr;
+        if (!ambitoActual.hasOwnProperty(nombreVar)) {
+            throw new Error(`Variable '${nombreVar}' no ha sido definida (en línea ${numLineaOriginal}).`);
+        }
+        const varMeta = ambitoActual[nombreVar];
+        if (varMeta.type === 'array') {
+            throw new Error(`No se puede asignar un valor a un arreglo completo ('${nombreVar}') sin especificar índices (en línea ${numLineaOriginal}). Asigne a cada elemento individualmente.`);
+        }
+        try {
+            varMeta.value = Webgoritmo.Interprete.convertirValorParaAsignacion(valorEvaluado, varMeta.type);
+        } catch(e) {
+            throw new Error(`Error de tipo al asignar a la variable '${nombreVar}' (tipo: ${varMeta.type}) en línea ${numLineaOriginal}: ${e.message}`);
+        }
+    }
+    return true;
+};
+
 Webgoritmo.Interprete.handleEscribir = function(linea, ambitoActual, numLineaOriginal) {
     const regexEscribir = /^(Escribir|Imprimir|Mostrar)\s+(.*)/i;
     const coincidenciaEscribir = linea.match(regexEscribir);
@@ -404,6 +706,8 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
                 const { nuevoIndiceRelativoAlBloque } = await Webgoritmo.Interprete.handleSegun(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
                 i = nuevoIndiceRelativoAlBloque;
                 instruccionManejada = true;
+            } else if (lineaLower.startsWith('dimension ') || lineaLower.startsWith('dimensionar ')) {
+                instruccionManejada = await Webgoritmo.Interprete.handleDimension(lineaTrimmed, ambitoActual, numLineaGlobal);
             }
 
 
