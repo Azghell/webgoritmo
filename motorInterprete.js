@@ -123,11 +123,41 @@ Webgoritmo.Interprete.handleAsignacion = function(linea, ambitoActual, numLineaO
     }
     return false;
 };
-Webgoritmo.Interprete.handleEscribir = function(linea, ambitoActual, numLineaOriginal) { /* ... (código como antes) ... */
-    const coincidenciaEscribir = linea.match(/^(Escribir|Imprimir|Mostrar)\s+(.*)/i);
+Webgoritmo.Interprete.handleEscribir = function(linea, ambitoActual, numLineaOriginal) {
+    const regexEscribir = /^(Escribir|Imprimir|Mostrar)\s+(.*)/i;
+    const coincidenciaEscribir = linea.match(regexEscribir);
+
+    console.log(`HANDLEESCRIBIR DEBUG: Recibida línea: "${linea}". Coincidencia con regexEscribir: `, coincidenciaEscribir);
+
     if (coincidenciaEscribir) {
         const cadenaArgs = coincidenciaEscribir[2];
-        const args = cadenaArgs.split(',').map(arg => arg.trim());
+        console.log(`HANDLEESCRIBIR DEBUG: cadenaArgs extraída: "${cadenaArgs}"`);
+
+        // Intento de split más robusto para argumentos de Escribir, considerando comas dentro de strings
+        const args = [];
+        let buffer = "";
+        let dentroDeComillasDobles = false;
+        let dentroDeComillasSimples = false;
+
+        for (let i = 0; i < cadenaArgs.length; i++) {
+            const char = cadenaArgs[i];
+            if (char === '"' && (i === 0 || cadenaArgs[i-1] !== '\\')) {
+                dentroDeComillasDobles = !dentroDeComillasDobles;
+            } else if (char === "'" && (i === 0 || cadenaArgs[i-1] !== '\\')) {
+                dentroDeComillasSimples = !dentroDeComillasSimples;
+            }
+
+            if (char === ',' && !dentroDeComillasDobles && !dentroDeComillasSimples) {
+                args.push(buffer.trim());
+                buffer = "";
+            } else {
+                buffer += char;
+            }
+        }
+        args.push(buffer.trim()); // Añadir el último argumento
+        console.log(`HANDLEESCRIBIR DEBUG: Args parseados: `, args);
+
+
         let partesMensajeSalida = [];
         for (const arg of args) {
             const parteEvaluada = Webgoritmo.Expresiones.evaluarExpresion(arg, ambitoActual);
@@ -207,8 +237,21 @@ Webgoritmo.Interprete.handleLeer = async function(linea, ambitoActual, numLineaO
         if (ambitoActual[nombreVar].type === 'array') throw new Error(`Lectura en arreglos completos no soportada en MVP ('Leer ${nombreVar}'). Línea ${numLineaOriginal}.`);
     }
     let promptMensaje = nombresVariablesArray.length === 1 ? `Ingrese valor para ${nombresVariablesArray[0]}:` : `Ingrese ${nombresVariablesArray.length} valores (separados por espacio/coma) para ${nombresVariablesArray.join(', ')}:`;
-    if (Webgoritmo.UI.prepararParaEntrada) Webgoritmo.UI.prepararParaEntrada(promptMensaje);
-    else { console.warn("Webgoritmo.UI.prepararParaEntrada no definida."); /* Fallback UI simple */ }
+
+    // Llamar a la función global expuesta por app.js para mostrar el input
+    if (window.WebgoritmoGlobal && typeof window.WebgoritmoGlobal.solicitarEntradaUsuario === 'function') {
+        window.WebgoritmoGlobal.solicitarEntradaUsuario(promptMensaje);
+    } else {
+        console.error("motorInterprete.js: La función global solicitarEntradaUsuario no está disponible.");
+        // Fallback: intentar al menos mostrar el prompt en la consola de salida si la UI principal falla
+        if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) {
+            Webgoritmo.UI.añadirSalida(promptMensaje, 'input-prompt');
+            Webgoritmo.UI.añadirSalida("[Error Interno: No se pudo preparar el área de input. La ejecución podría no continuar correctamente después de este Leer.]", 'error');
+        }
+        // Considerar lanzar un error aquí o detener la ejecución si la UI de input es crítica y no se puede mostrar
+        // throw new Error("No se pudo inicializar la UI para la entrada del usuario.");
+    }
+
     Webgoritmo.estadoApp.esperandoEntrada = true; Webgoritmo.estadoApp.variableEntradaActual = nombresVariablesArray;
     console.log(`handleLeer: Esperando entrada para: ${nombresVariablesArray.join(', ')}`);
     await new Promise(resolve => {
@@ -231,27 +274,39 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
         const lineaOriginal = lineasBloqueParam[i];
         const lineaTrimmed = lineaOriginal.trim();
         const numLineaGlobal = numLineaOriginalOffset + i + 1;
+
+        console.log(`MOTOR DEBUG: Procesando línea ${numLineaGlobal}: "${lineaTrimmed}"`);
+
         if (lineaTrimmed === '' || lineaTrimmed.startsWith('//')) { i++; continue; }
-        console.log(`Ejecutando (L:${numLineaGlobal}): ${lineaTrimmed}`);
         let instruccionManejada = false;
         try {
             const lineaLower = lineaTrimmed.toLowerCase();
+            console.log(`MOTOR DEBUG: lineaLower para match: "${lineaLower}"`);
+
+            // Intentar un match más específico y loguearlo directamente
+            const matchEscribirDirecto = lineaLower.match(/^escribir\s+.+/);
+            // const matchEscribirAlternativo = lineaLower.match(/^(escribir|imprimir|mostrar)\s/); // Mantenemos el original para comparar si es necesario
+            console.log(`MOTOR DEBUG: Match directo con /^escribir\\s+.+/: `, matchEscribirDirecto);
+            // console.log(`MOTOR DEBUG: Match alternativo con /^(escribir|imprimir|mostrar)\\s/: `, matchEscribirAlternativo);
+
+
             if (lineaLower.startsWith('definir ')) {
                  instruccionManejada = await Webgoritmo.Interprete.handleDefinir(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.match(/^(escribir|imprimir|mostrar)\s/)) {
+            } else if (matchEscribirDirecto) { // Usar el resultado del match directo simplificado
+                 console.log("MOTOR DEBUG: DETECTADO 'escribir' por match directo.");
                  instruccionManejada = await Webgoritmo.Interprete.handleEscribir(lineaTrimmed, ambitoActual, numLineaGlobal);
             } else if (lineaLower.startsWith('leer ')) {
                  instruccionManejada = await Webgoritmo.Interprete.handleLeer(lineaTrimmed, ambitoActual, numLineaGlobal);
             } else if (lineaLower.startsWith('si ') && lineaLower.includes(' entonces')) {
-                const nuevoIndiceRelativoAlBloque = await Webgoritmo.Interprete.handleSi(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque; // El índice 'i' se actualiza directamente aquí.
-                instruccionManejada = true;
+                    const nuevoIndiceRelativoAlBloque = await Webgoritmo.Interprete.handleSi(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+                    i = nuevoIndiceRelativoAlBloque;
+                    instruccionManejada = true;
             } else if (lineaLower.startsWith('mientras ') && lineaLower.includes(' hacer')) {
                 const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handleMientras(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque; // Actualiza i para saltar el bloque Mientras o continuar después de él.
+                i = nuevoIndiceRelativoAlBloque;
                 instruccionManejada = true;
-                if (ejecutarSiguienteIteracion) { // Si un 'Leer' dentro del Mientras pausó, no incrementamos 'i' aquí.
-                    continue; // El bucle While principal de ejecutarBloque se encargará.
+                if (ejecutarSiguienteIteracion) {
+                    continue;
                 }
             } else if (lineaTrimmed.includes('<-')) {
                  instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);

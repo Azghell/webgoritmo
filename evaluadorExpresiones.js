@@ -88,8 +88,11 @@ Webgoritmo.Expresiones.__pseudoSubcadena = __pseudoSubcadena;
 // --- Fin Funciones Helper ---
 
 Webgoritmo.Expresiones.evaluarExpresion = function(expr, scope) {
+    // ULTRA DEBUG: Ver la entrada cruda a la función.
+    console.log(`ULTRA DEBUG evalExpr: expr CRUDA = "${expr}" (length: ${expr ? expr.length : 'N/A'}) | typeof: ${typeof expr} | JSON: ${JSON.stringify(expr)}`);
     let processedExpr = String(expr).trim();
     const originalExpr = processedExpr;
+    console.log(`ULTRA DEBUG evalExpr: originalExpr (después de trim) = "${originalExpr}"`);
 
     // 1. MANEJO DE ACCESO DIRECTO A ARREGLOS (MULTIDIMENSIONAL)
     const directArrayAccessMatch = processedExpr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+?)\s*\]$/);
@@ -132,10 +135,20 @@ Webgoritmo.Expresiones.evaluarExpresion = function(expr, scope) {
     if (processedExpr.toLowerCase() === 'verdadero') return true;
     if (processedExpr.toLowerCase() === 'falso') return false;
 
-    let matchCadenaLit = processedExpr.match(/^"((?:\\.|[^"\\])*)"$/); // Maneja escapes dentro de la cadena
-    if (matchCadenaLit) return matchCadenaLit[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-    matchCadenaLit = processedExpr.match(/^'((?:\\.|[^'\\])*)'$/); // Maneja escapes dentro de la cadena
-    if (matchCadenaLit) return matchCadenaLit[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+    // Si la expresión original es un literal de cadena, devolver su contenido directamente.
+    // Esto es más seguro y evita problemas con eval() para cadenas simples.
+    let matchCadenaOriginal = originalExpr.match(/^"((?:\\.|[^"\\])*)"$/);
+    if (matchCadenaOriginal) {
+        console.log(`ULTRA DEBUG evalExpr: Detectado literal de cadena DOBLE: ${JSON.stringify(matchCadenaOriginal)}`);
+        return matchCadenaOriginal[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+    }
+    matchCadenaOriginal = originalExpr.match(/^'((?:\\.|[^'\\])*)'$/);
+    if (matchCadenaOriginal) {
+        console.log(`ULTRA DEBUG evalExpr: Detectado literal de cadena SIMPLE: ${JSON.stringify(matchCadenaOriginal)}`);
+        return matchCadenaOriginal[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+    }
+    // Si no es un literal de cadena reconocido directamente por originalExpr, loguear y continuar con el procesamiento.
+    console.log(`ULTRA DEBUG evalExpr: NO detectado como literal de cadena simple/doble. originalExpr="${originalExpr}"`);
 
     // Es importante que este chequeo de número sea robusto y no convierta erróneamente
     // identificadores que podrían empezar con números o contener 'e' (notación científica).
@@ -243,12 +256,13 @@ Webgoritmo.Expresiones.evaluarExpresion = function(expr, scope) {
     processedExpr = tempProcessedExprForVars;
 
     // 5. EVALUAR
+    console.log(`DEBUG evalExpr: originalExpr = "${originalExpr}", processedExpr para eval = "${processedExpr}"`);
     try {
         // eslint-disable-next-line no-eval
         let resultado = eval(processedExpr);
         return resultado;
     } catch (e) {
-        console.error(`Error evaluando: "${originalExpr}" -> "${processedExpr}"`, e);
+        console.error(`Error evaluando: "${originalExpr}" (procesado como "${processedExpr}")`, e);
         // Intento heurístico de detectar variables no definidas
         const posiblesVariablesNoDefinidas = processedExpr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g);
         if (posiblesVariablesNoDefinidas) {

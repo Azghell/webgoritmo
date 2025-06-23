@@ -70,16 +70,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // resolverConfirmacion: null // Para futuro modal
         });
 
-         if (Webgoritmo.UI && typeof Webgoritmo.UI.finalizarEntrada === "function") {
-             // Pasar Webgoritmo.DOM explícitamente
-             Webgoritmo.UI.finalizarEntrada(Webgoritmo.DOM);
-         } else {
-            // Fallback si la función no existe (aunque no debería pasar si uiManager.js se carga)
-            console.warn("Webgoritmo.UI.finalizarEntrada no está definida al llamar desde restablecerEstado. Usando fallback.");
-            if (Webgoritmo.DOM && Webgoritmo.DOM.entradaConsola) { Webgoritmo.DOM.entradaConsola.value = ''; Webgoritmo.DOM.entradaConsola.disabled = true; Webgoritmo.DOM.entradaConsola.readOnly = true;}
-            if (Webgoritmo.DOM && Webgoritmo.DOM.btnEnviarEntrada) Webgoritmo.DOM.btnEnviarEntrada.disabled = true;
-            if (Webgoritmo.DOM && Webgoritmo.DOM.consoleInputArea && Webgoritmo.DOM.consoleInputArea.classList) Webgoritmo.DOM.consoleInputArea.classList.add('oculto');
-         }
+        // Llamada a la nueva función helper de app.js para ocultar el área de input
+        appOcultarAreaInputConsola();
 
 
         if (Webgoritmo.DOM.consolaSalida) {
@@ -97,11 +89,63 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("app.js: Estado restablecido.");
     };
 
+    // Funciones Helper para controlar la UI de Input de Consola (definidas dentro de DOMContentLoaded)
+    function appMostrarAreaInputConsola(promptMsg) {
+        if (Webgoritmo.DOM.consoleInputArea && Webgoritmo.DOM.entradaConsola && Webgoritmo.DOM.btnEnviarEntrada) {
+            if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida && promptMsg) {
+                Webgoritmo.UI.añadirSalida(promptMsg, 'input-prompt');
+            }
+            Webgoritmo.DOM.consoleInputArea.classList.remove('oculto');
+            Webgoritmo.DOM.entradaConsola.disabled = false;
+            Webgoritmo.DOM.entradaConsola.readOnly = false;
+            Webgoritmo.DOM.btnEnviarEntrada.disabled = false;
+            requestAnimationFrame(() => {
+                if (Webgoritmo.DOM.entradaConsola) Webgoritmo.DOM.entradaConsola.focus();
+            });
+            console.log("app.js: Área de input de consola MOSTRADA.");
+        } else {
+            console.error("app.js: Faltan elementos DOM para appMostrarAreaInputConsola.", Webgoritmo.DOM);
+        }
+    }
+
+    function appOcultarAreaInputConsola() {
+        if (Webgoritmo.DOM.consoleInputArea && Webgoritmo.DOM.entradaConsola && Webgoritmo.DOM.btnEnviarEntrada) {
+            Webgoritmo.DOM.entradaConsola.value = '';
+            Webgoritmo.DOM.entradaConsola.disabled = true;
+            Webgoritmo.DOM.entradaConsola.readOnly = true;
+            Webgoritmo.DOM.btnEnviarEntrada.disabled = true;
+            Webgoritmo.DOM.consoleInputArea.classList.add('oculto');
+            console.log("app.js: Área de input de consola OCULTADA.");
+        } else {
+            // No lanzar error si es al inicio y DOM aún no está 100% listo para estas partes específicas,
+            // pero sí loguear si faltan refs críticas.
+            if (!Webgoritmo.DOM) console.warn("app.js: Webgoritmo.DOM no disponible para appOcultarAreaInputConsola");
+            else {
+                if (!Webgoritmo.DOM.consoleInputArea) console.warn("app.js: consoleInputArea no disponible para ocultar");
+                if (!Webgoritmo.DOM.entradaConsola) console.warn("app.js: entradaConsola no disponible para ocultar");
+                if (!Webgoritmo.DOM.btnEnviarEntrada) console.warn("app.js: btnEnviarEntrada no disponible para ocultar");
+            }
+        }
+    }
+    // Fin Funciones Helper
+
     // EVENT LISTENERS
     if (Webgoritmo.DOM.btnEjecutar) {
         Webgoritmo.DOM.btnEjecutar.addEventListener('click', async function() {
+            // Logs de depuración para los módulos esenciales
+            console.log("APP.JS BTN_EJECUTAR: Verificando módulos...");
+            console.log("APP.JS BTN_EJECUTAR: Webgoritmo.estadoApp:", typeof Webgoritmo.estadoApp, Webgoritmo.estadoApp);
+            console.log("APP.JS BTN_EJECUTAR: Webgoritmo.Interprete:", typeof Webgoritmo.Interprete, Webgoritmo.Interprete);
+            console.log("APP.JS BTN_EJECUTAR: Webgoritmo.UI:", typeof Webgoritmo.UI, Webgoritmo.UI);
+            console.log("APP.JS BTN_EJECUTAR: Webgoritmo.Editor:", typeof Webgoritmo.Editor, Webgoritmo.Editor);
+
             if (!Webgoritmo.estadoApp || !Webgoritmo.Interprete || !Webgoritmo.UI || !Webgoritmo.Editor) {
-                console.error("Faltan módulos esenciales de Webgoritmo para ejecutar."); return;
+                console.error("Faltan módulos esenciales de Webgoritmo para ejecutar.");
+                if (!Webgoritmo.estadoApp) console.error("APP.JS BTN_EJECUTAR: Webgoritmo.estadoApp FALTA");
+                if (!Webgoritmo.Interprete) console.error("APP.JS BTN_EJECUTAR: Webgoritmo.Interprete FALTA");
+                if (!Webgoritmo.UI) console.error("APP.JS BTN_EJECUTAR: Webgoritmo.UI FALTA");
+                if (!Webgoritmo.Editor) console.error("APP.JS BTN_EJECUTAR: Webgoritmo.Editor FALTA");
+                return;
             }
 
             if (Webgoritmo.estadoApp.ejecucionEnCurso) {
@@ -151,7 +195,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!Webgoritmo.estadoApp.esperandoEntrada) return;
 
             if (Webgoritmo.estadoApp.detenerEjecucion) {
-                if (Webgoritmo.UI.finalizarEntrada) Webgoritmo.UI.finalizarEntrada();
+                appOcultarAreaInputConsola(); // Usar la nueva función helper
                 Webgoritmo.estadoApp.esperandoEntrada = false;
                 if (Webgoritmo.estadoApp.resolverPromesaEntrada) {
                     Webgoritmo.estadoApp.resolverPromesaEntrada(); Webgoritmo.estadoApp.resolverPromesaEntrada = null;
@@ -161,7 +205,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const valorEntradaRaw = Webgoritmo.DOM.entradaConsola.value;
-            if (Webgoritmo.UI.finalizarEntrada) Webgoritmo.UI.finalizarEntrada();
+            appOcultarAreaInputConsola(); // Usar la nueva función helper
             if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`> ${valorEntradaRaw}`, 'user-input');
 
             const destinos = Webgoritmo.estadoApp.variableEntradaActual;
@@ -269,9 +313,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Estado inicial al cargar la página y poblar UI
     // Estas llamadas se hacen al final para asegurar que todo esté definido.
 
-    // 1. Restablecer el estado de la aplicación (esto llama a Webgoritmo.UI.finalizarEntrada(Webgoritmo.DOM))
+    // 1. Restablecer el estado de la aplicación
+    // (restablecerEstado internamente llama a appOcultarAreaInputConsola)
     if (typeof Webgoritmo.restablecerEstado === "function") {
-        Webgoritmo.restablecerEstado(); // restablecerEstado ahora llama a finalizarEntrada pasándole Webgoritmo.DOM
+        Webgoritmo.restablecerEstado();
     } else {
         console.error("app.js: Webgoritmo.restablecerEstado no está definido justo antes de su llamada inicial crítica.");
     }
@@ -282,6 +327,11 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.error("app.js: Webgoritmo.UI.poblarSelectorEjemplos no está definido justo antes de su llamada inicial crítica.");
     }
+
+    // 3. Exponer funciones globales necesarias para otros módulos (como motorInterprete)
+    window.WebgoritmoGlobal = window.WebgoritmoGlobal || {};
+    window.WebgoritmoGlobal.solicitarEntradaUsuario = appMostrarAreaInputConsola;
+    console.log("app.js: Funciones globales (solicitarEntradaUsuario) expuestas.");
 
     console.log("app.js: Fin de la configuración de DOMContentLoaded. Todas las inicializaciones de UI y estado deberían haberse completado.");
 });
