@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
         Webgoritmo.estadoApp.errorEjecucion = null;
         Webgoritmo.estadoApp.resolverConfirmacion = null;
         Webgoritmo.estadoApp.ejecucionEnCurso = false;
+        Webgoritmo.estadoApp.pilaLlamadas = []; // Inicializar la pila de llamadas
 
         if (Webgoritmo.DOM.entradaConsola) {
             Webgoritmo.DOM.entradaConsola.value = '';
