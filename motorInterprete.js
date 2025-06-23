@@ -104,6 +104,100 @@ Webgoritmo.Interprete.inicializarArray = function(dimensions, baseType, ambitoPa
     return crearDimension(0);
 };
 
+Webgoritmo.Interprete.parseDefinicionSubProceso = function(lineaInicioSubProceso, indiceInicio, todasLasLineas) {
+    // Regex para SubProceso:
+    // Grupo 1 (opcional): varRetorno
+    // Grupo 2 (opcional): operador de asignación para retorno ('<-' o '=')
+    // Grupo 3: nombreFuncion
+    // Grupo 4: paramsStr
+    const regexDefSubProceso = /^\s*SubProceso\s+(?:([a-zA-Z_][a-zA-Z0-9_]*)\s*(<-|=)\s*)?([a-zA-Z_][a-zA-Z0-9_]+)\s*\((.*?)\)\s*$/i;
+    const matchHeader = lineaInicioSubProceso.trim().match(regexDefSubProceso);
+
+    if (!matchHeader) {
+        throw new Error(`Sintaxis incorrecta en la definición de SubProceso en línea ${indiceInicio + 1}.`);
+    }
+
+    const varRetorno = matchHeader[1] ? matchHeader[1].trim() : null;
+    const nombreFuncion = matchHeader[3].trim();
+    const paramsStr = matchHeader[4].trim();
+    const parametros = [];
+
+    if (paramsStr) {
+        const paramsList = paramsStr.split(',');
+        for (const pStr of paramsList) {
+            const paramTrimmed = pStr.trim();
+            if (paramTrimmed === "") continue; // Permitir una coma extra al final, por ejemplo
+
+            // Regex para cada parámetro: nombre [Como/Es Tipo] [Por Referencia]
+            // Grupo 1: paramName
+            // Grupo 2 (opcional): "Como" o "Es"
+            // Grupo 3 (opcional): paramType
+            // Grupo 4 (opcional): "Por Referencia"
+            const regexParam = /^\s*([a-zA-Z_][a-zA-Z0-9_]+)(?:\s+(Como|Es)\s+([a-zA-Z_][a-zA-Z0-9_]+))?(?:\s+Por\s+Referencia)?\s*$/i;
+            const matchParam = paramTrimmed.match(regexParam);
+
+            if (!matchParam) {
+                throw new Error(`Sintaxis incorrecta para el parámetro '${paramTrimmed}' de SubProceso '${nombreFuncion}' en línea ${indiceInicio + 1}.`);
+            }
+            const paramName = matchParam[1];
+            let paramType = 'desconocido'; // PSeInt a menudo no requiere tipo para params, o infiere
+            if (matchParam[3]) {
+                const tipoParamLower = matchParam[3].toLowerCase();
+                const tiposConocidos = ['entero', 'real', 'logico', 'caracter', 'cadena'];
+                if (!tiposConocidos.includes(tipoParamLower)) {
+                    throw new Error(`Tipo de dato '${matchParam[3]}' no reconocido para parámetro '${paramName}' de '${nombreFuncion}' en línea ${indiceInicio + 1}.`);
+                }
+                paramType = tipoParamLower;
+            }
+            const isByRef = matchParam[0].toLowerCase().includes("por referencia"); // Chequeo sobre el match completo del parámetro
+
+            parametros.push({ nombre: paramName, tipo: paramType, esPorReferencia: isByRef });
+        }
+    }
+
+    const cuerpo = [];
+    let i = indiceInicio + 1;
+    let anidamiento = 0; // Para SubProceso/FinSubProceso anidados (aunque PSeInt no define funciones dentro de funciones)
+    let finSubProcesoEncontrado = false;
+
+    for (; i < todasLasLineas.length; i++) {
+        const lineaCuerpoOriginal = todasLasLineas[i];
+        let lineaCuerpoAnalisis = lineaCuerpoOriginal.split('//')[0].trim();
+        if (lineaCuerpoAnalisis.startsWith('/*') && lineaCuerpoAnalisis.endsWith('*/')) {
+            lineaCuerpoAnalisis = '';
+        }
+        const lineaCuerpoLower = lineaCuerpoAnalisis.toLowerCase();
+
+        if (lineaCuerpoLower.startsWith("subproceso")) {
+            anidamiento++;
+            cuerpo.push(lineaCuerpoOriginal); // Añadir la línea original para preservar comentarios internos
+        } else if (lineaCuerpoLower.startsWith("finsubproceso")) {
+            if (anidamiento === 0) {
+                finSubProcesoEncontrado = true;
+                break;
+            } else {
+                anidamiento--;
+                cuerpo.push(lineaCuerpoOriginal);
+            }
+        } else {
+            cuerpo.push(lineaCuerpoOriginal);
+        }
+    }
+
+    if (!finSubProcesoEncontrado) {
+        throw new Error(`Se esperaba 'FinSubProceso' para cerrar la definición de '${nombreFuncion}' iniciada en línea ${indiceInicio + 1}.`);
+    }
+
+    return {
+        nombre: nombreFuncion,
+        retornoVar: varRetorno,
+        parametros: parametros,
+        cuerpo: cuerpo,
+        lineaOriginalDef: indiceInicio + 1,
+        indiceFinEnTodasLasLineas: i // El índice de la línea 'FinSubProceso'
+    };
+};
+
 Webgoritmo.Interprete.convertirElementosArrayAString = function(arrayValue, dimensions, currentDimIndex = 0) {
     // arrayValue: el arreglo (o subarreglo) de JS actual.
     // dimensions: el arreglo de tamaños máximos de PSeInt (ej. [5, 3] para A[5,3]).
@@ -348,10 +442,40 @@ Webgoritmo.Interprete.handleAsignacion = async function(linea, ambitoActual, num
     const exprStr = asignacionMatch[2].trim();
 
     let valorEvaluado;
-    try {
-        valorEvaluado = Webgoritmo.Expresiones.evaluarExpresion(exprStr, ambitoActual);
-    } catch (e) {
-        throw new Error(`Error evaluando expresión RHS ('${exprStr}') para asignación en línea ${numLineaOriginal}: ${e.message}`);
+    // Check if RHS is a user-defined function call
+    const funcCallMatchRHS = exprStr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)\s*$/);
+    if (funcCallMatchRHS && Webgoritmo.estadoApp.funcionesDefinidas && Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(funcCallMatchRHS[1])) {
+        const funcName = funcCallMatchRHS[1];
+        const argsStr = funcCallMatchRHS[2];
+        const defFuncion = Webgoritmo.estadoApp.funcionesDefinidas[funcName];
+
+        if (defFuncion.retornoVar === null) {
+            throw new Error(`Error en línea ${numLineaOriginal}: El SubProceso '${funcName}' no devuelve un valor y no puede ser asignado.`);
+        }
+
+        let argExprsRHS = [];
+        if (argsStr.trim() !== '') {
+            // TODO: Robust argument parsing needed here too for commas in strings/calls
+            argExprsRHS = argsStr.split(',').map(a => a.trim());
+        }
+
+        try {
+            console.log(`[handleAsignacion] Detectada llamada a función definida por usuario en RHS: ${funcName}`);
+            valorEvaluado = await Webgoritmo.Interprete.ejecutarSubProcesoLlamada(
+                funcName,
+                argExprsRHS,
+                ambitoActual,
+                numLineaOriginal
+            );
+        } catch (e) {
+            throw new Error(`Error en línea ${numLineaOriginal} durante la ejecución de la función '${funcName}' en el lado derecho de la asignación: ${e.message}`);
+        }
+    } else { // Not a direct user function call, evaluate as general expression
+        try {
+            valorEvaluado = await Webgoritmo.Expresiones.evaluarExpresion(exprStr, ambitoActual); // evaluarExpresion is now async
+        } catch (e) {
+            throw new Error(`Error evaluando expresión RHS ('${exprStr}') para asignación en línea ${numLineaOriginal}: ${e.message}`);
+        }
     }
 
     const accesoArregloMatch = destinoStr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+?)\s*\]$/);
@@ -757,7 +881,35 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
                 // The check for keywords helps avoid treating 'Si a=b Entonces' as an assignment.
                 // The check for comparison operators avoids 'a == b', 'a <= b', 'a >= b'.
                 instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
+            } else {
+                // Intento de detectar llamada a SubProceso (procedimiento) como última opción
+                const procCallMatch = lineaTrimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)\s*$/);
+                if (procCallMatch) {
+                    const procName = procCallMatch[1];
+                    const argsStr = procCallMatch[2];
+
+                    if (Webgoritmo.estadoApp.funcionesDefinidas && Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(procName)) {
+                        const defFuncion = Webgoritmo.estadoApp.funcionesDefinidas[procName];
+
+                        let argExprsProc = [];
+                        if (argsStr.trim() !== '') {
+                            // TODO: Robust argument parsing for commas within strings/calls
+                            argExprsProc = argsStr.split(',').map(a => a.trim());
+                        }
+
+                        console.log(`[ejecutarBloque] Detectada llamada a SubProceso: ${procName}`);
+                        await Webgoritmo.Interprete.ejecutarSubProcesoLlamada(
+                            procName,
+                            argExprsProc,
+                            ambitoActual,
+                            numLineaGlobal
+                        );
+                        // Si es una función llamada como procedimiento, su valor de retorno se ignora aquí.
+                        instruccionManejada = true;
+                    }
+                }
             }
+
 
             if (!instruccionManejada && lineaTrimmed &&
                 !lineaLower.startsWith("finsi") &&
@@ -1273,6 +1425,113 @@ Webgoritmo.Interprete.handleSegun = async function(lineaActual, ambitoActual, nu
     return { nuevoIndiceRelativoAlBloque: i };
 };
 
+Webgoritmo.Interprete.ejecutarSubProcesoLlamada = async function(nombreFuncion, listaExprArgumentos, ambitoLlamador, numLineaOriginalLlamada) {
+    if (!Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(nombreFuncion)) {
+        throw new Error(`Error en línea ${numLineaOriginalLlamada}: El SubProceso o Función '${nombreFuncion}' no está definido.`);
+    }
+    const defFuncion = Webgoritmo.estadoApp.funcionesDefinidas[nombreFuncion];
+
+    if (listaExprArgumentos.length !== defFuncion.parametros.length) {
+        throw new Error(`Error en línea ${numLineaOriginalLlamada}: Número incorrecto de argumentos para '${nombreFuncion}'. Se esperaban ${defFuncion.parametros.length}, se recibieron ${listaExprArgumentos.length}.`);
+    }
+
+    // Push to call stack
+    if (!Webgoritmo.estadoApp.pilaLlamadas) Webgoritmo.estadoApp.pilaLlamadas = []; // Ensure pilaLlamadas exists
+    Webgoritmo.estadoApp.pilaLlamadas.push({
+        nombre: nombreFuncion,
+        lineaLlamada: numLineaOriginalLlamada,
+        lineaDefinicion: defFuncion.lineaOriginalDef
+    });
+
+    try {
+        // 1. Evaluar todos los argumentos en el ámbito del llamador PRIMERO
+        const argumentosEvaluados = [];
+        for (const exprArg of listaExprArgumentos) {
+            try {
+                // evaluarExpresion es ahora async
+                argumentosEvaluados.push(await Webgoritmo.Expresiones.evaluarExpresion(exprArg, ambitoLlamador));
+            } catch (e) {
+                throw new Error(`Error en línea ${numLineaOriginalLlamada} al evaluar argumento '${exprArg}' para '${nombreFuncion}': ${e.message}`);
+            }
+        }
+
+        // 2. Crear nuevo ámbito local
+        const ambitoLocal = Object.create(Webgoritmo.estadoApp.variables); // Hereda del global
+
+        // 3. Pasar parámetros
+    for (let k = 0; k < defFuncion.parametros.length; k++) {
+        const paramDef = defFuncion.parametros[k];
+        const argExprOriginal = listaExprArgumentos[k].trim(); // String original del argumento
+
+        if (paramDef.esPorReferencia) {
+            if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(argExprOriginal) || !ambitoLlamador.hasOwnProperty(argExprOriginal)) {
+                 // Para pasar por referencia, el argumento DEBE ser una variable existente en el ámbito del llamador.
+                 // No puede ser una expresión compleja ni un literal.
+                throw new Error(`Error en línea ${numLineaOriginalLlamada}: El argumento ('${argExprOriginal}') para el parámetro por referencia '${paramDef.nombre}' de '${nombreFuncion}' debe ser una variable existente.`);
+            }
+            // Asignar la referencia al objeto de metadatos de la variable original
+            ambitoLocal[paramDef.nombre] = ambitoLlamador[argExprOriginal];
+        } else { // Por Valor
+            const valorArgumento = argumentosEvaluados[k];
+            let tipoParametroDestino = paramDef.tipo;
+            if (paramDef.tipo === 'desconocido') {
+                tipoParametroDestino = Webgoritmo.Interprete.inferirTipo(valorArgumento).toLowerCase();
+                if (tipoParametroDestino === 'desconocido' && valorArgumento !== null) tipoParametroDestino = 'real'; // Fallback
+                else if (valorArgumento === null) tipoParametroDestino = 'real'; // Default for null
+            }
+
+            let valorParametroFinal;
+            try {
+                valorParametroFinal = Webgoritmo.Interprete.convertirValorParaAsignacion(valorArgumento, tipoParametroDestino);
+            } catch (e) {
+                throw new Error(`Error en línea ${numLineaOriginalLlamada}: Incompatibilidad de tipo para el parámetro '${paramDef.nombre}' de '${nombreFuncion}'. Se esperaba '${tipoParametroDestino}', se recibió valor de tipo '${Webgoritmo.Interprete.inferirTipo(valorArgumento).toLowerCase()}'. Detalle: ${e.message}`);
+            }
+
+            ambitoLocal[paramDef.nombre] = {
+                value: valorParametroFinal,
+                type: tipoParametroDestino,
+                isFlexibleType: false, // Los parámetros por valor tienen su tipo fijado para la llamada
+                // Si el tipo del parámetro era 'desconocido', toma el tipo del argumento.
+                // Si el tipo del parámetro estaba definido, el argumento se convierte a ese tipo.
+                dimensions: ambitoLlamador[argExprOriginal] && ambitoLlamador[argExprOriginal].type === 'array' ? ambitoLlamador[argExprOriginal].dimensions : undefined, // Copiar dimensiones si se pasa un array por valor
+                baseType: ambitoLlamador[argExprOriginal] && ambitoLlamador[argExprOriginal].type === 'array' ? ambitoLlamador[argExprOriginal].baseType : undefined
+            };
+             // Pasar arreglos por valor implica una copia profunda en PSeInt.
+             // Esta implementación simple copia la referencia del valor del arreglo, lo que significa que
+             // la modificación interna de elementos del arreglo pasado por valor SÍ afectaría al original.
+             // Para un verdadero paso por valor de arreglos, se necesitaría una copia profunda de arrMeta.value.
+             // TODO: Implementar copia profunda para arreglos pasados por valor. Por ahora, es copia superficial de la referencia al 'value'.
+            if (ambitoLocal[paramDef.nombre].type === 'array' && valorArgumento) { // Si es un array y se pasó algo (no solo la definición)
+                 // Esto es incorrecto para paso por valor de arreglos, es superficial.
+                 // Se debe hacer una copia profunda del contenido del arreglo.
+                 // ambitoLocal[paramDef.nombre].value = JSON.parse(JSON.stringify(valorArgumento)); // Ejemplo de copia profunda simple (limitada)
+                 // Una copia profunda correcta respetando la estructura 1-indexada es más compleja.
+                 console.warn(`ADVERTENCIA: Paso de arreglos por valor actualmente implementado como copia superficial de referencia al contenido para '${paramDef.nombre}' en '${nombreFuncion}'. Modificaciones internas a elementos del arreglo afectarán al original.`);
+            }
+        }
+    }
+
+    // 4. Ejecutar cuerpo del SubProceso
+    await Webgoritmo.Interprete.ejecutarBloque(defFuncion.cuerpo, ambitoLocal, defFuncion.lineaOriginalDef -1); // -1 porque ejecutarBloque suma offset+i+1
+
+    // 5. Obtener valor de retorno (si es una función)
+    if (defFuncion.retornoVar) {
+        if (!ambitoLocal.hasOwnProperty(defFuncion.retornoVar)) {
+            throw new Error(`Error en SubProceso '${nombreFuncion}' (definido en línea ${defFuncion.lineaOriginalDef}): La variable de retorno '${defFuncion.retornoVar}' no fue asignada.`);
+        }
+        // Devolver el valor de la variable de retorno desde el ámbito local de la función
+        return ambitoLocal[defFuncion.retornoVar].value;
+    }
+
+    return undefined; // Para procedimientos (SubProcesos sin variable de retorno)
+    } finally {
+        // Pop from call stack
+        if (Webgoritmo.estadoApp.pilaLlamadas && Webgoritmo.estadoApp.pilaLlamadas.length > 0) {
+            Webgoritmo.estadoApp.pilaLlamadas.pop();
+        }
+    }
+};
+
 
 Webgoritmo.Interprete.llamarFuncion = async function(nombreFunc, args, numLineaLlamada) { /* ... (código MVP, sin cambios en este paso) ... */ };
 
@@ -1287,6 +1546,74 @@ Webgoritmo.Interprete.ejecutarPseudocodigo = async function() {
     }
 
     Webgoritmo.estadoApp.lineasCodigo = Webgoritmo.Editor.editorCodigo.getValue().split('\n');
+    Webgoritmo.estadoApp.funcionesDefinidas = {}; // Nueva estructura para almacenar funciones
+    const lineasParaBloquePrincipal = []; // Líneas que no son parte de definiciones de SubProceso
+
+    // --- FASE 1: Pre-parseo para identificar y extraer definiciones de SubProceso ---
+    let inSubProcesoDef = false;
+    let currentSubProcesoDef = null;
+    let subProcesoNesting = 0;
+
+    for (let i = 0; i < Webgoritmo.estadoApp.lineasCodigo.length; i++) {
+        const lineaOriginal = Webgoritmo.estadoApp.lineasCodigo[i];
+        let lineaParaAnalisis = lineaOriginal.split('//')[0].trim();
+        if (lineaParaAnalisis.startsWith('/*') && lineaParaAnalisis.endsWith('*/')) {
+            lineaParaAnalisis = '';
+        }
+        const lineaLower = lineaParaAnalisis.toLowerCase();
+
+        if (lineaLower.startsWith("subproceso")) {
+            if (subProcesoNesting === 0) { // Inicio de una nueva definición de SubProceso (nivel superior)
+                if (inSubProcesoDef) { // Error: SubProceso iniciado antes de que el anterior terminara
+                    Webgoritmo.estadoApp.errorEjecucion = `Error en línea ${i + 1}: Definición de SubProceso inesperada. ¿Faltó un FinSubProceso anterior?`;
+                    Webgoritmo.estadoApp.detenerEjecucion = true;
+                    break;
+                }
+                try {
+                    // Llamar a un helper para parsear la definición completa y obtener el cuerpo y el índice final
+                    // Esta función parseDefinicionSubProceso se definirá más adelante
+                    currentSubProcesoDef = Webgoritmo.Interprete.parseDefinicionSubProceso(lineaOriginal, i, Webgoritmo.estadoApp.lineasCodigo);
+                    if (Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(currentSubProcesoDef.nombre)) {
+                        throw new Error(`SubProceso '${currentSubProcesoDef.nombre}' ya está definido (definición previa en línea ${Webgoritmo.estadoApp.funcionesDefinidas[currentSubProcesoDef.nombre].lineaOriginalDef}).`);
+                    }
+                    Webgoritmo.estadoApp.funcionesDefinidas[currentSubProcesoDef.nombre] = currentSubProcesoDef;
+                    i = currentSubProcesoDef.indiceFinEnTodasLasLineas; // Saltar al FinSubProceso
+                    // No añadir estas líneas a lineasParaBloquePrincipal
+                    currentSubProcesoDef = null; // Reset for next potential definition
+                } catch (e) {
+                    Webgoritmo.estadoApp.errorEjecucion = e.message; // Error ya incluye línea si parseDefinicionSubProceso lo hace bien
+                    Webgoritmo.estadoApp.detenerEjecucion = true;
+                    break;
+                }
+            } else { // SubProceso anidado (PSeInt no lo permite como definición válida)
+                 Webgoritmo.estadoApp.errorEjecucion = `Error en línea ${i + 1}: No se permiten definiciones de SubProceso anidadas.`;
+                 Webgoritmo.estadoApp.detenerEjecucion = true;
+                 break;
+            }
+            // No incrementar subProcesoNesting aquí, parseDefinicionSubProceso maneja su propio anidamiento interno para encontrar su FinSubProceso
+        } else if (lineaLower.startsWith("finsubproceso")) {
+             if(!inSubProcesoDef && subProcesoNesting === 0) { // FinSubProceso sin un SubProceso abierto
+                Webgoritmo.estadoApp.errorEjecucion = `Error en línea ${i + 1}: 'FinSubProceso' inesperado fuera de una definición de SubProceso.`;
+                Webgoritmo.estadoApp.detenerEjecucion = true;
+                break;
+             }
+             // Este FinSubProceso debería haber sido consumido por parseDefinicionSubProceso. Si llegamos aquí, algo está mal.
+        } else {
+            if (!inSubProcesoDef) { // Si no estamos parseando un SubProceso, la línea pertenece al principal o es Algoritmo/FinAlgoritmo
+                lineasParaBloquePrincipal.push(lineaOriginal);
+            }
+            // Si inSubProcesoDef es true, parseDefinicionSubProceso ya se encargó de estas líneas.
+        }
+        if (Webgoritmo.estadoApp.detenerEjecucion) break;
+    }
+
+    if (Webgoritmo.estadoApp.detenerEjecucion) { // Si hubo error en pre-parseo de SubProcesos
+        if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error');
+        if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("--- Ejecución con errores ---", "error");
+        return;
+    }
+
+    // --- FASE 2: Parseo del bloque principal Algoritmo/Proceso ---
     let lineasDelPrincipal = [];
     let inicioBloquePrincipalLineaNum = -1; // -1 indica no encontrado
     let processingState = 'buscar_inicio'; // 'buscar_inicio', 'en_bloque', 'bloque_terminado'
@@ -1360,9 +1687,23 @@ Webgoritmo.Interprete.ejecutarPseudocodigo = async function() {
 
 
     if (Webgoritmo.UI.añadirSalida) {
-        if (Webgoritmo.estadoApp.errorEjecucion) { Webgoritmo.UI.añadirSalida("--- Ejecución con errores ---", "error"); }
-        else if (Webgoritmo.estadoApp.detenerEjecucion) { Webgoritmo.UI.añadirSalida("--- Ejecución interrumpida ---", "warning"); }
-        else { Webgoritmo.UI.añadirSalida("--- Ejecución finalizada ---", "normal"); }
+        if (Webgoritmo.estadoApp.errorEjecucion) {
+            let mensajeErrorCompleto = Webgoritmo.estadoApp.errorEjecucion;
+            if (Webgoritmo.estadoApp.pilaLlamadas && Webgoritmo.estadoApp.pilaLlamadas.length > 0) {
+                mensajeErrorCompleto += "\nPila de llamadas (SubProcesos):";
+                // Mostrar la pila en orden inverso (de la más reciente a la más antigua)
+                for (let k = Webgoritmo.estadoApp.pilaLlamadas.length - 1; k >= 0; k--) {
+                    const frame = Webgoritmo.estadoApp.pilaLlamadas[k];
+                    mensajeErrorCompleto += `\n  - En SubProceso '${frame.nombre}' (definido en línea ~${frame.lineaDefinicion}), llamado desde línea ~${frame.lineaLlamada}.`;
+                }
+            }
+            Webgoritmo.UI.añadirSalida(mensajeErrorCompleto, 'error');
+            Webgoritmo.UI.añadirSalida("--- Ejecución con errores ---", "error");
+        } else if (Webgoritmo.estadoApp.detenerEjecucion) {
+            Webgoritmo.UI.añadirSalida("--- Ejecución interrumpida ---", "warning");
+        } else {
+            Webgoritmo.UI.añadirSalida("--- Ejecución finalizada ---", "normal");
+        }
     }
 };
 

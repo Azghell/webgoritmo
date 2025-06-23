@@ -263,7 +263,40 @@ FinAlgoritmo`,
 
 	valorLogico <- Verdadero
 	Escribir "Valor lógico ", valorLogico, " como texto: ", ConvertirATexto(valorLogico)
-FinAlgoritmo`
+FinAlgoritmo`,
+    funciones_subprocesos: `Algoritmo PrincipalConFunciones
+    Definir num1, num2, resultadoSuma Como Entero
+    Definir mensaje Como Cadena
+
+    num1 <- 10
+    num2 <- 5
+    mensaje <- "Valores iniciales"
+
+    MostrarValores(mensaje, num1, num2) // Procedimiento, paso por valor
+
+    resultadoSuma <- SumarNumeros(num1, num2) // Funcion, paso por valor
+    Escribir "La suma es: ", resultadoSuma
+
+    Escribir "Valores antes de intercambiar (por referencia): num1=", num1, ", num2=", num2
+    Intercambiar(num1, num2) // Procedimiento, paso por referencia
+    Escribir "Valores después de intercambiar (por referencia): num1=", num1, ", num2=", num2
+FinAlgoritmo
+
+SubProceso MostrarValores (prefijo Como Cadena, val1 Como Entero, val2 Como Entero)
+    Escribir prefijo, ": val1=", val1, ", val2=", val2
+FinSubProceso
+
+SubProceso sumaAux <- SumarNumeros (n1 Como Entero, n2 Como Entero)
+    sumaAux <- n1 + n2
+FinSubProceso
+
+SubProceso Intercambiar (numA Por Referencia, numB Por Referencia)
+    Definir temp Como Entero
+    temp <- numA
+    numA <- numB
+    numB <- temp
+    Escribir "(Dentro de Intercambiar: numA=", numA, ", numB=", numB, ")"
+FinSubProceso`
 };
 
 console.log("datosEjemplos.js cargado y Webgoritmo.Datos.exampleCodes actualizado para Fase 4 (Leer).");

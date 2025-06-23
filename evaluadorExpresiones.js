@@ -87,9 +87,43 @@ Webgoritmo.Expresiones.__pseudoSubcadena = __pseudoSubcadena;
 
 // --- Fin Funciones Helper ---
 
-Webgoritmo.Expresiones.evaluarExpresion = function(expr, scope) {
+Webgoritmo.Expresiones.evaluarExpresion = async function(expr, scope) { // Changed to async
     // ULTRA DEBUG: Ver la entrada cruda a la función.
     console.log(`ULTRA DEBUG evalExpr: expr CRUDA = "${expr}" (length: ${expr ? expr.length : 'N/A'}) | typeof: ${typeof expr} | JSON: ${JSON.stringify(expr)}`);
+
+    // Attempt to parse as a user-defined function call IF IT'S THE ENTIRE EXPRESSION
+    // Regex: funcName ( args )
+    const userFuncCallMatch = String(expr).trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)\s*$/);
+    if (userFuncCallMatch) {
+        const funcName = userFuncCallMatch[1];
+        const argsStr = userFuncCallMatch[2];
+
+        if (Webgoritmo.estadoApp && Webgoritmo.estadoApp.funcionesDefinidas && Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(funcName)) {
+            const defFuncion = Webgoritmo.estadoApp.funcionesDefinidas[funcName];
+            if (defFuncion.retornoVar === null) { // Es un SubProceso (procedimiento), no una función con retorno
+                throw new Error(`El SubProceso '${funcName}' no devuelve un valor y no puede ser usado en una expresión.`);
+            }
+
+            let argExprs = [];
+            if (argsStr.trim() !== '') {
+                 // Simple split by comma. Fails if args have commas in strings/calls.
+                 // TODO: Implement a robust argument string parser.
+                argExprs = argsStr.split(',').map(a => a.trim());
+            }
+
+            // Note: Nombres de argumentos originales para paso por referencia no se manejan aquí directamente.
+            // ejecutarSubProcesoLlamada espera expresiones de argumentos, no valores pre-evaluados en este punto si lo llamamos desde aquí.
+            // O, si esperamos valores pre-evaluados, este es el lugar para evaluarlos.
+            // El diseño de ejecutarSubProcesoLlamada espera listaExprArgumentos (strings).
+
+            // For by-reference, ejecutarSubProcesoLlamada needs original var names if possible.
+            // This simplified call from expression context might struggle with by-ref if args are complex.
+            // For now, it passes the expression strings.
+            console.log(`[evaluarExpresion] Detectada llamada a función definida por usuario: ${funcName}`);
+            return await Webgoritmo.Interprete.ejecutarSubProcesoLlamada(funcName, argExprs, scope, Webgoritmo.estadoApp.currentLineInfo || { numLineaOriginal: 'expresión' });
+        }
+    }
+    // Si no es una llamada a función de usuario que ocupa toda la expresión, continuar con el resto...
     let processedExpr = String(expr).trim();
     const originalExpr = processedExpr;
     console.log(`ULTRA DEBUG evalExpr: originalExpr (después de trim) = "${originalExpr}"`);
