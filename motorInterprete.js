@@ -184,44 +184,101 @@ Webgoritmo.Interprete.handleSi = async function(lineaActual, ambitoActual, numLi
     if (typeof condicionPrincipalVal !== 'boolean') {
         throw new Error(`Condición 'Si' ("${condicionPrincipalStr}") en línea ${numLineaOriginalSi} debe ser lógica, se obtuvo: ${condicionPrincipalVal}.`);
     }
-    let bloqueEntonces = [], bloquesSinoSi = [], bloqueSino = [];
+    let bloqueEntonces = [], bloquesSinoSi = [], bloqueSino = { cuerpo: [], lineaOriginal: -1 }; // Modificado para incluir lineaOriginal
     let bufferBloqueActual = bloqueEntonces, siAnidados = 0, i = indiceEnBloque + 1;
-    let numLineaOriginalOffset = ambitoActual === Webgoritmo.estadoApp.variables ? 0 : (lineasBloque.length > 0 && lineasBloque[0].numOriginal ? lineasBloque[0].numOriginal -1 - indiceEnBloque : numLineaOriginalSi - indiceEnBloque -1) ; // Mejorar esto
+    // El cálculo de numLineaOriginalOffset aquí es para saber el número de línea *global* de las líneas que se están parseando.
+    // Este offset general NO se usa directamente para llamar a ejecutarBloque para los sub-bloques Si/SinoSi/Sino.
+    // Es más para la detección de errores durante el parseo del bloque Si.
+    let numLineaGlobalActualBase = numLineaOriginalSi - (indiceEnBloque + 1);
+
 
     while (i < lineasBloque.length) {
-        if (Webgoritmo.estadoApp.detenerEjecucion) return i;
+        if (Webgoritmo.estadoApp.detenerEjecucion) return i; // Si se detiene la ejecución, salir.
         const lineaIter = lineasBloque[i].trim(), lineaIterLower = lineaIter.toLowerCase();
-        const numLineaIter = (ambitoActual === Webgoritmo.estadoApp.variables ? i+1 : numLineaOriginalOffset + i +1);
+        const numLineaGlobalIter = numLineaGlobalActualBase + i + 1;
+
 
         if (lineaIterLower.startsWith("si ") && lineaIterLower.includes(" entonces")) {
             siAnidados++; bufferBloqueActual.push(lineasBloque[i]);
         } else if (lineaIterLower === "finsi") {
             if (siAnidados > 0) { siAnidados--; bufferBloqueActual.push(lineasBloque[i]); }
-            else { i++; break; }
-        } else if (siAnidados === 0) {
+            else { i++; break; } // Fin del bloque Si-SinoSi-Sino actual
+        } else if (siAnidados === 0) { // Solo procesar SinoSi, Sino si no estamos dentro de un Si anidado
             const sinoSiMatch = lineaIter.match(/^SinoSi\s+(.+?)\s+Entonces$/i);
             if (sinoSiMatch) {
-                const nuevoBloqueSinoSi = { condicionStr: sinoSiMatch[1], cuerpo: [], lineaOriginal: numLineaIter };
-                bloquesSinoSi.push(nuevoBloqueSinoSi); bufferBloqueActual = nuevoBloqueSinoSi.cuerpo;
+                const nuevoBloqueSinoSi = { condicionStr: sinoSiMatch[1], cuerpo: [], lineaOriginal: numLineaGlobalIter };
+                bloquesSinoSi.push(nuevoBloqueSinoSi);
+                bufferBloqueActual = nuevoBloqueSinoSi.cuerpo;
             } else if (lineaIterLower === "sino") {
-                bufferBloqueActual = bloqueSino;
+                bloqueSino.lineaOriginal = numLineaGlobalIter; // Guardar la línea original del Sino
+                bufferBloqueActual = bloqueSino.cuerpo;
             } else { bufferBloqueActual.push(lineasBloque[i]); }
-        } else { bufferBloqueActual.push(lineasBloque[i]); }
+        } else { // Estamos dentro de un Si anidado, simplemente añadir la línea al buffer actual
+            bufferBloqueActual.push(lineasBloque[i]);
+        }
         i++;
     }
-    if (i >= lineasBloque.length && siAnidados >=0 ) { // Si se acabó el bloque y el Si no se cerró
-         if (!(siAnidados === 0 && lineasBloque[i-1] && lineasBloque[i-1].trim().toLowerCase() === "finsi")) { // Salvo que la última línea fuera el finsi correcto
+
+    if (i >= lineasBloque.length && siAnidados >=0 ) {
+         // Si se acabó el bloque de líneas y el 'Si' no se cerró correctamente con 'FinSi' (y no fue la última línea)
+         if (!(siAnidados === 0 && lineasBloque[i-1] && lineasBloque[i-1].trim().toLowerCase() === "finsi")) {
             throw new Error(`Se esperaba 'FinSi' para cerrar el bloque 'Si' iniciado en la línea ${numLineaOriginalSi}.`);
          }
     }
 
+    // --- LÓGICA DE EJECUCIÓN ---
     if (condicionPrincipalVal) {
-        await Webgoritmo.Interprete.ejecutarBloque(bloqueEntonces, ambitoActual, indiceEnBloque + 1);
+        // El offset para ejecutarBloque es numLineaOriginalSi (línea del 'Si ... Entonces')
+        await Webgoritmo.Interprete.ejecutarBloque(bloqueEntonces, ambitoActual, numLineaOriginalSi);
     } else {
         let sinoSiEjecutado = false;
-        for (const bloqueSCS of bloquesSinoSi) { /* ... (lógica de SinoSi, usando bloqueSCS.lineaOriginal para offset) ... */ }
-        if (!sinoSiEjecutado && bloqueSino.length > 0 && !Webgoritmo.estadoApp.detenerEjecucion) { /* ... (lógica de Sino) ... */ }
+        for (const bloqueSCS of bloquesSinoSi) {
+            if (Webgoritmo.estadoApp.detenerEjecucion) break;
+            let condicionSinoSiVal;
+            try {
+                condicionSinoSiVal = Webgoritmo.Expresiones.evaluarExpresion(bloqueSCS.condicionStr, ambitoActual);
+            } catch (e) {
+                throw new Error(`Evaluando condición 'SinoSi' ("${bloqueSCS.condicionStr}") en línea ${bloqueSCS.lineaOriginal}: ${e.message}`);
+            }
+            if (typeof condicionSinoSiVal !== 'boolean') {
+                throw new Error(`Condición 'SinoSi' ("${bloqueSCS.condicionStr}") en línea ${bloqueSCS.lineaOriginal} debe ser lógica, se obtuvo: ${condicionSinoSiVal}.`);
+            }
+
+            if (condicionSinoSiVal) {
+                // El offset es bloqueSCS.lineaOriginal (línea del 'SinoSi ... Entonces')
+                await Webgoritmo.Interprete.ejecutarBloque(bloqueSCS.cuerpo, ambitoActual, bloqueSCS.lineaOriginal);
+                sinoSiEjecutado = true;
+                break;
+            }
+        }
+
+        if (!sinoSiEjecutado && bloqueSino.cuerpo.length > 0 && !Webgoritmo.estadoApp.detenerEjecucion) {
+            // El offset es bloqueSino.lineaOriginal (línea del 'Sino')
+            // Si lineaOriginal es -1, significa que no hubo un 'Sino' explícito,
+            // lo cual es un caso que no debería llevar a ejecutar este bloque si cuerpo.length > 0.
+            // Pero por seguridad, verificamos.
+            if (bloqueSino.lineaOriginal === -1 && bloqueSino.cuerpo.length > 0) {
+                 console.warn(`WARN: Bloque Sino tiene cuerpo pero no línea original registrada. Usando numLineaOriginalSi como fallback para offset. Esto es inesperado.`);
+                 // Esto indicaría un error en la lógica de recolección si el cuerpo del Sino tiene contenido
+                 // pero no se registró su línea. Por ahora, usamos un fallback, pero idealmente no debería ocurrir.
+                 // El offset correcto para un bloque 'Sino' sería la línea donde apareció la palabra 'Sino'.
+                 // Si no hay 'Sino' explícito, no debería haber 'bloqueSino.cuerpo'.
+                 // Si 'Sino' no fue encontrado, pero hay líneas después de los SinoSi y antes del FinSi,
+                 // esas líneas actualmente se añadirían al último bloqueSinoSi o al bloqueSino si fue el último.
+                 // Esto necesita ser preciso.
+                 // La lógica de recolección actual debería asegurar que bloqueSino.cuerpo solo tiene contenido
+                 // si se encontró un "sino".
+            }
+            // La lineaOriginal del bloqueSino ya está ajustada al inicio del bloque Sino.
+             await Webgoritmo.Interprete.ejecutarBloque(bloqueSino.cuerpo, ambitoActual, bloqueSino.lineaOriginal > 0 ? bloqueSino.lineaOriginal : numLineaOriginalSi + bloqueEntonces.length + bloquesSinoSi.reduce((acc, b) => acc + b.cuerpo.length +1, 0) );
+        }
     }
+    // Retornar el índice de la línea *después* del 'FinSi' en el contexto del bloque de líneas original.
+    // 'i' se incrementó una última vez para salir del while (o apunta justo después del 'FinSi').
+    // Entonces, i-1 es el índice del 'FinSi' o la última línea procesada si el FinSi no se encontró correctamente.
+    // Dado que 'ejecutarBloque' incrementa su propio índice *después* de procesar la línea actual (que podría ser un 'Si'),
+    // el valor devuelto por handleSi debe ser el índice de la última línea que consumió (el 'FinSi').
+    // El bucle en ejecutarBloque luego incrementará este índice para pasar a la siguiente línea.
     return i - 1;
 };
 
