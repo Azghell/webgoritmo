@@ -111,10 +111,11 @@ Webgoritmo.Interprete.parseDefinicionSubProceso = function(lineaInicioSubProceso
 
             const paramNameOriginal = matchParam[1];
             let paramType = 'desconocido';
-            if (matchParam[3]) { // Grupo 3 es el tipo del parámetro
-                const tipoParamLower = matchParam[3].toLowerCase();
+            if (matchParam[2]) { // Group 2 is the type
+                const tipoParamStr = matchParam[2];
+                const tipoParamLower = tipoParamStr.toLowerCase();
                 const tiposConocidos = ['entero', 'real', 'logico', 'caracter', 'cadena'];
-                if (!tiposConocidos.includes(tipoParamLower)) throw new Error(`Tipo de dato '${matchParam[3]}' no reconocido para parámetro '${paramNameOriginal}' de '${nombreFuncionOriginal}' en línea ${indiceInicio + 1}.`);
+                if (!tiposConocidos.includes(tipoParamLower)) throw new Error(`Tipo de dato '${tipoParamStr}' no reconocido para parámetro '${paramNameOriginal}' de '${nombreFuncionOriginal}' en línea ${indiceInicio + 1}.`);
                 paramType = tipoParamLower;
             }
             const isByRef = matchParam[0].toLowerCase().includes("por referencia");
