@@ -185,12 +185,17 @@ Webgoritmo.Interprete.handleAsignacion = async function(linea, ambitoActual, num
 
         const evalIndices = [];
         for (let k = 0; k < indiceExprs.length; k++) {
-            let idxVal = await Webgoritmo.Expresiones.evaluarExpresion(indiceExprs[k], ambitoActual);
+            let idxValRaw = await Webgoritmo.Expresiones.evaluarExpresion(indiceExprs[k], ambitoActual);
+            let idxVal = idxValRaw; // Keep original raw value for potential error message
+
             if (typeof idxVal !== 'number' || (!Number.isInteger(idxVal) && Math.floor(idxVal) !== idxVal) ) { // Allow floats if they are whole numbers
                  idxVal = Math.trunc(idxVal); // Truncate to integer if it's like 3.0
-                 if (isNaN(idxVal)) throw new Error(`Índice para dimensión ${k+1} de '${nombreArrOriginal}' debe ser numérico. Se obtuvo '${indiceExprs[k]}' (evaluado a ${await Webgoritmo.Expresiones.evaluarExpresion(indiceExprs[k], ambitoActual)}) (línea ${numLineaOriginal}).`);
             }
-            idxVal = Math.trunc(idxVal); // Ensure integer
+            // Now check if, after potential truncation, it's a valid number for an index
+            if (typeof idxVal !== 'number' || isNaN(idxVal)) { // Check isNaN after potential truncation
+                throw new Error(`Índice para dimensión ${k+1} de '${nombreArrOriginal}' debe ser numérico. Se obtuvo '${indiceExprs[k]}' (evaluado a ${idxValRaw}) (línea ${numLineaOriginal}).`);
+            }
+            idxVal = Math.trunc(idxVal); // Ensure integer for boundary checks
             if (idxVal <= 0 || idxVal > arrMeta.dimensions[k]) { // PSeInt arrays are 1-indexed
                 throw new Error(`Índice [${idxVal}] fuera de límites para dimensión ${k+1} de '${nombreArrOriginal}' (1..${arrMeta.dimensions[k]}) (línea ${numLineaOriginal}).`);
             }
@@ -374,7 +379,7 @@ Webgoritmo.Interprete.handleSi = async function(lineaActual, ambitoActual, numLi
                 condicionSinoSiVal = await Webgoritmo.Expresiones.evaluarExpresion(bloqueSCS.condicionStr, ambitoActual);
             } catch (e) { throw new Error(`Evaluando condición 'SinoSi' ("${bloqueSCS.condicionStr}") en línea ${bloqueSCS.lineaOriginal}: ${e.message}`); }
 
-            if (typeoficionSinoSiVal !== 'boolean') {
+            if (typeof condicionSinoSiVal !== 'boolean') {
                 throw new Error(`Condición 'SinoSi' ("${bloqueSCS.condicionStr}") en línea ${bloqueSCS.lineaOriginal} debe ser lógica, se obtuvo: ${condicionSinoSiVal}.`);
             }
 
