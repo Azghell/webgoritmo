@@ -87,6 +87,346 @@ Webgoritmo.Expresiones.__pseudoSubcadena = __pseudoSubcadena;
 
 // --- Fin Funciones Helper ---
 
+Webgoritmo.Expresiones.tokenize = function(exprStr) {
+    const tokens = [];
+    let i = 0;
+    const originalLength = exprStr.length;
+
+    // Order matters: keywords and longer operators first. 'y' flag for sticky.
+    // Case-insensitive matching for keywords via 'i' flag in regex.
+    const tokenPatterns = [
+        // Literals
+        { type: 'NUMBER', regex: /\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b|\.\d+(?:[eE][+-]?\d+)?\b/y },
+        { type: 'STRING_LITERAL', regex: /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/y },
+        { type: 'BOOLEAN_TRUE', regex: /\bVerdadero\b/iy },
+        { type: 'BOOLEAN_FALSE', regex: /\bFalso\b/iy },
+
+        // Operators (longest first for multi-char ops)
+        { type: 'OPERATOR_LTE', regex: /<=|menor o igual que/iy },
+        { type: 'OPERATOR_GTE', regex: />=|mayor o igual que/iy },
+        { type: 'OPERATOR_NEQ', regex: /<>|!=|distinto de/iy }, // != is common PSeInt extension
+        { type: 'OPERATOR_EQ', regex: /==|=igual que/iy }, // PSeInt uses single '=' for comparison, '==' also for robustness
+        { type: 'OPERATOR_LT', regex: /<|menor que/iy },
+        { type: 'OPERATOR_GT', regex: />|mayor que/iy },
+
+        { type: 'OPERATOR_AND', regex: /\bY\b|&&/iy }, // PSeInt Y, common &&
+        { type: 'OPERATOR_OR', regex: /\bO\b|\|\|/iy },  // PSeInt O, common ||
+        { type: 'OPERATOR_NOT', regex: /\bNO\b|!|~/iy },// PSeInt NO, common ! or ~
+        { type: 'OPERATOR_MOD', regex: /\bMOD\b|%/iy }, // PSeInt MOD, common %
+
+        { type: 'OPERATOR_POW', regex: /\^/y },
+        { type: 'OPERATOR_MULTIPLY', regex: /\*/y },
+        { type: 'OPERATOR_DIVIDE', regex: /\//y },
+        { type: 'OPERATOR_PLUS', regex: /\+/y },
+        { type: 'OPERATOR_MINUS', regex: /-/y }, // Unary/binary distinction handled by parser
+
+        // Parentheses, Brackets, Comma
+        { type: 'LPAREN', regex: /\(/y },
+        { type: 'RPAREN', regex: /\)/y },
+        { type: 'LBRACKET', regex: /\[/y },
+        { type: 'RBRACKET', regex: /\]/y },
+        { type: 'COMMA', regex: /,/y },
+
+        // Identifiers last as a fallback
+        { type: 'IDENTIFIER', regex: /[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*/y } // Allow Spanish chars in identifiers
+    ];
+
+    while (i < originalLength) {
+        // Skip whitespace
+        const whitespaceRegex = /\s+/y;
+        whitespaceRegex.lastIndex = i;
+        const wsMatch = whitespaceRegex.exec(exprStr);
+        if (wsMatch && wsMatch.index === i) {
+            i = whitespaceRegex.lastIndex;
+            if (i >= originalLength) break;
+        }
+
+        let matched = false;
+        for (const pattern of tokenPatterns) {
+            pattern.regex.lastIndex = i; // Set search start for sticky regex
+            const match = pattern.regex.exec(exprStr);
+
+            if (match && match.index === i) { // Ensure match is at current position
+                let value = match[0];
+                let type = pattern.type;
+
+                if (type === 'NUMBER') {
+                    value = parseFloat(value);
+                } else if (type === 'STRING_LITERAL') {
+                    value = value.substring(1, value.length - 1).replace(/\\(["'\\])/g, '$1'); // Unescape common
+                } else if (type === 'BOOLEAN_TRUE') {
+                    value = true;
+                } else if (type === 'BOOLEAN_FALSE') {
+                    value = false;
+                } else if (type === 'IDENTIFIER') {
+                    // Re-classify if it's a known keyword operator/literal that wasn't caught by more specific regexes
+                    // (This helps if regexes for keywords are not perfectly ordered or comprehensive)
+                    const lowerVal = value.toLowerCase();
+                    if (lowerVal === "mod") type = 'OPERATOR_MOD';
+                    else if (lowerVal === "y" || value === "&&") type = 'OPERATOR_AND';
+                    else if (lowerVal === "o" || value === "||") type = 'OPERATOR_OR';
+                    else if (lowerVal === "no" || value === "!" || value === "~") type = 'OPERATOR_NOT';
+                    else if (lowerVal === "verdadero") { type = 'BOOLEAN_TRUE'; value = true; }
+                    else if (lowerVal === "falso") { type = 'BOOLEAN_FALSE'; value = false; }
+                }
+                 // For operators like '=', '<=', '>=', '<>', ensure we use a canonical value if multiple text forms exist
+                if (type === 'OPERATOR_EQ') value = '='; // Canonical for comparison
+                if (type === 'OPERATOR_NEQ') value = '<>'; // Canonical for PSeInt
+                if (type === 'OPERATOR_LTE') value = '<=';
+                if (type === 'OPERATOR_GTE') value = '>=';
+                if (type === 'OPERATOR_LT') value = '<';
+                if (type === 'OPERATOR_GT') value = '>';
+
+
+                tokens.push({ type: type, value: value, original: match[0] });
+                i = pattern.regex.lastIndex;
+                matched = true;
+                break;
+            }
+        }
+
+        if (!matched) {
+            // Log the problematic part of the expression for easier debugging
+            const errorContext = exprStr.substring(Math.max(0, i - 10), Math.min(exprStr.length, i + 10));
+            const pointer = " ".repeat(Math.min(10, i)) + "^";
+            throw new Error(`Error de tokenización: Caracter inesperado '${exprStr[i]}' en la expresión.\nContexto: ...${errorContext}...\n          ${pointer}`);
+        }
+    }
+    return tokens;
+};
+
+Webgoritmo.Expresiones.getOperatorPrecedence = function(opToken) {
+    if (!opToken || opToken.type === 'LPAREN' || opToken.type === 'RPAREN') return 0; // Parentheses handled differently
+    // Based on PSeInt operator precedence
+    switch (opToken.value.toUpperCase()) { // Use value for actual operator symbol/keyword
+        case '^': return 5; // Potencia
+        case '*': case '/': case 'MOD': case '%': case 'DIV': return 4; // Multiplicación, División, Módulo
+        case '+': case '-': return 3; // Suma, Resta (binaria)
+        case '=': case '<>': case '!=': case '<': case '>': case '<=': case '>=':
+        case 'MENOR QUE': case 'MAYOR QUE': case 'MENOR O IGUAL QUE': case 'MAYOR O IGUAL QUE': case 'IGUAL QUE': case 'DISTINTO DE':
+            return 2; // Relacionales
+        case 'NO': case '!': case '~': return 6; // NOT lógico (alta precedencia, unario) - adjust if needed
+        case 'Y': case '&&': return 1; // AND lógico (baja precedencia)
+        case 'O': case '||': return 1; // OR lógico (misma o menor que AND, PSeInt Y/O son usualmente mismo nivel bajo)
+        default: return 0; // Default for unknown or non-operators handled by Shunting-yard
+    }
+};
+
+Webgoritmo.Expresiones.isOperatorLeftAssociative = function(opToken) {
+    // La mayoría de los operadores de PSeInt son asociativos a la izquierda, excepto la potencia.
+    if (!opToken) return true;
+    return opToken.value !== '^'; // Potencia es asociativa a la derecha
+};
+
+Webgoritmo.Expresiones.infixToPostfix = function(tokens) {
+    const outputQueue = [];
+    const operatorStack = [];
+
+    // Helper to identify if a token is an operator that goes on the operatorStack
+    const isStackableOperator = (token) =>
+        token.type.startsWith('OPERATOR_') ||
+        token.type === 'LPAREN' || // LPAREN goes on stack
+        token.type === 'RPAREN'; // RPAREN is processed but not directly stacked long-term
+
+    // Handling unary minus:
+    // A minus is unary if:
+    // 1. It's the first token.
+    // 2. The preceding token was an operator or an LPAREN.
+    const processedTokens = [];
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i];
+        if (token.type === 'OPERATOR_MINUS') {
+            const prevToken = i > 0 ? tokens[i-1] : null;
+            if (!prevToken || prevToken.type.startsWith('OPERATOR_') || prevToken.type === 'LPAREN' || prevToken.type === 'COMMA') {
+                // This is a unary minus. We can represent it with a special type or value.
+                // For simplicity in RPN evaluation, let's make it a special operator or use a 0-operand convention.
+                // Let's change its type for now. The RPN evaluator will need to handle UNARY_MINUS.
+                processedTokens.push({ ...token, type: 'OPERATOR_UNARY_MINUS', value: '_UMINUS_' });
+            } else {
+                processedTokens.push(token); // Binary minus
+            }
+        } else {
+            processedTokens.push(token);
+        }
+    }
+    // Adjust precedence for UNARY_MINUS if needed (typically higher than multiplication)
+    // Webgoritmo.Expresiones.getOperatorPrecedence needs to know about _UMINUS_ if we change its value.
+    // Or, the RPN evaluator handles it by knowing it takes 1 operand.
+    // For now, let's assume UNARY_MINUS will be handled specially by RPN evaluator.
+
+    for (const token of processedTokens) {
+        switch (token.type) {
+            case 'NUMBER':
+            case 'STRING_LITERAL':
+            case 'BOOLEAN_TRUE':
+            case 'BOOLEAN_FALSE':
+            case 'IDENTIFIER': // Variables and function names (if not handled as functions below)
+                outputQueue.push(token);
+                break;
+
+            // TODO: Handle function calls (IDENTIFIER followed by LPAREN) more explicitly if needed here.
+            // For now, IDENTIFIERs are pushed; if it's a function, RPN eval will see it before its args.
+
+            case 'LPAREN':
+                operatorStack.push(token);
+                break;
+
+            case 'RPAREN':
+                while (operatorStack.length > 0 && operatorStack[operatorStack.length - 1].type !== 'LPAREN') {
+                    outputQueue.push(operatorStack.pop());
+                }
+                if (operatorStack.length === 0 || operatorStack[operatorStack.length - 1].type !== 'LPAREN') {
+                    throw new Error("Error de sintaxis: Paréntesis no coincidentes (falta '(').");
+                }
+                operatorStack.pop(); // Discard LPAREN
+                // TODO: If top of stack is now a function identifier, pop it to output.
+                // This is more complex if function names are just IDENTIFIERs.
+                break;
+
+            case 'COMMA': // For function arguments primarily
+                 while (operatorStack.length > 0 && operatorStack[operatorStack.length - 1].type !== 'LPAREN') {
+                    outputQueue.push(operatorStack.pop());
+                }
+                // Comma itself isn't pushed to output or stack in basic Shunting-yard for expressions.
+                // It acts as a separator. The RPN evaluator for functions will need to know how many args to expect.
+                break;
+
+            default: // Assumed to be an operator if type starts with OPERATOR_
+                if (token.type.startsWith('OPERATOR_')) {
+                    const op1 = token;
+                    while (operatorStack.length > 0) {
+                        const op2 = operatorStack[operatorStack.length - 1];
+                        if (op2.type === 'LPAREN') break; // Don't pop LPAREN
+
+                        const op1Precedence = Webgoritmo.Expresiones.getOperatorPrecedence(op1);
+                        const op2Precedence = Webgoritmo.Expresiones.getOperatorPrecedence(op2);
+
+                        if (op2Precedence > op1Precedence || (op2Precedence === op1Precedence && Webgoritmo.Expresiones.isOperatorLeftAssociative(op1))) {
+                            outputQueue.push(operatorStack.pop());
+                        } else {
+                            break;
+                        }
+                    }
+                    operatorStack.push(op1);
+                } else {
+                     // This case should ideally not be reached if tokenizer is complete and types are specific
+                     console.warn("Shunting-yard: Token desconocido o no manejado:", token);
+                }
+                break;
+        }
+    }
+
+    while (operatorStack.length > 0) {
+        const op = operatorStack.pop();
+        if (op.type === 'LPAREN') {
+            throw new Error("Error de sintaxis: Paréntesis no coincidentes (sobra '(').");
+        }
+        outputQueue.push(op);
+    }
+
+    return outputQueue;
+};
+
+Webgoritmo.Expresiones.evaluateRPN = async function(rpnQueue, scope, numLineaOriginal) {
+    const valueStack = [];
+
+    for (const token of rpnQueue) {
+        if (Webgoritmo.estadoApp && Webgoritmo.estadoApp.detenerEjecucion) {
+            throw new Error("Ejecución detenida por el usuario o error previo.");
+        }
+
+        switch (token.type) {
+            case 'NUMBER':
+            case 'STRING_LITERAL':
+            case 'BOOLEAN_TRUE':
+            case 'BOOLEAN_FALSE':
+                valueStack.push(token.value);
+                break;
+
+            case 'IDENTIFIER':
+                const varNameLc = token.value.toLowerCase(); // Identifiers are stored as original case in token for now
+                if (scope.hasOwnProperty(varNameLc) && scope[varNameLc].type !== 'array') { // Ensure it's not an un-indexed array
+                    valueStack.push(scope[varNameLc].value);
+                } else if (scope.hasOwnProperty(varNameLc) && scope[varNameLc].type === 'array') {
+                    throw new Error(`Error en línea ${numLineaOriginal}: No se puede usar el arreglo '${token.value}' sin especificar índices en esta expresión.`);
+                } else {
+                    throw new Error(`Error en línea ${numLineaOriginal}: Variable o función '${token.value}' no definida.`);
+                }
+                break;
+
+            case 'OPERATOR_PLUS': {
+                if (valueStack.length < 2) throw new Error(`Error en línea ${numLineaOriginal}: Faltan operandos para el operador '+'.`);
+                const op2 = valueStack.pop();
+                const op1 = valueStack.pop();
+                valueStack.push(Webgoritmo.Expresiones.__pseudoSuma__(op1, op2, numLineaOriginal));
+                break;
+            }
+            case 'OPERATOR_UNARY_MINUS': { // Assuming value is '_UMINUS_'
+                if (valueStack.length < 1) throw new Error(`Error en línea ${numLineaOriginal}: Falta operando para '-' unario.`);
+                const op = valueStack.pop();
+                const opType = Webgoritmo.Interprete.inferirTipo(op).toLowerCase();
+                if (opType !== 'entero' && opType !== 'real') {
+                    throw new Error(`Error en línea ${numLineaOriginal}: Operador '-' unario solo aplicable a números, se recibió '${opType}'.`);
+                }
+                valueStack.push(-op);
+                break;
+            }
+            // --- Implement other operators with strict typing using __pseudoOperacionAritmetica__ ---
+            case 'OPERATOR_MINUS':
+            case 'OPERATOR_MULTIPLY':
+            case 'OPERATOR_DIVIDE':
+            case 'OPERATOR_MOD': // Handles 'MOD' and '%' due to tokenizer canonical value
+            case 'OPERATOR_POW': {
+                if (valueStack.length < 2) throw new Error(`Error en línea ${numLineaOriginal}: Faltan operandos para el operador '${token.original}'.`);
+                const op2 = valueStack.pop();
+                const op1 = valueStack.pop();
+                // Note: token.value might be '%' but token.original was "MOD". We need the canonical operator symbol for __pseudoOperacionAritmetica__.
+                // The tokenizer currently stores the original matched string in token.original, and a potentially canonical one in token.value (e.g. MOD -> MOD, % -> %)
+                // Let's assume token.value is the canonical symbol like '-', '*', '/', 'MOD', '^'
+                // For MOD, tokenizer puts 'MOD' or '%' into value. __pseudoOperacionAritmetica handles both.
+                valueStack.push(Webgoritmo.Expresiones.__pseudoOperacionAritmetica__(op1, op2, token.value, numLineaOriginal));
+                break;
+            }
+            case 'OPERATOR_NOT': {
+                if (valueStack.length < 1) throw new Error(`Error en línea ${numLineaOriginal}: Falta operando para el operador '${token.original}'.`);
+                const op = valueStack.pop();
+                valueStack.push(Webgoritmo.Expresiones.__pseudoNot__(op, numLineaOriginal));
+                break;
+            }
+            case 'OPERATOR_AND':
+            case 'OPERATOR_OR': {
+                if (valueStack.length < 2) throw new Error(`Error en línea ${numLineaOriginal}: Faltan operandos para el operador '${token.original}'.`);
+                const op2 = valueStack.pop();
+                const op1 = valueStack.pop();
+                valueStack.push(Webgoritmo.Expresiones.__pseudoOpLogicaBinaria__(op1, op2, token.value, numLineaOriginal)); // token.value is 'Y' or 'O' (or &&, ||)
+                break;
+            }
+            case 'OPERATOR_EQ': // = (o ==)
+            case 'OPERATOR_NEQ': // <> (o !=)
+            case 'OPERATOR_LT': // <
+            case 'OPERATOR_GT': // >
+            case 'OPERATOR_LTE': // <=
+            case 'OPERATOR_GTE': { // >=
+                if (valueStack.length < 2) throw new Error(`Error en línea ${numLineaOriginal}: Faltan operandos para el operador de comparación '${token.original}'.`);
+                const op2 = valueStack.pop();
+                const op1 = valueStack.pop();
+                // token.value should be the canonical operator e.g., '=', '<>', '<', etc. as set by tokenizer
+                valueStack.push(Webgoritmo.Expresiones.__pseudoComparacion__(op1, op2, token.value, numLineaOriginal));
+                break;
+            }
+            default:
+                throw new Error(`Error en línea ${numLineaOriginal}: Operador o token RPN no reconocido/implementado '${token.original}' (tipo: ${token.type}, valor: ${token.value}).`);
+        }
+    }
+
+    if (valueStack.length !== 1) {
+        console.error("Error en evaluador RPN: Pila de valores final no tiene un solo elemento.", valueStack, rpnQueue);
+        throw new Error(`Error en línea ${numLineaOriginal}: Expresión mal formada o error interno del evaluador RPN.`);
+    }
+    return valueStack[0];
+};
+
+
 window.Webgoritmo.Builtins = window.Webgoritmo.Builtins || {};
 Webgoritmo.Builtins.funciones = {
     // Funciones Matemáticas
@@ -257,6 +597,90 @@ function __pseudoSuma__(op1, op2, numLinea) {
 }
 Webgoritmo.Expresiones.__pseudoSuma__ = __pseudoSuma__;
 
+function __pseudoOperacionAritmetica__(op1, op2, operador, numLinea, permiteCeroDivisor = false) {
+    const tipo1 = Webgoritmo.Interprete.inferirTipo(op1).toLowerCase();
+    const tipo2 = Webgoritmo.Interprete.inferirTipo(op2).toLowerCase();
+
+    if ((tipo1 !== 'entero' && tipo1 !== 'real') || (tipo2 !== 'entero' && tipo2 !== 'real')) {
+        throw new Error(`Error en línea ${numLinea}: Tipos incompatibles para el operador '${operador}'. Ambos operandos deben ser numéricos. Se encontraron '${tipo1}' y '${tipo2}'.`);
+    }
+    if (!permiteCeroDivisor && (operador === '/' || operador.toUpperCase() === 'MOD' || operador === '%') && op2 === 0) {
+        throw new Error(`Error en línea ${numLinea}: División por cero (o módulo por cero) con el operador '${operador}'.`);
+    }
+    if (operador === '/' && op2 === 0) { // Específico para / si se quiere un error diferente o si permiteCeroDivisor es true para otros
+         throw new Error(`Error en línea ${numLinea}: División por cero.`);
+    }
+
+
+    switch (operador) {
+        case '-': return op1 - op2;
+        case '*': return op1 * op2;
+        case '/': return op1 / op2; // PSeInt '/' es división real
+        case 'MOD': case '%': return op1 % op2; // PSeInt MOD es el resto de la división entera
+        case '^': return Math.pow(op1, op2);
+        default: // No debería llegar aquí si se llama correctamente
+            throw new Error(`Error interno: Operador aritmético desconocido '${operador}' en __pseudoOperacionAritmetica__.`);
+    }
+}
+Webgoritmo.Expresiones.__pseudoOperacionAritmetica__ = __pseudoOperacionAritmetica__;
+
+function __pseudoNot__(op, numLinea) {
+    const tipoOp = Webgoritmo.Interprete.inferirTipo(op).toLowerCase();
+    if (tipoOp !== 'logico') {
+        throw new Error(`Error en línea ${numLinea}: El operador 'NO' solo se puede aplicar a valores lógicos, se recibió '${tipoOp}'.`);
+    }
+    return !op;
+}
+Webgoritmo.Expresiones.__pseudoNot__ = __pseudoNot__;
+
+function __pseudoOpLogicaBinaria__(op1, op2, operador, numLinea) {
+    const tipo1 = Webgoritmo.Interprete.inferirTipo(op1).toLowerCase();
+    const tipo2 = Webgoritmo.Interprete.inferirTipo(op2).toLowerCase();
+    if (tipo1 !== 'logico' || tipo2 !== 'logico') {
+        throw new Error(`Error en línea ${numLinea}: Tipos incompatibles para el operador '${operador}'. Ambos operandos deben ser lógicos. Se encontraron '${tipo1}' y '${tipo2}'.`);
+    }
+    switch (operador.toUpperCase()) { // Tokenizer stores canonical 'Y' or 'O' in value
+        case 'Y': case '&&': return op1 && op2;
+        case 'O': case '||': return op1 || op2;
+        default:
+             throw new Error(`Error interno: Operador lógico binario desconocido '${operador}'.`);
+    }
+}
+Webgoritmo.Expresiones.__pseudoOpLogicaBinaria__ = __pseudoOpLogicaBinaria__;
+
+function __pseudoComparacion__(op1, op2, operador, numLinea) {
+    const tipo1 = Webgoritmo.Interprete.inferirTipo(op1).toLowerCase();
+    const tipo2 = Webgoritmo.Interprete.inferirTipo(op2).toLowerCase();
+
+    // PSeInt comparisons: numbers with numbers, strings with strings, logical with logical (for =,<>)
+    // Mixed types usually result in false or error depending on strictness.
+    // For now, enforce type consistency for <, >, <=, >= and allow some coercion for = , <> like JS '=='
+
+    if ((tipo1 === 'entero' || tipo1 === 'real') && (tipo2 === 'entero' || tipo2 === 'real')) {
+        // Numeric comparison
+    } else if ((tipo1 === 'cadena' || tipo1 === 'caracter') && (tipo2 === 'cadena' || tipo2 === 'caracter')) {
+        // String comparison
+        op1 = String(op1); op2 = String(op2); // Ensure they are JS strings for comparison
+    } else if (tipo1 === 'logico' && tipo2 === 'logico' && (operador === '=' || operador === '<>')) {
+        // Boolean comparison for equality/inequality
+    } else {
+        // Mixed types not directly comparable for ordering, or invalid types for equality (e.g. logico < numero)
+        throw new Error(`Error en línea ${numLinea}: Tipos incompatibles para el operador de comparación '${operador}'. No se pueden comparar '${tipo1}' con '${tipo2}'.`);
+    }
+
+    switch (operador) { // Tokenizer stores canonical value e.g. '=', '<>', '<', '<=', '>', '>='
+        case '=': return op1 == op2; // JS '==' for loose equality (PSeInt often similar for '=')
+        case '<>': return op1 != op2; // JS '!=' for loose inequality
+        case '<': return op1 < op2;
+        case '>': return op1 > op2;
+        case '<=': return op1 <= op2;
+        case '>=': return op1 >= op2;
+        default:
+            throw new Error(`Error interno: Operador de comparación desconocido '${operador}'.`);
+    }
+}
+Webgoritmo.Expresiones.__pseudoComparacion__ = __pseudoComparacion__;
+
 
 Webgoritmo.Expresiones.evaluarExpresion = async function(expr, scope) { // Changed to async
     // ULTRA DEBUG: Ver la entrada cruda a la función.
@@ -321,236 +745,29 @@ Webgoritmo.Expresiones.evaluarExpresion = async function(expr, scope) { // Chang
         }
     }
 
-    // Si no es una llamada a función que ocupa toda la expresión, continuar con el resto...
-    let processedExpr = originalExprStr;
-    const originalExpr = processedExpr;
-    console.log(`ULTRA DEBUG evalExpr: originalExpr (después de trim) = "${originalExpr}"`);
+    // Si no es una llamada a función que ocupa toda la expresión, ni un acceso directo a arreglo,
+    // ni un literal simple, entonces proceder con tokenización y evaluación RPN.
+    // Esto reemplaza la lógica de reemplazo de regex y eval().
 
-    // 1. MANEJO DE ACCESO DIRECTO A ARREGLOS (MULTIDIMENSIONAL)
-    // 1. MANEJO DE ACCESO DIRECTO A ARREGLOS (MULTIDIMENSIONAL)
-    // Este bloque maneja el caso donde la expresión COMPLETA es un acceso a arreglo, ej. "miVec[3]" o "miMat[i,j+1]"
-    const directArrayAccessMatch = processedExpr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+?)\s*\]$/);
-    if (directArrayAccessMatch) {
-        const arrName = directArrayAccessMatch[1];
-        const indicesStr = directArrayAccessMatch[2].trim();
-
-        if (scope.hasOwnProperty(arrName) && scope[arrName] && scope[arrName].type === 'array') {
-            const arrayData = scope[arrName];
-            const indiceExprs = indicesStr.split(',').map(e => e.trim()); // Simple split, PSeInt indices usually simple.
-
-            if (indiceExprs.some(s => s === "")) {
-                throw new Error(`Expresión de índice vacía para el arreglo '${arrName}' al leer su valor.`);
-            }
-            if (indiceExprs.length !== arrayData.dimensions.length) {
-                throw new Error(`Número incorrecto de dimensiones para acceder al arreglo '${arrName}'. Se esperaban ${arrayData.dimensions.length}, se proporcionaron ${indiceExprs.length}.`);
-            }
-
-            const evalIndices = [];
-            for (let k = 0; k < indiceExprs.length; k++) {
-                let idxVal;
-                try {
-                    // Evaluar cada expresión de índice recursivamente
-                    idxVal = Webgoritmo.Expresiones.evaluarExpresion(indiceExprs[k], scope);
-                } catch (e) {
-                    throw new Error(`Error evaluando índice '${indiceExprs[k]}' (dimensión ${k+1}) para arreglo '${arrName}': ${e.message}`);
-                }
-
-                if (typeof idxVal !== 'number' || (!Number.isInteger(idxVal) && Math.floor(idxVal) !== idxVal)) {
-                    throw new Error(`Índice para la dimensión ${k+1} del arreglo '${arrName}' debe ser un entero. Se obtuvo '${indiceExprs[k]}' (valor: ${idxVal}).`);
-                }
-                idxVal = Math.trunc(idxVal); // Asegurar que sea entero
-
-                if (idxVal <= 0 || idxVal > arrayData.dimensions[k]) {
-                    throw new Error(`Índice [${idxVal}] fuera de los límites para la dimensión ${k+1} del arreglo '${arrName}' (válido: 1 a ${arrayData.dimensions[k]}).`);
-                }
-                evalIndices.push(idxVal);
-            }
-
-            let valorActual = arrayData.value;
-            for (const indice of evalIndices) {
-                if (valorActual && valorActual[indice] !== undefined) { // Usar 1-based index
-                    valorActual = valorActual[indice];
-                } else {
-                    // Esto podría ocurrir si el arreglo no está completamente inicializado o índice es incorrecto a pesar de las validaciones
-                    // (lo cual no debería pasar si las validaciones son correctas).
-                    console.error("Error Interno: Elemento de arreglo no encontrado durante lectura.", arrName, evalIndices, arrayData);
-                    throw new Error(`Error accediendo al elemento del arreglo '${arrName}' con índices [${evalIndices.join(', ')}]. El elemento podría no existir o ser inaccesible.`);
-                }
-            }
-            return valorActual; // Devuelve el valor del elemento del arreglo
-        } else if (scope.hasOwnProperty(arrName) && (!scope[arrName] || scope[arrName].type !== 'array')) {
-             throw new Error(`Variable "${arrName}" no es un arreglo y no puede ser accedida con índices.`);
-        }
-        // Si arrName no está en scope, la lógica de reemplazo de variables más adelante lo manejará o fallará.
-    }
-
-    // 2. MANEJO DE LITERALES (después del acceso a arreglo, ya que un arreglo podría llamarse "verdadero" etc.)
-    if (processedExpr.toLowerCase() === 'verdadero') return true;
-    if (processedExpr.toLowerCase() === 'falso') return false;
-
-    // Si la expresión original es un literal de cadena, devolver su contenido directamente.
-    // Esto es más seguro y evita problemas con eval() para cadenas simples.
-    let matchCadenaOriginal = originalExpr.match(/^"((?:\\.|[^"\\])*)"$/);
-    if (matchCadenaOriginal) {
-        console.log(`ULTRA DEBUG evalExpr: Detectado literal de cadena DOBLE: ${JSON.stringify(matchCadenaOriginal)}`);
-        return matchCadenaOriginal[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-    }
-    matchCadenaOriginal = originalExpr.match(/^'((?:\\.|[^'\\])*)'$/);
-    if (matchCadenaOriginal) {
-        console.log(`ULTRA DEBUG evalExpr: Detectado literal de cadena SIMPLE: ${JSON.stringify(matchCadenaOriginal)}`);
-        return matchCadenaOriginal[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\');
-    }
-    // Si no es un literal de cadena reconocido directamente por originalExpr, loguear y continuar con el procesamiento.
-    console.log(`ULTRA DEBUG evalExpr: NO detectado como literal de cadena simple/doble. originalExpr="${originalExpr}"`);
-
-    // Es importante que este chequeo de número sea robusto y no convierta erróneamente
-    // identificadores que podrían empezar con números o contener 'e' (notación científica).
-    // El `trim()` es importante. `Number()` es más estricto que `parseFloat` para cadenas vacías o solo espacios.
-    const trimmedForNumCheck = processedExpr.trim();
-    if (trimmedForNumCheck !== '' && !isNaN(Number(trimmedForNumCheck))) {
-        // Adicionalmente, verificar que no sea un identificador válido que casualmente es parseable como número.
-        // Esto es complejo. Por ahora, confiamos en !isNaN(Number(...)) para la mayoría de los casos.
-        // PSeInt no tiene hexadecimales ni octales que podrían confundir.
-        if (!/^[a-zA-Z_]/.test(trimmedForNumCheck)) { // No empezar con letra o _, si es así, es variable
-             return parseFloat(trimmedForNumCheck);
-        }
-    }
-
-    // 3. REEMPLAZO DE OPERADORES Y FUNCIONES PSeInt A JS
-    // Guardar operandos de cadenas antes de reemplazar operadores que podrían estar en ellas
-    const stringLiterals = [];
-    let tempExprForStrings = processedExpr;
-    tempExprForStrings = tempExprForStrings.replace(/"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'/g, function(match, p1, p2) {
-        stringLiterals.push(match);
-        return `__STRING_LITERAL_${stringLiterals.length - 1}__`;
-    });
-    processedExpr = tempExprForStrings;
-
-    // Orden de reemplazo de operadores es importante
-    processedExpr = processedExpr
-        .replace(/<\s*>/g, ' != ')
-        .replace(/>\s*=/g, ' >= ')
-        .replace(/<\s*=/g, ' <= ');
-
-    // Reemplazo cuidadoso de '=' para evitar afectar '==', '<=', '>='
-    // Se busca un '=' que no esté precedido por '<', '>', '!' o '=' y no esté seguido por '='.
-    processedExpr = processedExpr.replace(/(?<![<>\!=\(])=(?!=)/g, ' == ');
-
-
-    processedExpr = processedExpr
-        .replace(/\bY\b/gi, ' && ')
-        .replace(/\bO\b/gi, ' || ')
-        // Para NO, asegurarse de que no esté pegado a una palabra, ej. "NOTA" vs "NO TA"
-        .replace(/(^|\s)\bNO\b(\s|$|\()/gi, '$1 ! $2') // Maneja NO al inicio, con espacios, o antes de (
-        .replace(/\bMOD\b/gi, ' % ')
-        .replace(/\^/g, '**')
-        .replace(/\bDIV\b/gi, ' / ');
-
-    processedExpr = processedExpr
-        .replace(/\bAbs\s*\(([^)]+)\)/gi, 'Math.abs($1)')
-        .replace(/\bRC\s*\(([^)]+)\)/gi, 'Math.sqrt($1)')
-        .replace(/\bAleatorio\s*\(\s*([^,]+)\s*,\s*([^)]+)\s*\)/gi, 'pseudoAleatorio($1, $2)')
-        .replace(/\bAleatorio\s*\(([^)]+)\)/gi, '(Math.floor(Math.random() * Number($1)) + 1)')
-        .replace(/\bAzar\s*\(([^)]+)\)/gi, 'pseudoAzar(Number($1))')
-        .replace(/\bAZAR\b/gi, 'Math.random()')
-        .replace(/\bRedon\s*\(([^)]+)\)/gi, 'Math.round($1)')
-        .replace(/\bTrunc\s*\(([^)]+)\)/gi, 'Math.trunc($1)')
-        .replace(/\bSen\s*\(([^)]+)\)/gi, 'Math.sin($1)')
-        .replace(/\bCos\s*\(([^)]+)\)/gi, 'Math.cos($1)')
-        .replace(/\bTan\s*\(([^)]+)\)/gi, 'Math.tan($1)')
-        .replace(/\bLn\s*\(([^)]+)\)/gi, 'Math.log($1)')
-        .replace(/\bExp\s*\(([^)]+)\)/gi, 'Math.exp($1)')
-        .replace(/\bLongitud\s*\(([^)]+)\)/gi, '__pseudoLongitud($1)')
-        .replace(/\bMayusculas\s*\(([^)]+)\)/gi, '__pseudoMayusculas($1)')
-        .replace(/\bMinusculas\s*\(([^)]+)\)/gi, '__pseudoMinusculas($1)')
-        .replace(/\bConvertirATexto\s*\(([^)]+)\)/gi, '__pseudoConvertirATexto($1)')
-        .replace(/\bConvertirANumero\s*\(([^)]+)\)/gi, '__pseudoConvertirANumero($1)')
-        .replace(/\bSubcadena\s*\(([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\)/gi, '__pseudoSubcadena($1,$2,$3)');
-
-    // Restaurar literales de cadena
-    processedExpr = processedExpr.replace(/__STRING_LITERAL_(\d+)__/g, function(match, index) {
-        return stringLiterals[parseInt(index)];
-    });
-
-    // 4. REEMPLAZO DE VARIABLES
-    let tempProcessedExprForVars = processedExpr;
-    const nombresVarOrdenados = Object.keys(scope).sort((a, b) => b.length - a.length);
-    for (const nombreVar of nombresVarOrdenados) { // nombreVar is already lowercase if stored canonically
-        if (scope.hasOwnProperty(nombreVar) && scope[nombreVar] && typeof scope[nombreVar] === 'object' && scope[nombreVar].hasOwnProperty('value')) {
-            // Regex now uses 'gi' to match case-insensitively in the expression string
-            // nombreVar itself (the key from scope) is assumed to be canonical (e.g., lowercase)
-            const regex = new RegExp(`\\b${nombreVar}\\b`, 'gi');
-            let valorVar = scope[nombreVar].value;
-
-            if (scope[nombreVar].type === 'array') {
-                // Los arrays no se reemplazan por su valor JSON aquí para eval,
-                // ya que el acceso directo a elementos se maneja al principio.
-                // Si un nombre de array aparece solo en una expresión que eval va a procesar,
-                // se dejaría como está y eval probablemente daría error si no es un contexto válido.
-                // Esto es más seguro que stringificarlo y que eval intente operar sobre el string.
-                // NO HACER NADA CON valorVar para arrays aquí.
-            } else if (typeof valorVar === 'string') {
-                // Se stringifican con comillas simples para que eval los trate como string literal.
-                // Las comillas internas deben escaparse.
-                valorVar = `'${valorVar.replace(/'/g, "\\'").replace(/\n/g, "\\n")}'`;
-            } else if (typeof valorVar === 'boolean') {
-                valorVar = String(valorVar); // 'true' o 'false'
-            } else if (valorVar === null) {
-                valorVar = 'null';
-            } else if (valorVar === undefined) {
-                valorVar = 'undefined'; // Aunque PSeInt no maneja undefined
-            }
-            // Los números se convierten a string por String(valorVar) si es necesario.
-
-            // Solo reemplazar si no es un array.
-            if (scope[nombreVar].type !== 'array') {
-                 tempProcessedExprForVars = tempProcessedExprForVars.replace(regex, String(valorVar));
-            }
-        }
-    }
-    processedExpr = tempProcessedExprForVars;
-
-    // 5. EVALUAR
-    console.log(`DEBUG evalExpr: originalExpr = "${originalExpr}", processedExpr para eval = "${processedExpr}"`);
-
-    // HEURISTIC CHECK FOR STRING + NUMBER or NUMBER + STRING with '+' OPERATOR (Bug #1)
-    // This aims to catch direct "string" + number or number + "string" before eval.
-    // It's limited and won't catch complex cases perfectly.
-    // Regex for JS string literal: '(?:'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")'
-    // Regex for JS number literal: '\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b' (simplified, doesn't cover all like .5)
-    // For simplicity here, we test processedExpr which has variables already substituted.
-    // If it contains a pattern like "'some string'" + 5 or 5 + "'some string'"
-    // This is still complex to do perfectly with one regex over the already-processed JS string.
-
-    // The __pseudoSuma__ function is defined and handles strict typing.
-    // However, making the '+' operator universally use it requires a full parser.
-    // For now, the bug "10" + 5 -> "105" will persist if eval handles it.
-    // This step acknowledges the __pseudoSuma__ helper is available for future integration
-    // with a proper expression parser. No change to `processedExpr` here for '+'.
-
+    console.log(`[evaluarExpresion] Evaluando con RPN: "${originalExprStr}"`);
+    const numLinea = (Webgoritmo.estadoApp && Webgoritmo.estadoApp.currentLineInfo) ? Webgoritmo.estadoApp.currentLineInfo.numLineaOriginal : 'expresión';
     try {
-        // eslint-disable-next-line no-eval
-        let resultado = eval(processedExpr);
+        const tokens = Webgoritmo.Expresiones.tokenize(originalExprStr);
+        console.log("[evaluarExpresion] Tokens:", JSON.stringify(tokens));
+        const rpn = Webgoritmo.Expresiones.infixToPostfix(tokens);
+        console.log("[evaluarExpresion] RPN:", JSON.stringify(rpn));
+        // evaluateRPN es ahora async porque puede llamar a evaluarExpresion para argumentos de funciones (si se implementa así)
+        // o si las funciones built-in se hicieran async.
+        // Pero aquí estamos evaluando el RPN principal, no llamando a evaluarExpresion recursivamente desde aquí.
+        // La llamada a evaluarExpresion para argumentos de funciones built-in YA es async.
+        const resultado = await Webgoritmo.Expresiones.evaluateRPN(rpn, scope, numLinea);
+        console.log(`[evaluarExpresion] Resultado RPN para "${originalExprStr}":`, resultado);
         return resultado;
     } catch (e) {
-        const numLineaErrorEval = (Webgoritmo.estadoApp && Webgoritmo.estadoApp.currentLineInfo) ? Webgoritmo.estadoApp.currentLineInfo.numLineaOriginal : 'expresión';
-        console.error(`Error evaluando (L${numLineaErrorEval}): "${originalExpr}" (procesado como "${processedExpr}")`, e);
-        // Intento heurístico de detectar variables no definidas
-        const posiblesVariablesNoDefinidas = processedExpr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g);
-        if (posiblesVariablesNoDefinidas) {
-            for (const pv of posiblesVariablesNoDefinidas) {
-                if ( (typeof window[pv] === 'undefined' || !window.hasOwnProperty(pv) ) && // No es global de JS (como Math)
-                     (typeof scope[pv] === 'undefined' ) && // No está en el scope local
-                     isNaN(pv) && // No es un número
-                     !['true', 'false', 'null', 'undefined', 'Infinity', 'NaN'].includes(pv.toLowerCase()) && // No es un literal conocido
-                     !pseudoAleatorio.hasOwnProperty(pv) && !pseudoAzar.hasOwnProperty(pv) && // No es una de nuestras helpers globales
-                     !Object.getOwnPropertyNames(Math).includes(pv.split('(')[0]) // No es una función Math
-                   ) {
-                     throw new Error(`Variable o función '${pv}' no definida, o expresión mal formada cerca de '${pv}'.`);
-                }
-            }
-        }
-        throw new Error(`Expresión inválida o error de cálculo en: "${originalExpr}". Detalle del sistema: ${e.message}`);
+        // Agregar más contexto al error si es posible
+        const errorMsg = e.message.includes(`línea ${numLinea}`) ? e.message : `Error en línea ${numLinea} evaluando expresión '${originalExprStr}': ${e.message}`;
+        console.error(errorMsg, e);
+        throw new Error(errorMsg);
     }
 };
 
