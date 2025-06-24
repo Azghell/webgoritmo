@@ -88,13 +88,13 @@ Webgoritmo.Interprete.inicializarArray = function(dimensions, baseType, ambitoPa
 };
 
 Webgoritmo.Interprete.parseDefinicionSubProceso = function(lineaInicioSubProceso, indiceInicio, todasLasLineas) {
-    const regexDefSubProceso = /^\s*SubProceso\s+(?:([a-zA-Z_][a-zA-Z0-9_]*)\s*(<-|=)\s*)?([a-zA-Z_][a-zA-Z0-9_]+)\s*\((.*?)\)\s*$/i;
+    const regexDefSubProceso = /^\s*SubProceso\s+(?:([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*(?:<-|=)\s*)?([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*\((.*?)\)\s*$/i; // Nombres con acentos
     const matchHeader = lineaInicioSubProceso.trim().match(regexDefSubProceso);
-    if (!matchHeader) throw new Error(`Sintaxis incorrecta en la definición de SubProceso en línea ${indiceInicio + 1}.`);
+    if (!matchHeader) throw new Error(`Sintaxis incorrecta en la definición de SubProceso en línea ${indiceInicio + 1}: '${lineaInicioSubProceso.trim()}'`);
 
     const varRetornoOriginal = matchHeader[1] ? matchHeader[1].trim() : null;
-    const nombreFuncionOriginal = matchHeader[3].trim();
-    const paramsStr = matchHeader[4].trim();
+    const nombreFuncionOriginal = matchHeader[2].trim(); // Grupo 2 es el nombre
+    const paramsStr = matchHeader[3].trim(); // Grupo 3 son los parámetros
 
     const nombreFuncionLc = nombreFuncionOriginal.toLowerCase();
     const varRetornoLc = varRetornoOriginal ? varRetornoOriginal.toLowerCase() : null;
@@ -105,13 +105,13 @@ Webgoritmo.Interprete.parseDefinicionSubProceso = function(lineaInicioSubProceso
         for (const pStr of paramsList) {
             const paramTrimmed = pStr.trim();
             if (paramTrimmed === "") continue;
-            const regexParam = /^\s*([a-zA-Z_][a-zA-Z0-9_]+)(?:\s+(Como|Es)\s+([a-zA-Z_][a-zA-Z0-9_]+))?(?:\s+Por\s+Referencia)?\s*$/i;
+            const regexParam = /^\s*([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)(?:\s+(?:Como|Es)\s+([a-zA-Z_][a-zA-Z0-9_]+))?(?:\s+Por\s+Referencia)?\s*$/i; // Nombres con acentos
             const matchParam = paramTrimmed.match(regexParam);
             if (!matchParam) throw new Error(`Sintaxis incorrecta para el parámetro '${paramTrimmed}' de SubProceso '${nombreFuncionOriginal}' en línea ${indiceInicio + 1}.`);
 
             const paramNameOriginal = matchParam[1];
             let paramType = 'desconocido';
-            if (matchParam[3]) {
+            if (matchParam[3]) { // Grupo 3 es el tipo del parámetro
                 const tipoParamLower = matchParam[3].toLowerCase();
                 const tiposConocidos = ['entero', 'real', 'logico', 'caracter', 'cadena'];
                 if (!tiposConocidos.includes(tipoParamLower)) throw new Error(`Tipo de dato '${matchParam[3]}' no reconocido para parámetro '${paramNameOriginal}' de '${nombreFuncionOriginal}' en línea ${indiceInicio + 1}.`);
@@ -143,7 +143,7 @@ Webgoritmo.Interprete.parseDefinicionSubProceso = function(lineaInicioSubProceso
     return {
         nombreOriginal: nombreFuncionOriginal, nombreLc: nombreFuncionLc,
         retornoVarOriginal: varRetornoOriginal, retornoVarLc: varRetornoLc,
-        parametros: parametros, // [{ nombreOriginal, nombreLc, tipo, esPorReferencia }]
+        parametros: parametros,
         cuerpo: cuerpo, lineaOriginalDef: indiceInicio + 1, indiceFinEnTodasLasLineas: i
     };
 };
@@ -172,7 +172,7 @@ Webgoritmo.Interprete.handleDimension = async function(linea, ambitoActual, numL
     const declaracionesIndividuales = declaracionStr.split(',');
     for (let decl of declaracionesIndividuales) {
         decl = decl.trim();
-        const matchArr = decl.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*([\[\(])\s*(.+?)\s*([\]\)])(?:\s+(?:Como|Es)\s+([a-zA-Z_][a-zA-Z0-9_]+))?\s*$/i);
+        const matchArr = decl.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*([\[\(])\s*(.+?)\s*([\]\)])(?:\s+(?:Como|Es)\s+([a-zA-Z_][a-zA-Z0-9_]+))?\s*$/i);
         if (!matchArr) throw new Error(`Sintaxis incorrecta para '${decl}' en línea ${numLineaOriginal}.`);
 
         const nombreArrOriginal = matchArr[1];
@@ -187,7 +187,7 @@ Webgoritmo.Interprete.handleDimension = async function(linea, ambitoActual, numL
             baseTypeParaArray = tipoLower;
             isFlexibleType = false;
         }
-        if (ambitoActual.hasOwnProperty(nombreArrLc)) console.warn(`[ADVERTENCIA línea ${numLineaOriginal}]: Arreglo '${nombreArrOriginal}' ya definido. Sobrescribiendo.`);
+        if (ambitoActual.hasOwnProperty(nombreArrLc)) console.warn(`[ADVERTENCIA línea ${numLineaOriginal}]: Arreglo '${nombreArrOriginal}' (como '${nombreArrLc}') ya definido. Sobrescribiendo.`);
 
         const dimExprs = matchArr[3].split(',').map(s => s.trim());
         if (dimExprs.some(s => s === "")) throw new Error(`Dimensión vacía para '${nombreArrOriginal}' en línea ${numLineaOriginal}.`);
@@ -198,13 +198,13 @@ Webgoritmo.Interprete.handleDimension = async function(linea, ambitoActual, numL
             evalDimensiones.push(dimVal);
         }
         ambitoActual[nombreArrLc] = { type: 'array', baseType: baseTypeParaArray, dimensions: evalDimensiones, value: Webgoritmo.Interprete.inicializarArray(evalDimensiones, baseTypeParaArray, ambitoActual), isFlexibleType: isFlexibleType };
-        if (Webgoritmo.UI) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArrOriginal}' (${baseTypeParaArray}, flexible: ${isFlexibleType}) dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
+        if (Webgoritmo.UI) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArrOriginal}' (como '${nombreArrLc}') (${baseTypeParaArray}, flexible: ${isFlexibleType}) dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
     }
     return true;
 };
 
 Webgoritmo.Interprete.handleDefinir = async function(linea, ambitoActual, numLineaOriginal) {
-    const coincidenciaDefinir = linea.match(/^Definir\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*)*)\s+(?:Como|Es)\s+([a-zA-Z_][a-zA-Z0-9_]+)(?:\s*\[\s*(.+?)\s*\])?$/i);
+    const coincidenciaDefinir = linea.match(/^Definir\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*,\s*[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)*)\s+(?:Como|Es)\s+([a-zA-Z_][a-zA-Z0-9_]+)(?:\s*\[\s*(.+?)\s*\])?$/i);
     if (!coincidenciaDefinir) return false;
 
     const nombresVariablesOriginales = coincidenciaDefinir[1].split(',').map(s => s.trim());
@@ -217,7 +217,7 @@ Webgoritmo.Interprete.handleDefinir = async function(linea, ambitoActual, numLin
     for (const nombreOriginal of nombresVariablesOriginales) {
         if (nombreOriginal === "") throw new Error(`Nombre de variable vacío en línea ${numLineaOriginal}.`);
         const nombreLc = nombreOriginal.toLowerCase();
-        if (ambitoActual.hasOwnProperty(nombreLc)) console.warn(`[ADVERTENCIA línea ${numLineaOriginal}]: Variable '${nombreOriginal}' ya definida. Sobrescribiendo.`);
+        if (ambitoActual.hasOwnProperty(nombreLc)) console.warn(`[ADVERTENCIA línea ${numLineaOriginal}]: Variable '${nombreOriginal}' (como '${nombreLc}') ya definida. Sobrescribiendo.`);
 
         if (dimsStr) { // Array
             const dimExprs = dimsStr.split(',').map(s => s.trim());
@@ -229,7 +229,7 @@ Webgoritmo.Interprete.handleDefinir = async function(linea, ambitoActual, numLin
                 evalDimensiones.push(dimVal);
             }
             ambitoActual[nombreLc] = { type: 'array', baseType: tipoBaseLc, dimensions: evalDimensiones, value: Webgoritmo.Interprete.inicializarArray(evalDimensiones, tipoBaseLc, ambitoActual), isFlexibleType: false };
-            if (Webgoritmo.UI) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreOriginal}' (tipo ${tipoBaseLc}, fijo) dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
+            if (Webgoritmo.UI) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreOriginal}' (como '${nombreLc}') de tipo '${tipoBaseLc}' (fijo) dimensionado con [${evalDimensiones.join(', ')}] en línea ${numLineaOriginal}.`, 'normal');
         } else { // Escalar
             ambitoActual[nombreLc] = { value: Webgoritmo.Interprete.obtenerValorPorDefecto(tipoBaseLc), type: tipoBaseLc };
         }
@@ -244,14 +244,14 @@ Webgoritmo.Interprete.handleAsignacion = async function(linea, ambitoActual, num
     const exprStr = asignacionMatch[2].trim();
     let valorEvaluado;
 
-    const funcCallMatchRHS = exprStr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)\s*$/);
+    const funcCallMatchRHS = exprStr.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*\((.*?)\)\s*$/); // Nombres con acentos
     let funcNameRHSOoriginal = null;
     if (funcCallMatchRHS) funcNameRHSOoriginal = funcCallMatchRHS[1];
     const funcNameRHSLc = funcNameRHSOoriginal ? funcNameRHSOoriginal.toLowerCase() : null;
 
     if (funcCallMatchRHS && Webgoritmo.estadoApp.funcionesDefinidas && Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(funcNameRHSLc)) {
         const defFuncion = Webgoritmo.estadoApp.funcionesDefinidas[funcNameRHSLc];
-        if (defFuncion.retornoVarLc === null) throw new Error(`Error línea ${numLineaOriginal}: SubProceso '${funcNameRHSOoriginal}' no devuelve valor.`);
+        if (defFuncion.retornoVarLc === null) throw new Error(`Error línea ${numLineaOriginal}: SubProceso '${funcNameRHSOoriginal}' no devuelve valor y no puede ser asignado.`);
         let argExprsRHS = funcCallMatchRHS[2].trim() === '' ? [] : funcCallMatchRHS[2].split(',').map(a => a.trim());
         valorEvaluado = await Webgoritmo.Interprete.ejecutarSubProcesoLlamada(funcNameRHSOoriginal, argExprsRHS, ambitoActual, numLineaOriginal);
     } else if (funcCallMatchRHS && Webgoritmo.Builtins && Webgoritmo.Builtins.funciones.hasOwnProperty(funcNameRHSLc)) {
@@ -263,8 +263,8 @@ Webgoritmo.Interprete.handleAsignacion = async function(linea, ambitoActual, num
         valorEvaluado = await Webgoritmo.Expresiones.evaluarExpresion(exprStr, ambitoActual);
     }
 
-    const accesoArregloMatch = destinoStrOriginal.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+?)\s*\]$/);
-    if (accesoArregloMatch) { // Asignación a Arreglo
+    const accesoArregloMatch = destinoStrOriginal.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*\[\s*(.+?)\s*\]$/); // Nombres con acentos
+    if (accesoArregloMatch) {
         const nombreArrOriginal = accesoArregloMatch[1];
         const nombreArrLc = nombreArrOriginal.toLowerCase();
         if (!ambitoActual.hasOwnProperty(nombreArrLc)) throw new Error(`Arreglo '${nombreArrOriginal}' no definido (línea ${numLineaOriginal}).`);
@@ -295,10 +295,10 @@ Webgoritmo.Interprete.handleAsignacion = async function(linea, ambitoActual, num
             tipoDestinoParaConversion = 'cadena';
             arrMeta.isFlexibleType = false;
             Webgoritmo.Interprete.convertirElementosArrayAString(arrMeta.value, arrMeta.dimensions);
-            if(Webgoritmo.UI) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArrOriginal}' cambió tipo base a 'Cadena' (fijo) en línea ${numLineaOriginal}.`, 'normal');
+            if(Webgoritmo.UI) Webgoritmo.UI.añadirSalida(`[INFO]: Arreglo '${nombreArrOriginal}' (como '${nombreArrLc}') cambió tipo base a 'Cadena' (fijo) en línea ${numLineaOriginal}.`, 'normal');
         }
         targetLevel[evalIndices[evalIndices.length - 1]] = Webgoritmo.Interprete.convertirValorParaAsignacion(valorEvaluado, tipoDestinoParaConversion);
-    } else { // Asignación a Escalar
+    } else {
         const nombreVarOriginal = destinoStrOriginal;
         const nombreVarLc = nombreVarOriginal.toLowerCase();
         if (!ambitoActual.hasOwnProperty(nombreVarLc)) throw new Error(`Variable '${nombreVarOriginal}' no definida (línea ${numLineaOriginal}).`);
@@ -328,7 +328,7 @@ Webgoritmo.Interprete.handleEscribir = async function(linea, ambitoActual, numLi
         args.push(buffer.trim());
         let partesMensajeSalida = [];
         for (const arg of args) {
-            if(arg === "") continue; // Permitir comas extra que resultan en args vacíos.
+            if(arg === "") continue;
             const parteEvaluada = await Webgoritmo.Expresiones.evaluarExpresion(arg, ambitoActual);
             partesMensajeSalida.push( (typeof parteEvaluada === 'boolean') ? (parteEvaluada ? 'Verdadero' : 'Falso') : (parteEvaluada === null ? 'nulo' : String(parteEvaluada)) );
         }
@@ -387,15 +387,12 @@ Webgoritmo.Interprete.handleLeer = async function(linea, ambitoActual, numLineaO
     const nombresVariablesOriginales = coincidenciaLeer[1].split(',').map(v => v.trim());
     if (nombresVariablesOriginales.length === 0 || nombresVariablesOriginales.some(v => v === "")) throw new Error("Instrucción 'Leer' debe especificar variable(s) válidas en línea " + numLineaOriginal);
 
-    const nombresVariablesLc = []; // Para validación y uso interno
     for (const nombreVarOriginal of nombresVariablesOriginales) {
-        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(nombreVarOriginal)) throw new Error(`Nombre de variable inválido '${nombreVarOriginal}' en 'Leer' en línea ${numLineaOriginal}.`);
+        if (!/^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*$/.test(nombreVarOriginal)) throw new Error(`Nombre de variable inválido '${nombreVarOriginal}' en 'Leer' en línea ${numLineaOriginal}.`); // Nombres con acentos
         const nombreVarLc = nombreVarOriginal.toLowerCase();
         if (!ambitoActual.hasOwnProperty(nombreVarLc)) throw new Error(`Variable '${nombreVarOriginal}' no definida antes de 'Leer' en línea ${numLineaOriginal}.`);
         if (ambitoActual[nombreVarLc].type === 'array') throw new Error(`Lectura en arreglos completos no soportada ('Leer ${nombreVarOriginal}'). Línea ${numLineaOriginal}.`);
-        nombresVariablesLc.push(nombreVarLc); // Usar el nombre original para el prompt, pero el Lc para el estado
     }
-    // Usar nombres originales para el prompt, pero almacenar nombres LC en estado para la asignación
     Webgoritmo.estadoApp.variableEntradaActual = nombresVariablesOriginales.map(n => n.toLowerCase());
 
     let promptMensaje = nombresVariablesOriginales.length === 1 ? `Ingrese valor para ${nombresVariablesOriginales[0]}:` : `Ingrese ${nombresVariablesOriginales.length} valores (separados por espacio/coma) para ${nombresVariablesOriginales.join(', ')}:`;
@@ -425,13 +422,12 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
         if (Webgoritmo.estadoApp.detenerEjecucion) { console.log("Ejecución detenida en ejecutarBloque."); break; }
         const lineaOriginal = lineasBloqueParam[i];
         let lineaTrimmed = lineaOriginal.trim();
-        const numLineaGlobal = numLineaOriginalOffset + i + 1; // numLineaOriginalOffset es 0-based para el inicio del bloque
+        const numLineaGlobal = numLineaOriginalOffset + i + 1;
 
         const commentIndex = lineaTrimmed.indexOf('//');
         if (commentIndex !== -1) lineaTrimmed = lineaTrimmed.substring(0, commentIndex).trim();
         if (lineaTrimmed.startsWith('/*') && lineaTrimmed.endsWith('*/')) lineaTrimmed = '';
 
-        // Almacenar la línea actual para referencia en errores de evaluarExpresion o builtins
         Webgoritmo.estadoApp.currentLineInfo = { numLineaOriginal: numLineaGlobal, contenido: lineaTrimmed };
 
         console.log(`MOTOR DEBUG: Procesando línea ${numLineaGlobal} (post-comment strip): "${lineaTrimmed}"`);
@@ -440,7 +436,7 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
         let instruccionManejada = false;
         try {
             const lineaLower = lineaTrimmed.toLowerCase();
-            const matchEscribirDirecto = lineaLower.match(/^(?:escribir|imprimir|mostrar)\s+.+/); // Unificado
+            const matchEscribirDirecto = lineaLower.match(/^(?:escribir|imprimir|mostrar)\s+.+/);
 
             if (lineaLower.startsWith('definir ')) {
                 instruccionManejada = await Webgoritmo.Interprete.handleDefinir(lineaTrimmed, ambitoActual, numLineaGlobal);
@@ -470,10 +466,10 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
                 instruccionManejada = await Webgoritmo.Interprete.handleLeer(lineaTrimmed, ambitoActual, numLineaGlobal);
             } else if (matchEscribirDirecto) {
                 instruccionManejada = await Webgoritmo.Interprete.handleEscribir(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (lineaTrimmed.includes('<-') || (lineaTrimmed.includes('=') && !lineaTrimmed.match(/^(?:si|mientras|para|segun|caso|opcion)\s+/i) && !lineaTrimmed.match(/(?:<|>|!)=|=</i) && !lineaTrimmed.match(/=\s*>/)) ) {
+            } else if (lineaTrimmed.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\[.+?\])?)\s*(?:<-|=)/)) { // Asignación (más específica)
                 instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
             } else {
-                const callMatch = lineaTrimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)\s*$/);
+                const callMatch = lineaTrimmed.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*\((.*?)\)\s*$/); // Nombres con acentos
                 if (callMatch) {
                     const callNameOriginal = callMatch[1];
                     const callNameLc = callNameOriginal.toLowerCase();
@@ -495,7 +491,7 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
                 }
             }
             if (!instruccionManejada && lineaTrimmed && !/^(finsi|sino|finmientras|finpara|finsubproceso|finsegun|hasta que)$/.test(lineaLower.split(/\s+/)[0])) {
-                 if(!lineaLower.startsWith("hasta que")) { // "hasta que" es parte de "repetir"
+                 if(!lineaLower.startsWith("hasta que")) {
                     throw new Error(`Instrucción no reconocida o mal ubicada: '${lineaTrimmed}'`);
                  }
             }
@@ -513,7 +509,7 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
             if(Webgoritmo.estadoApp.detenerEjecucion) break;
         }
     }
-    Webgoritmo.estadoApp.currentLineInfo = null; // Limpiar al salir del bloque
+    Webgoritmo.estadoApp.currentLineInfo = null;
 };
 
 Webgoritmo.Interprete.handleMientras = async function(lineaActual, ambitoActual, numLineaOriginalMientras, lineasBloqueCompleto, indiceMientrasEnBloque) {
@@ -588,8 +584,8 @@ Webgoritmo.Interprete.handleRepetir = async function(lineaActual, ambitoActual, 
 Webgoritmo.Interprete.reanudarBuclePendiente = async function() { /* ... (Esta función puede necesitar revisión o ser eliminada si el async/await es suficiente) ... */ };
 
 Webgoritmo.Interprete.handlePara = async function(lineaActual, ambitoActual, numLineaOriginalPara, lineasBloqueCompleto, indiceParaEnBloque) {
-    const paraMatch = lineaActual.match(/^Para\s+([a-zA-Z_][a-zA-Z0-9_]+)\s*(?:<-|=)\s*(.+?)\s+Hasta\s+(.+?)(?:\s+Con\s+Paso\s+(.+?))?\s+Hacer$/i);
-    if (!paraMatch) throw new Error(`Sintaxis 'Para' incorrecta en línea ${numLineaOriginalPara}.`);
+    const paraMatch = lineaActual.match(/^Para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*(?:<-|=)\s*(.+?)\s+Hasta\s+(.+?)(?:\s+Con\s+Paso\s+(.+?))?\s+Hacer$/i);
+    if (!paraMatch) throw new Error(`Sintaxis 'Para' incorrecta en línea ${numLineaOriginalPara}. Detalles: '${lineaActual}'`);
 
     const varControlOriginal = paraMatch[1];
     const varControlLc = varControlOriginal.toLowerCase();
@@ -606,11 +602,10 @@ Webgoritmo.Interprete.handlePara = async function(lineaActual, ambitoActual, num
 
     if (!ambitoActual.hasOwnProperty(varControlLc)) {
         const tipoImplicito = (Number.isInteger(valorInicial) && Number.isInteger(valorFinal) && Number.isInteger(paso)) ? 'entero' : 'real';
-        ambitoActual[varControlLc] = { value: valorInicial, type: tipoImplicito, isFlexibleType: false };
-        if(Webgoritmo.UI) Webgoritmo.UI.añadirSalida(`[INFO línea ${numLineaOriginalPara}]: Variable de control '${varControlOriginal}' definida implícitamente como ${tipoImplicito}.`, 'normal');
+        ambitoActual[varControlLc] = { value: valorInicial, type: tipoImplicito, isFlexibleType: false }; // Loop vars are fixed type
+        if(Webgoritmo.UI) Webgoritmo.UI.añadirSalida(`[INFO línea ${numLineaOriginalPara}]: Variable de control '${varControlOriginal}' (como '${varControlLc}') definida implícitamente como ${tipoImplicito}.`, 'normal');
     } else {
         ambitoActual[varControlLc].value = valorInicial;
-        // Opcional: verificar si el tipo existente es compatible, PSeInt es flexible aquí.
     }
     let variableControlObj = ambitoActual[varControlLc];
 
@@ -714,7 +709,7 @@ Webgoritmo.Interprete.ejecutarSubProcesoLlamada = async function(nombreFuncionOr
 
     try {
         const argumentosEvaluados = [];
-        for(let k=0; k < listaExprArgumentos.length; k++) { // Use k for index
+        for(let k=0; k < listaExprArgumentos.length; k++) {
              const exprArg = listaExprArgumentos[k];
              try {
                  argumentosEvaluados.push(await Webgoritmo.Expresiones.evaluarExpresion(exprArg, ambitoLlamador));
@@ -723,14 +718,25 @@ Webgoritmo.Interprete.ejecutarSubProcesoLlamada = async function(nombreFuncionOr
              }
         }
         const ambitoLocal = Object.create(Webgoritmo.estadoApp.variables);
+
+        // Inicializar variable de retorno en el ámbito local (si es una función)
+        if (defFuncion.retornoVarLc) {
+            ambitoLocal[defFuncion.retornoVarLc] = {
+                value: Webgoritmo.Interprete.obtenerValorPorDefecto('entero'),
+                type: 'entero',
+                isFlexibleType: true
+            };
+        }
+
         for (let k = 0; k < defFuncion.parametros.length; k++) {
-            const paramDef = defFuncion.parametros[k]; // paramDef.nombreLc, paramDef.tipo, paramDef.esPorReferencia
+            const paramDef = defFuncion.parametros[k];
             const argExprOriginal = listaExprArgumentos[k].trim();
+            const nombreVarOriginalArg = argExprOriginal;
+            const nombreVarArgLc = nombreVarOriginalArg.toLowerCase();
+
             if (paramDef.esPorReferencia) {
-                const nombreVarOriginalArg = argExprOriginal; // Argument expression must be a simple variable name
-                const nombreVarArgLc = nombreVarOriginalArg.toLowerCase();
-                if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(nombreVarOriginalArg) || !ambitoLlamador.hasOwnProperty(nombreVarArgLc)) {
-                    throw new Error(`Error línea ${numLineaOriginalLlamada}: Arg para param por referencia '${paramDef.nombreOriginal}' de '${defFuncion.nombreOriginal}' debe ser variable existente.`);
+                if (!/^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*$/.test(nombreVarOriginalArg) || !ambitoLlamador.hasOwnProperty(nombreVarArgLc)) {
+                    throw new Error(`Error línea ${numLineaOriginalLlamada}: El argumento ('${argExprOriginal}') para el parámetro por referencia '${paramDef.nombreOriginal}' de '${defFuncion.nombreOriginal}' debe ser una variable existente en el ámbito del llamador.`);
                 }
                 ambitoLocal[paramDef.nombreLc] = ambitoLlamador[nombreVarArgLc];
             } else {
@@ -743,15 +749,17 @@ Webgoritmo.Interprete.ejecutarSubProcesoLlamada = async function(nombreFuncionOr
                 }
                 let valorParametroFinal = Webgoritmo.Interprete.convertirValorParaAsignacion(valorArgumento, tipoParametroDestino);
                 ambitoLocal[paramDef.nombreLc] = { value: valorParametroFinal, type: tipoParametroDestino, isFlexibleType: false };
-                // TODO: Deep copy for arrays passed by value.
-                if (ambitoLocal[paramDef.nombreLc].type === 'array' && valorArgumento && typeof valorArgumento === 'object' && valorArgumento.value) {
-                     console.warn(`ADVERTENCIA: Paso de arreglos por valor es superficial para '${paramDef.nombreOriginal}' en '${defFuncion.nombreOriginal}'.`);
-                     // For true by-value, a deep copy of valorArgumento.value would be needed here.
-                     // This is complex if valorArgumento is not the direct array metadata but its value.
-                     // Assuming valorArgumento *is* the metadata object if an array is passed.
-                     if (ambitoLlamador[nombreVarArgLc] && ambitoLlamador[nombreVarArgLc].value) {
-                        // This is still wrong, need a proper deep copy function for our array structure
-                        // ambitoLocal[paramDef.nombreLc].value = JSON.parse(JSON.stringify(ambitoLlamador[nombreVarArgLc].value));
+
+                if (ambitoLocal[paramDef.nombreLc].type === 'array' && valorArgumento ) {
+                     const argOriginalMetadata = ambitoLlamador.hasOwnProperty(nombreVarArgLc) ? ambitoLlamador[nombreVarArgLc] : null;
+                     if (argOriginalMetadata && argOriginalMetadata.type === 'array') {
+                        console.warn(`ADVERTENCIA: Paso de arreglos por valor es superficial para '${paramDef.nombreOriginal}' en '${defFuncion.nombreOriginal}'.`);
+                        // ambitoLocal[paramDef.nombreLc].value = JSON.parse(JSON.stringify(argOriginalMetadata.value)); // Simple deep copy, has limitations
+                        // TODO: Implement proper deep copy for PSeInt array structure
+                        ambitoLocal[paramDef.nombreLc].dimensions = [...argOriginalMetadata.dimensions];
+                        ambitoLocal[paramDef.nombreLc].baseType = argOriginalMetadata.baseType;
+                        ambitoLocal[paramDef.nombreLc].isFlexibleType = argOriginalMetadata.isFlexibleType;
+                        // For true by-value, a deep copy of .value is needed.
                      }
                 }
             }
@@ -878,3 +886,5 @@ Webgoritmo.Interprete.ejecutarPseudocodigo = async function() {
 };
 
 console.log("motorInterprete.js cargado y Webgoritmo.Interprete inicializado (con handleSi y handleLeer).");
+
+[end of motorInterprete.js]
