@@ -244,7 +244,7 @@ Webgoritmo.Interprete.handleAsignacion = async function(linea, ambitoActual, num
     }
     return true;
 };
-Webgoritmo.Interprete.handleEscribir = function(linea, ambitoActual, numLineaOriginal) {
+Webgoritmo.Interprete.handleEscribir = async function(linea, ambitoActual, numLineaOriginal) {
     const regexEscribir = /^(Escribir|Imprimir|Mostrar)\s+(.*)/i;
     const coincidenciaEscribir = linea.match(regexEscribir);
 
@@ -494,7 +494,7 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
                 if (ejecutarSiguienteIteracion) {
                     continue;
                 }
-            } else if (lineaTrimmed.includes('<-')) {
+            } else if (matchAsignacion) { // Usar la regex definida para asignación
                  instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
             } else if (lineaLower.startsWith('para ') && lineaLower.includes(' hacer')) {
                 const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handlePara(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
