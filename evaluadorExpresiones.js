@@ -105,7 +105,8 @@ Webgoritmo.Expresiones.tokenize = function(exprStr) {
         { type: 'OPERATOR_LTE', regex: /<=|menor o igual que/iy },
         { type: 'OPERATOR_GTE', regex: />=|mayor o igual que/iy },
         { type: 'OPERATOR_NEQ', regex: /<>|!=|distinto de/iy }, // != is common PSeInt extension
-        { type: 'OPERATOR_EQ', regex: /==|=igual que/iy }, // PSeInt uses single '=' for comparison, '==' also for robustness
+        // Includes single '=' for comparison, after multi-char operators like ==, <=, >=
+        { type: 'OPERATOR_EQ', regex: /==|=igual que|=/iy },
         { type: 'OPERATOR_LT', regex: /<|menor que/iy },
         { type: 'OPERATOR_GT', regex: />|mayor que/iy },
 
