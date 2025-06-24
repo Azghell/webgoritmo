@@ -475,9 +475,11 @@ Webgoritmo.Expresiones.evaluarExpresion = async function(expr, scope) { // Chang
     // 4. REEMPLAZO DE VARIABLES
     let tempProcessedExprForVars = processedExpr;
     const nombresVarOrdenados = Object.keys(scope).sort((a, b) => b.length - a.length);
-    for (const nombreVar of nombresVarOrdenados) {
+    for (const nombreVar of nombresVarOrdenados) { // nombreVar is already lowercase if stored canonically
         if (scope.hasOwnProperty(nombreVar) && scope[nombreVar] && typeof scope[nombreVar] === 'object' && scope[nombreVar].hasOwnProperty('value')) {
-            const regex = new RegExp(`\\b${nombreVar}\\b`, 'g');
+            // Regex now uses 'gi' to match case-insensitively in the expression string
+            // nombreVar itself (the key from scope) is assumed to be canonical (e.g., lowercase)
+            const regex = new RegExp(`\\b${nombreVar}\\b`, 'gi');
             let valorVar = scope[nombreVar].value;
 
             if (scope[nombreVar].type === 'array') {
@@ -510,12 +512,29 @@ Webgoritmo.Expresiones.evaluarExpresion = async function(expr, scope) { // Chang
 
     // 5. EVALUAR
     console.log(`DEBUG evalExpr: originalExpr = "${originalExpr}", processedExpr para eval = "${processedExpr}"`);
+
+    // HEURISTIC CHECK FOR STRING + NUMBER or NUMBER + STRING with '+' OPERATOR (Bug #1)
+    // This aims to catch direct "string" + number or number + "string" before eval.
+    // It's limited and won't catch complex cases perfectly.
+    // Regex for JS string literal: '(?:'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*")'
+    // Regex for JS number literal: '\b\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\b' (simplified, doesn't cover all like .5)
+    // For simplicity here, we test processedExpr which has variables already substituted.
+    // If it contains a pattern like "'some string'" + 5 or 5 + "'some string'"
+    // This is still complex to do perfectly with one regex over the already-processed JS string.
+
+    // The __pseudoSuma__ function is defined and handles strict typing.
+    // However, making the '+' operator universally use it requires a full parser.
+    // For now, the bug "10" + 5 -> "105" will persist if eval handles it.
+    // This step acknowledges the __pseudoSuma__ helper is available for future integration
+    // with a proper expression parser. No change to `processedExpr` here for '+'.
+
     try {
         // eslint-disable-next-line no-eval
         let resultado = eval(processedExpr);
         return resultado;
     } catch (e) {
-        console.error(`Error evaluando: "${originalExpr}" (procesado como "${processedExpr}")`, e);
+        const numLineaErrorEval = (Webgoritmo.estadoApp && Webgoritmo.estadoApp.currentLineInfo) ? Webgoritmo.estadoApp.currentLineInfo.numLineaOriginal : 'expresión';
+        console.error(`Error evaluando (L${numLineaErrorEval}): "${originalExpr}" (procesado como "${processedExpr}")`, e);
         // Intento heurístico de detectar variables no definidas
         const posiblesVariablesNoDefinidas = processedExpr.match(/[a-zA-Z_][a-zA-Z0-9_]*/g);
         if (posiblesVariablesNoDefinidas) {
