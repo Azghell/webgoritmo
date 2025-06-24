@@ -87,44 +87,242 @@ Webgoritmo.Expresiones.__pseudoSubcadena = __pseudoSubcadena;
 
 // --- Fin Funciones Helper ---
 
+window.Webgoritmo.Builtins = window.Webgoritmo.Builtins || {};
+Webgoritmo.Builtins.funciones = {
+    // Funciones Matemáticas
+    "rc": function(args, numLineaOriginalLlamada) { // Raíz Cuadrada
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función RC espera 1 argumento, se recibieron ${args.length}.`);
+        const num = args[0];
+        if (typeof num !== 'number') throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para RC debe ser numérico, se recibió '${typeof num}'.`);
+        if (num < 0) throw new Error(`Error en línea ${numLineaOriginalLlamada}: No se puede calcular la raíz cuadrada de un número negativo (${num}).`);
+        return Math.sqrt(num);
+    },
+    "raiz": function(args, numLineaOriginalLlamada) { return Webgoritmo.Builtins.funciones.rc(args, numLineaOriginalLlamada); }, // Alias
+    "abs": function(args, numLineaOriginalLlamada) {
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función ABS espera 1 argumento, se recibieron ${args.length}.`);
+        const num = args[0];
+        if (typeof num !== 'number') throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para ABS debe ser numérico, se recibió '${typeof num}'.`);
+        return Math.abs(num);
+    },
+    "ln": function(args, numLineaOriginalLlamada) { // Logaritmo Natural
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función LN espera 1 argumento, se recibieron ${args.length}.`);
+        const num = args[0];
+        if (typeof num !== 'number') throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para LN debe ser numérico, se recibió '${typeof num}'.`);
+        if (num <= 0) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para LN debe ser positivo (${num}).`);
+        return Math.log(num);
+    },
+    "exp": function(args, numLineaOriginalLlamada) { // Exponencial e^x
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función EXP espera 1 argumento, se recibieron ${args.length}.`);
+        const num = args[0];
+        if (typeof num !== 'number') throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para EXP debe ser numérico, se recibió '${typeof num}'.`);
+        return Math.exp(num);
+    },
+    "sen": function(args, numLineaOriginalLlamada) { // Seno (en radianes)
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función SEN espera 1 argumento, se recibieron ${args.length}.`);
+        const num = args[0];
+        if (typeof num !== 'number') throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para SEN debe ser numérico, se recibió '${typeof num}'.`);
+        return Math.sin(num);
+    },
+    "cos": function(args, numLineaOriginalLlamada) { // Coseno (en radianes)
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función COS espera 1 argumento, se recibieron ${args.length}.`);
+        const num = args[0];
+        if (typeof num !== 'number') throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para COS debe ser numérico, se recibió '${typeof num}'.`);
+        return Math.cos(num);
+    },
+    "tan": function(args, numLineaOriginalLlamada) { // Tangente (en radianes)
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función TAN espera 1 argumento, se recibieron ${args.length}.`);
+        const num = args[0];
+        if (typeof num !== 'number') throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para TAN debe ser numérico, se recibió '${typeof num}'.`);
+        return Math.tan(num);
+    },
+    "trunc": function(args, numLineaOriginalLlamada) {
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función TRUNC espera 1 argumento, se recibieron ${args.length}.`);
+        const num = args[0];
+        if (typeof num !== 'number') throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para TRUNC debe ser numérico, se recibió '${typeof num}'.`);
+        return Math.trunc(num);
+    },
+    "redon": function(args, numLineaOriginalLlamada) { // Redondear
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función REDON espera 1 argumento, se recibieron ${args.length}.`);
+        const num = args[0];
+        if (typeof num !== 'number') throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para REDON debe ser numérico, se recibió '${typeof num}'.`);
+        return Math.round(num);
+    },
+    "azar": function(args, numLineaOriginalLlamada) { // Entero aleatorio entre 0 y x-1
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función AZAR espera 1 argumento (límite superior exclusivo), se recibieron ${args.length}.`);
+        const limite = args[0];
+        if (typeof limite !== 'number' || !Number.isInteger(limite) || limite <= 0) {
+            throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumento para AZAR debe ser un entero positivo, se recibió '${limite}'.`);
+        }
+        return Math.floor(Math.random() * limite);
+    },
+    "aleatorio": function(args, numLineaOriginalLlamada) { // Entero aleatorio entre min y max (inclusive)
+        if (args.length !== 2) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función ALEATORIO espera 2 argumentos (min, max), se recibieron ${args.length}.`);
+        const min = args[0];
+        const max = args[1];
+        if (typeof min !== 'number' || !Number.isInteger(min) || typeof max !== 'number' || !Number.isInteger(max)) {
+            throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumentos para ALEATORIO deben ser enteros, se recibieron '${min}', '${max}'.`);
+        }
+        if (min > max) {
+            throw new Error(`Error en línea ${numLineaOriginalLlamada}: En ALEATORIO(min,max), min (${min}) no puede ser mayor que max (${max}).`);
+        }
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    },
+
+    // Funciones de Cadena
+    "longitud": function(args, numLineaOriginalLlamada) {
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función LONGITUD espera 1 argumento, se recibieron ${args.length}.`);
+        return String(args[0]).length; // Coerciona a string
+    },
+    "mayusculas": function(args, numLineaOriginalLlamada) {
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función MAYUSCULAS espera 1 argumento, se recibieron ${args.length}.`);
+        return String(args[0]).toUpperCase();
+    },
+    "minusculas": function(args, numLineaOriginalLlamada) {
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función MINUSCULAS espera 1 argumento, se recibieron ${args.length}.`);
+        return String(args[0]).toLowerCase();
+    },
+    "subcadena": function(args, numLineaOriginalLlamada) {
+        if (args.length !== 3) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función SUBCADENA espera 3 argumentos (cadena, inicio, fin), se recibieron ${args.length}.`);
+        const cad = String(args[0]);
+        const inicio = args[1];
+        const fin = args[2];
+        if (typeof inicio !== 'number' || !Number.isInteger(inicio) || typeof fin !== 'number' || !Number.isInteger(fin)) {
+            throw new Error(`Error en línea ${numLineaOriginalLlamada}: Argumentos de inicio y fin para SUBCADENA deben ser enteros.`);
+        }
+        if (inicio <= 0 || fin < inicio || inicio > cad.length) { // PSeInt es 1-indexed, fin es inclusivo
+            // PSeInt devuelve cadena vacía para rangos inválidos en lugar de error a veces.
+            // Para ser más estrictos o claros, un error puede ser mejor o ajustar el comportamiento.
+            // Aquí, seremos estrictos con el inicio. Si fin < inicio, substring devuelve ""
+            // Si inicio > cad.length, substring devuelve ""
+            // PSeInt: Subcadena("abc", 4, 5) -> "" ; Subcadena("abc", 2, 1) -> ""
+            // JavaScript substring(start, end) end es exclusivo.
+            // PSeInt: Subcadena(S,A,B) es S desde A hasta B. Longitud B-A+1.
+            // JS: S.substring(A-1, B)
+             if (inicio <= 0) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Inicio para SUBCADENA debe ser positivo.`);
+             return cad.substring(inicio - 1, fin);
+        }
+        return cad.substring(inicio - 1, fin);
+    },
+    "concatenar": function(args, numLineaOriginalLlamada) { // Si '+' se vuelve estricto
+        if (args.length !== 2) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función CONCATENAR espera 2 argumentos, se recibieron ${args.length}.`);
+        return String(args[0]) + String(args[1]);
+    },
+
+    // Funciones de Conversión de Tipo
+    "convertiranumero": function(args, numLineaOriginalLlamada) {
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función CONVERTIRANUMERO espera 1 argumento, se recibieron ${args.length}.`);
+        const val = args[0];
+        if (typeof val === 'number') return val;
+        const num = Number(String(val).trim()); // Convertir a string primero, luego a número
+        if (isNaN(num) || !isFinite(num)) { // isFinite también chequea NaN
+            throw new Error(`Error en línea ${numLineaOriginalLlamada}: No se pudo convertir '${val}' a un número válido.`);
+        }
+        return num;
+    },
+    "convertiratexto": function(args, numLineaOriginalLlamada) {
+        if (args.length !== 1) throw new Error(`Error en línea ${numLineaOriginalLlamada}: Función CONVERTIRATEXTO espera 1 argumento, se recibieron ${args.length}.`);
+        const val = args[0];
+        if (typeof val === 'boolean') return val ? 'Verdadero' : 'Falso';
+        return String(val);
+    }
+    // Faltarían ASEN, ACOS, ATAN, etc. pero esto es un buen comienzo.
+};
+
+// Helper para suma estricta
+function __pseudoSuma__(op1, op2, numLinea) {
+    const tipo1 = Webgoritmo.Interprete.inferirTipo(op1).toLowerCase();
+    const tipo2 = Webgoritmo.Interprete.inferirTipo(op2).toLowerCase();
+
+    if (tipo1 === 'entero' || tipo1 === 'real') { // Operando izquierdo es numérico
+        if (tipo2 === 'entero' || tipo2 === 'real') {
+            return op1 + op2; // Ambos numéricos, suma aritmética
+        } else {
+            throw new Error(`Error en línea ${numLinea}: Tipos incompatibles para el operador '+'. No se puede sumar '${tipo1}' con '${tipo2}'.`);
+        }
+    } else if (tipo1 === 'cadena' || tipo1 === 'caracter') { // Operando izquierdo es cadena/caracter
+        if (tipo2 === 'cadena' || tipo2 === 'caracter') {
+            return String(op1) + String(op2); // Ambos cadena/caracter, concatenar
+        } else if (tipo2 === 'entero' || tipo2 === 'real' || tipo2 === 'logico') {
+             // PSeInt estricto usualmente no permite "cadena" + numero.
+             // Si se quisiera permitir, sería String(op1) + String(op2)
+            throw new Error(`Error en línea ${numLinea}: Tipos incompatibles para el operador '+'. No se puede concatenar '${tipo1}' con '${tipo2}' implícitamente. Use CONVERTIRATEXTO.`);
+        } else {
+            throw new Error(`Error en línea ${numLinea}: Tipos incompatibles para el operador '+'. Operación no definida entre '${tipo1}' y '${tipo2}'.`);
+        }
+    } else if (tipo1 === 'logico') {
+        throw new Error(`Error en línea ${numLinea}: Tipos incompatibles para el operador '+'. No se puede usar '+' con tipo '${tipo1}'.`);
+    }
+    // Fallback o tipo no manejado
+    throw new Error(`Error en línea ${numLinea}: Operación '+' no soportada para los tipos '${tipo1}' y '${tipo2}'.`);
+}
+Webgoritmo.Expresiones.__pseudoSuma__ = __pseudoSuma__;
+
+
 Webgoritmo.Expresiones.evaluarExpresion = async function(expr, scope) { // Changed to async
     // ULTRA DEBUG: Ver la entrada cruda a la función.
     console.log(`ULTRA DEBUG evalExpr: expr CRUDA = "${expr}" (length: ${expr ? expr.length : 'N/A'}) | typeof: ${typeof expr} | JSON: ${JSON.stringify(expr)}`);
 
-    // Attempt to parse as a user-defined function call IF IT'S THE ENTIRE EXPRESSION
-    // Regex: funcName ( args )
-    const userFuncCallMatch = String(expr).trim().match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)\s*$/);
-    if (userFuncCallMatch) {
-        const funcName = userFuncCallMatch[1];
-        const argsStr = userFuncCallMatch[2];
+    const originalExprStr = String(expr).trim();
 
+    // Fase 1: Intentar parsear como llamada a función (user-defined o built-in) si es el formato func(args)
+    const funcCallMatch = originalExprStr.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)\s*$/);
+
+    if (funcCallMatch) {
+        const funcName = funcCallMatch[1].toLowerCase(); // Funciones built-in y user-defined por nombre en minúsculas
+        const argsStr = funcCallMatch[2];
+        let argExprs = [];
+        if (argsStr.trim() !== '') {
+            // TODO: Implementar un parser de argumentos robusto que maneje comas dentro de strings/llamadas anidadas.
+            // Por ahora, split simple por coma.
+            argExprs = argsStr.split(',').map(a => a.trim().replace(/^["'](.*)["']$/, '$1')); // Quita comillas si son solo literales
+        }
+
+        const numLinea = (Webgoritmo.estadoApp && Webgoritmo.estadoApp.currentLineInfo) ? Webgoritmo.estadoApp.currentLineInfo.numLineaOriginal : 'expresión';
+
+        // Check user-defined functions
         if (Webgoritmo.estadoApp && Webgoritmo.estadoApp.funcionesDefinidas && Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(funcName)) {
             const defFuncion = Webgoritmo.estadoApp.funcionesDefinidas[funcName];
-            if (defFuncion.retornoVar === null) { // Es un SubProceso (procedimiento), no una función con retorno
-                throw new Error(`El SubProceso '${funcName}' no devuelve un valor y no puede ser usado en una expresión.`);
+            if (defFuncion.retornoVar === null) {
+                throw new Error(`Error en línea ${numLinea}: El SubProceso '${funcCallMatch[1]}' no devuelve un valor y no puede ser usado en una expresión.`);
             }
-
-            let argExprs = [];
-            if (argsStr.trim() !== '') {
-                 // Simple split by comma. Fails if args have commas in strings/calls.
-                 // TODO: Implement a robust argument string parser.
-                argExprs = argsStr.split(',').map(a => a.trim());
+            console.log(`[evaluarExpresion] Llamando a función de usuario: ${funcName}`);
+            // ejecutarSubProcesoLlamada espera lista de EXPRESIONES de argumentos, no valores evaluados directamente aquí.
+            return await Webgoritmo.Interprete.ejecutarSubProcesoLlamada(funcName, argExprs, scope, numLinea);
+        }
+        // Check built-in functions
+        else if (Webgoritmo.Builtins && Webgoritmo.Builtins.funciones.hasOwnProperty(funcName)) {
+            console.log(`[evaluarExpresion] Llamando a función predefinida: ${funcName}`);
+            const evaluadosArgs = [];
+            for (const argExpr of argExprs) {
+                evaluadosArgs.push(await Webgoritmo.Expresiones.evaluarExpresion(argExpr, scope)); // Evaluar cada argumento
             }
-
-            // Note: Nombres de argumentos originales para paso por referencia no se manejan aquí directamente.
-            // ejecutarSubProcesoLlamada espera expresiones de argumentos, no valores pre-evaluados en este punto si lo llamamos desde aquí.
-            // O, si esperamos valores pre-evaluados, este es el lugar para evaluarlos.
-            // El diseño de ejecutarSubProcesoLlamada espera listaExprArgumentos (strings).
-
-            // For by-reference, ejecutarSubProcesoLlamada needs original var names if possible.
-            // This simplified call from expression context might struggle with by-ref if args are complex.
-            // For now, it passes the expression strings.
-            console.log(`[evaluarExpresion] Detectada llamada a función definida por usuario: ${funcName}`);
-            return await Webgoritmo.Interprete.ejecutarSubProcesoLlamada(funcName, argExprs, scope, Webgoritmo.estadoApp.currentLineInfo || { numLineaOriginal: 'expresión' });
+            return Webgoritmo.Builtins.funciones[funcName](evaluadosArgs, numLinea);
+        }
+        // Si el patrón func(args) se detectó pero el nombre no es ni user-defined ni built-in
+        // Y NO es una palabra clave de PSeInt que use paréntesis (como Dimension arr(5) - aunque eso no se evalúa aquí)
+        // entonces es una función no definida.
+        // Las palabras clave de PSeInt que usan `()` como `Dimension` o `Subcadena` (que se reemplaza por `__pseudoSubcadena`)
+        // son manejadas por reemplazos de texto más adelante o por handlers específicos.
+        // Esta lógica es para cuando la EXPRESIÓN ENTERA es una llamada a función.
+        // Si `funcName` no es un operador/palabra clave manejado por las regex de reemplazo posteriores, es un error.
+        // Este es un punto delicado. Las regex de reemplazo para funciones como ABS, LN, etc.,
+        // deben ser movidas para que se chequeen DESPUÉS de este bloque, o este bloque debe ser más inteligente.
+        // Se añadio el else para error explícito:
+        else {
+             // Podría ser una función PSeInt que se reemplaza luego (ej. ABS, LN), o un error.
+             // Si no es una función conocida (ni user ni builtin), y no se reemplaza por una regex más adelante,
+             // el eval() final fallará. Para ser más proactivo:
+             const esPalabraReservadaQueUsaParentesis = ['abs', 'rc', 'ln', 'exp', 'sen', 'cos', 'tan', 'trunc', 'redon', 'longitud', 'mayusculas', 'minusculas', 'subcadena', 'concatenar', 'convertiranumero', 'convertiratexto']; // Lista simplificada
+             if (!esPalabraReservadaQueUsaParentesis.includes(funcName.toLowerCase())) {
+                 // No es una función de usuario, ni builtin, ni una de las que se reemplazan por regex usualmente.
+                 throw new Error(`Error en línea ${numLinea}: La función o SubProceso '${funcCallMatch[1]}' no está definido.`);
+             }
+             // Si es una de las que se reemplazan, se deja que la lógica de reemplazo actúe.
         }
     }
-    // Si no es una llamada a función de usuario que ocupa toda la expresión, continuar con el resto...
-    let processedExpr = String(expr).trim();
+
+    // Si no es una llamada a función que ocupa toda la expresión, continuar con el resto...
+    let processedExpr = originalExprStr;
     const originalExpr = processedExpr;
     console.log(`ULTRA DEBUG evalExpr: originalExpr (después de trim) = "${originalExpr}"`);
 

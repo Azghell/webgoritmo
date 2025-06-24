@@ -5,13 +5,13 @@ window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Datos = Webgoritmo.Datos || {};
 
 Webgoritmo.Datos.exampleCodes = {
-    simple_io: `Algoritmo Saludo
+    entrada_salida_basica: `Algoritmo Saludo
 	Definir nombre Como Cadena
 	Escribir "Por favor, ingresa tu nombre:"
 	Leer nombre
 	Escribir "Hola, ", nombre, " ¡Bienvenido a Webgoritmo!"
 FinAlgoritmo`,
-    if_simple: `Algoritmo EjemploSiSimple
+    si_simple: `Algoritmo EjemploSiSimple
 	Definir edad Como Entero
 	Escribir "Ingrese su edad:"
 	Leer edad
@@ -22,7 +22,7 @@ FinAlgoritmo`,
 	FinSi
 	Escribir "Evaluación de edad completada."
 FinAlgoritmo`,
-    if_else: `Algoritmo EjemploSiSino
+    si_sino: `Algoritmo EjemploSiSino
 	Definir numero Como Entero
 	Escribir "Ingrese un número:"
 	Leer numero
@@ -34,7 +34,7 @@ FinAlgoritmo`,
 		Escribir "El número NO es positivo."
 	FinSi
 FinAlgoritmo`,
-    condicional_complejo: `Algoritmo EjemploSiSinoSiSino
+    condicional_anidado: `Algoritmo EjemploCondicionalAnidado
 	Definir calificacion Como Real
 	Escribir "Ingrese la calificación (0-10):"
 	Leer calificacion
@@ -42,21 +42,27 @@ FinAlgoritmo`,
 	Escribir "Calificación: ", calificacion
 	Si calificacion >= 9 Y calificacion <= 10 Entonces
 		Escribir "Sobresaliente."
-	SinoSi calificacion >= 7 Y calificacion < 9 Entonces
-		Escribir "Notable."
-	SinoSi calificacion >= 5 Y calificacion < 7 Entonces
-		Escribir "Aprobado."
-	SinoSi calificacion >= 0 Y calificacion < 5 Entonces
-		Escribir "Reprobado."
 	Sino
-		Escribir "Calificación fuera de rango o inválida."
+		Si calificacion >= 7 Y calificacion < 9 Entonces
+			Escribir "Notable."
+		Sino
+			Si calificacion >= 5 Y calificacion < 7 Entonces
+				Escribir "Aprobado."
+			Sino
+				Si calificacion >= 0 Y calificacion < 5 Entonces
+					Escribir "Reprobado."
+				Sino
+					Escribir "Calificación fuera de rango o inválida."
+				FinSi
+			FinSi
+		FinSi
 	FinSi
-FinAlgoritmo`,
+FinAlgoritmo`, // Nota: El condicional_complejo original usaba SinoSi, que ahora se interpreta como anidado.
     operadores_logicos: `Algoritmo PruebaLogicaAvanzada
 	Definir a Como Entero
 	Definir b Como Logico
 	a <- 5
-	b <- Falso // O Leer b (después de que Leer Logico funcione bien)
+	b <- Falso
 
 	Escribir "Prueba de operadores lógicos con a=5, b=Falso:"
 	Si a = 5 O b Entonces
@@ -73,7 +79,7 @@ FinAlgoritmo`,
 		Escribir "  Condición (a > 10 Y No b) es Falsa, se ejecuta Sino"
 	FinSi
 FinAlgoritmo`,
-    segun: `Algoritmo DiaSemana
+    segun_dia_semana: `Algoritmo DiaSemana
 	Definir dia Como Entero
 	Escribir "Ingresa un numero del 1 al 7 para el dia de la semana:"
 	Leer dia
@@ -86,7 +92,7 @@ FinAlgoritmo`,
 			Escribir "Numero invalido.";
 	FinSegun
 FinAlgoritmo`,
-    while_loop: `Algoritmo ContadorMientras
+    mientras_contador: `Algoritmo ContadorMientras
 	Definir contador Como Entero
 	contador <- 1
 	Mientras contador <= 3 Hacer
@@ -95,10 +101,10 @@ FinAlgoritmo`,
 	FinMientras
 	Escribir "Fin del contador."
 FinAlgoritmo`,
-    while_con_leer: `Algoritmo SumaHastaNegativo
+    mientras_con_lectura: `Algoritmo SumaHastaNegativo
     Definir num, suma Como Entero
     suma <- 0
-    num <- 0 // Inicializar para que el bucle comience
+    num <- 0
 
     Escribir "Ingrese números para sumar. Ingrese un número negativo para terminar."
 
@@ -112,22 +118,22 @@ FinAlgoritmo`,
 
     Escribir "Suma final: ", suma
 FinAlgoritmo`,
-    while_anidado_simple: `Algoritmo TablasMultiplicarBasicas
+    mientras_anidado_tablas: `Algoritmo TablasMultiplicarBasicas
     Definir tabla, i Como Entero
     tabla <- 1
 
-    Mientras tabla <= 2 Hacer // Solo tablas del 1 y 2 para brevedad
+    Mientras tabla <= 2 Hacer
         Escribir "Tabla del ", tabla, ":"
         i <- 1
-        Mientras i <= 3 Hacer // Solo hasta el 3 para brevedad
+        Mientras i <= 3 Hacer
             Escribir tabla, " x ", i, " = ", tabla * i
             i <- i + 1
         FinMientras
         tabla <- tabla + 1
-        Escribir "" // Línea en blanco para separar
+        Escribir ""
     FinMientras
 FinAlgoritmo`,
-    for_loop: `Algoritmo SumaDeNumeros
+    para_suma_numeros: `Algoritmo SumaDeNumeros
 	Definir i, suma, num_max Como Entero
 	suma <- 0
 	Escribir "Hasta que numero quieres sumar (ej: 3):"
@@ -138,7 +144,7 @@ FinAlgoritmo`,
 	FinPara
 	Escribir "La suma total hasta ", num_max, " es: ", suma
 FinAlgoritmo`,
-    for_con_paso_negativo: `Algoritmo CuentaRegresiva
+    para_cuenta_regresiva: `Algoritmo CuentaRegresiva
     Definir i Como Entero
     Escribir "Cuenta regresiva:"
     Para i <- 5 Hasta 1 Con Paso -1 Hacer
@@ -146,7 +152,7 @@ FinAlgoritmo`,
     FinPara
     Escribir "¡Despegue!"
 FinAlgoritmo`,
-    for_con_leer: `Algoritmo PromedioNotas
+    para_con_lectura_promedio: `Algoritmo PromedioNotas
     Definir num_notas, i Como Entero
     Definir nota, suma_notas, promedio Como Real
 
@@ -166,16 +172,15 @@ FinAlgoritmo`,
         Escribir "No se ingresaron notas para promediar."
     FinSi
 FinAlgoritmo`,
-    for_no_ejecuta: `Algoritmo ParaNoEjecuta
+    para_no_ejecuta: `Algoritmo ParaNoEjecuta
     Definir x Como Entero
     Escribir "Inicio del algoritmo ParaNoEjecuta"
-    // Este bucle no debería ejecutar ninguna iteración
     Para x <- 10 Hasta 5 Con Paso 1 Hacer
         Escribir "Esta línea NO debería aparecer en la consola."
     FinPara
     Escribir "Fin del algoritmo ParaNoEjecuta"
 FinAlgoritmo`,
-    repeat_until: `Algoritmo AdivinaNumeroSimple
+    repetir_hasta_que_adivina: `Algoritmo AdivinaNumeroSimple
 	Definir intento Como Entero
 	Definir secreto Como Entero
 	secreto <- 7
@@ -188,7 +193,7 @@ FinAlgoritmo`,
 	Hasta Que intento = secreto
 	Escribir "¡Correcto! El numero era ", secreto, "."
 FinAlgoritmo`,
-    leer_varios: `Algoritmo LeerMultiplesValores
+    leer_multiples_valores: `Algoritmo LeerMultiplesValores
     Definir nombre Como Cadena
     Definir edad Como Entero
     Definir ciudad Como Cadena
@@ -198,18 +203,18 @@ FinAlgoritmo`,
 
     Escribir "Te llamas ", nombre, ", tienes ", edad, " años y vives en ", ciudad, "."
 FinAlgoritmo`,
-    arrays_basico: `Algoritmo EjemploArreglosBasico
-    Dimension notas[3] // Se declara como 'entero' por defecto
+    arreglos_basico: `Algoritmo EjemploArreglosBasico
+    Dimension notas[3]
     Definir i Como Entero
 
     Escribir "Cargando notas (numéricas inicialmente):"
     Para i <- 1 Hasta 3 Hacer
-        notas[i] <- i * 2 // Asigna 2, 4, 6
+        notas[i] <- i * 2
         Escribir "Nota ", i, ": ", notas[i]
     FinPara
 
     Escribir "Asignando un texto a notas[2]. El arreglo se convertirá a Cadena."
-    notas[2] <- "Sobresaliente" // Dinámicamente cambia el tipo de 'notas' a Cadena
+    notas[2] <- "Sobresaliente"
 
     Escribir "Mostrando todas las notas (ahora como cadenas):"
     Para i <- 1 Hasta 3 Hacer
@@ -228,7 +233,7 @@ FinAlgoritmo`,
     edades[2] <- 30
     Escribir "Edades: ", edades[1], ", ", edades[2]
 FinAlgoritmo`,
-    mod_example: `Algoritmo ModuloEjemplo
+    ejemplo_modulo: `Algoritmo ModuloEjemplo
 	Definir N, M, Resultado Como Real
 	Escribir "Ingrese el dividendo:"
     Leer N
@@ -243,7 +248,7 @@ FinAlgoritmo`,
 		Escribir "El resto es: ", Resultado
 	FinSi
 FinAlgoritmo`,
-    potencia_conversion: `Algoritmo EjemploPotenciaConversion
+    potencia_y_conversion: `Algoritmo EjemploPotenciaConversion
 	Definir base, exponente, resultado Como Real
 	Escribir "Ingrese la base para la potencia:"
     Leer base
@@ -257,14 +262,14 @@ FinAlgoritmo`,
     Definir numConvertido Como Real
     Definir valorLogico Como Logico
 
-	textoNum <- "123.45" // Se puede cambiar a Leer textoNum
+	textoNum <- "123.45"
 	numConvertido <- ConvertirANumero(textoNum)
 	Escribir "Cadena '", textoNum, "' convertida a número: ", numConvertido
 
 	valorLogico <- Verdadero
 	Escribir "Valor lógico ", valorLogico, " como texto: ", ConvertirATexto(valorLogico)
 FinAlgoritmo`,
-    funciones_subprocesos: `Algoritmo PrincipalConFunciones
+    funciones_y_subprocesos: `Algoritmo PrincipalConFunciones
     Definir num1, num2, resultadoSuma Como Entero
     Definir mensaje Como Cadena
 
@@ -272,13 +277,13 @@ FinAlgoritmo`,
     num2 <- 5
     mensaje <- "Valores iniciales"
 
-    MostrarValores(mensaje, num1, num2) // Procedimiento, paso por valor
+    MostrarValores(mensaje, num1, num2)
 
-    resultadoSuma <- SumarNumeros(num1, num2) // Funcion, paso por valor
+    resultadoSuma <- SumarNumeros(num1, num2)
     Escribir "La suma es: ", resultadoSuma
 
     Escribir "Valores antes de intercambiar (por referencia): num1=", num1, ", num2=", num2
-    Intercambiar(num1, num2) // Procedimiento, paso por referencia
+    Intercambiar(num1, num2)
     Escribir "Valores después de intercambiar (por referencia): num1=", num1, ", num2=", num2
 FinAlgoritmo
 
@@ -299,4 +304,4 @@ SubProceso Intercambiar (numA Por Referencia, numB Por Referencia)
 FinSubProceso`
 };
 
-console.log("datosEjemplos.js cargado y Webgoritmo.Datos.exampleCodes actualizado para Fase 4 (Leer).");
+console.log("datosEjemplos.js cargado y Webgoritmo.Datos.exampleCodes actualizado.");
