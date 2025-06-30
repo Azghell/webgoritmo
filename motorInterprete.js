@@ -220,48 +220,55 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
     // ... (inicio sin cambios) ...
     let i = 0;
     while (i < lineasBloqueParam.length) {
-        // ... (manejo de detención, info de línea) ...
+        if (Webgoritmo.estadoApp.detenerEjecucion) {
+            if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Ejecución detenida en ejecutarBloque.", "debug");
+            break;
+        }
+
         const lineaOriginal = lineasBloqueParam[i];
-        const lineaTrimmedLimpia = limpiarComentariosDeExpresion(lineaOriginal.trim()); // Limpiar línea completa ANTES de analizarla
+        const lineaOriginalTrimmed = lineaOriginal.trim();
+        // Aplicar limpieza de comentarios UNA VEZ para la línea que se va a analizar para detectar instrucciones
+        const lineaParaAnalisis = limpiarComentariosDeExpresion(lineaOriginalTrimmed);
 
-        if (lineaTrimmedLimpia === '') { i++; continue; } // Si la línea queda vacía después de quitar comentarios, saltarla.
+        if (lineaParaAnalisis === '') { // Si la línea queda vacía después de limpiar comentarios y espacios, saltarla.
+            i++;
+            continue;
+        }
 
-        // Usar lineaTrimmedLimpia para la lógica de detección de instrucciones
         const numLineaGlobal = numLineaOriginalOffset + i + 1;
-        Webgoritmo.estadoApp.currentLineInfo = { numLineaOriginal: numLineaGlobal, contenido: lineaTrimmedLimpia }; // Usar la línea limpia para el log
-        if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numLineaGlobal}: ${lineaTrimmedLimpia}`, 'debug');
+        Webgoritmo.estadoApp.currentLineInfo = { numLineaOriginal: numLineaGlobal, contenido: lineaParaAnalisis }; // Usar la línea limpia para el log
+        if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numLineaGlobal}: ${lineaParaAnalisis}`, 'debug');
 
 
         let instruccionManejada = false;
         try {
-            const lineaLower = lineaTrimmedLimpia.toLowerCase(); // Analizar la línea ya limpia
-            const matchAsignacion = lineaTrimmedLimpia.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?)\s*(?:<-|=)/);
-            const matchLlamadaSubProceso = lineaTrimmedLimpia.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*\((.*?)\)\s*$/);
+            // Usar lineaParaAnalisis (ya limpia y trimeada) para la detección y para pasar a los handlers.
+            // Convertir a minúsculas solo para las comparaciones de detección (startsWith, etc.).
+            const lineaLowerParaDeteccion = lineaParaAnalisis.toLowerCase();
 
-            if (lineaLower.startsWith('definir ')) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleDefinir(lineaTrimmedLimpia, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.startsWith('dimension ') || lineaLower.startsWith('dimensionar ')) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleDimension(lineaTrimmedLimpia, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.startsWith('escribir ') || lineaLower.startsWith('imprimir ') || lineaLower.startsWith('mostrar ')) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleEscribir(lineaTrimmedLimpia, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.startsWith('leer ')) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleLeer(lineaTrimmedLimpia, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.startsWith('si ') && lineaLower.endsWith(' entonces')) {
-                 const indiceFinSiRelativo = await Webgoritmo.Interprete.handleSi(lineaTrimmedLimpia, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
+            const matchAsignacion = lineaParaAnalisis.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?)\s*(?:<-|=)/);
+            const matchLlamadaSubProceso = lineaParaAnalisis.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*\((.*?)\)\s*$/);
+
+            if (lineaLowerParaDeteccion.startsWith('definir ')) {
+                 instruccionManejada = await Webgoritmo.Interprete.handleDefinir(lineaParaAnalisis, ambitoActual, numLineaGlobal);
+            } else if (lineaLowerParaDeteccion.startsWith('dimension ') || lineaLowerParaDeteccion.startsWith('dimensionar ')) {
+                 instruccionManejada = await Webgoritmo.Interprete.handleDimension(lineaParaAnalisis, ambitoActual, numLineaGlobal);
+            } else if (lineaLowerParaDeteccion.startsWith('escribir ') || lineaLowerParaDeteccion.startsWith('imprimir ') || lineaLowerParaDeteccion.startsWith('mostrar ')) {
+                 instruccionManejada = await Webgoritmo.Interprete.handleEscribir(lineaParaAnalisis, ambitoActual, numLineaGlobal);
+            } else if (lineaLowerParaDeteccion.startsWith('leer ')) {
+                 instruccionManejada = await Webgoritmo.Interprete.handleLeer(lineaParaAnalisis, ambitoActual, numLineaGlobal);
+            } else if (lineaLowerParaDeteccion.startsWith('si ') && lineaLowerParaDeteccion.endsWith(' entonces')) {
+                 const indiceFinSiRelativo = await Webgoritmo.Interprete.handleSi(lineaParaAnalisis, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
                  i = indiceFinSiRelativo;
                  instruccionManejada = true;
             }
             else if (matchAsignacion) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmedLimpia, ambitoActual, numLineaGlobal);
+                 instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaParaAnalisis, ambitoActual, numLineaGlobal);
             } else if (matchLlamadaSubProceso) {
                 const nombreFuncionLlamada = matchLlamadaSubProceso[1];
-                // Los argumentos (matchLlamadaSubProceso[2]) ya no tendrán comentarios de fin de línea porque lineaTrimmedLimpia se usó
                 const argsStrLlamada = matchLlamadaSubProceso[2].trim();
                 let argExprsLlamada = [];
                 if (argsStrLlamada !== "") {
-                    // Cada expresión de argumento individual aún podría tener un comentario si la línea original fuera:
-                    // MiSub("arg1" //comentario1, "arg2" //comentario2 )
-                    // Así que limpiar cada una es más seguro.
                     argExprsLlamada = argsStrLlamada.split(',').map(arg => limpiarComentariosDeExpresion(arg.trim()));
                 }
                 if (Webgoritmo.estadoApp.funcionesDefinidas && Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(nombreFuncionLlamada.toLowerCase())) {
@@ -271,12 +278,16 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
             }
 
             const palabrasClaveDeBloque = /^(finsi|sino|finmientras|finpara|finsubproceso|finsegun|hasta que|proceso|algoritmo|finproceso|finalgoritmo)$/;
-            if (!instruccionManejada && lineaTrimmedLimpia && !palabrasClaveDeBloque.test(lineaLower.split(/\s+/)[0])) {
-                 if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`Instrucción no reconocida: '${lineaTrimmedLimpia}' (L${numLineaGlobal})`, 'warning');
+            // Usar lineaLowerParaDeteccion para el test de palabras clave de bloque
+            if (!instruccionManejada && lineaParaAnalisis && !palabrasClaveDeBloque.test(lineaLowerParaDeteccion.split(/\s+/)[0])) {
+                 if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`Instrucción no reconocida: '${lineaParaAnalisis}' (L${numLineaGlobal})`, 'warning');
             }
-        // ... (resto de catch, etc. sin cambios) ...
         } catch (e) { Webgoritmo.estadoApp.errorEjecucion = e.message.includes(`L${numLineaGlobal}`)?e.message:`Error L${numLineaGlobal}: ${e.message}`; Webgoritmo.estadoApp.detenerEjecucion=true; if(Webgoritmo.UI&&Webgoritmo.UI.añadirSalida)Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion,'error'); else console.error(Webgoritmo.estadoApp.errorEjecucion); break; }
-        if(Webgoritmo.estadoApp.detenerEjecucion)break;
+
+        if (Webgoritmo.estadoApp.detenerEjecucion) {
+            if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Deteniendo ejecución después de manejar instrucción.", "debug");
+            break;
+        }
         i++;
     }
     Webgoritmo.estadoApp.currentLineInfo = null;
