@@ -59,16 +59,41 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) { // Acepta dom y da
     }
 
     for (const clave in exampleCodesObj) {
-        if (exampleCodesObj.hasOwnProperty(clave)) { // Usar la copia local exampleCodesObj
+        if (exampleCodesObj.hasOwnProperty(clave)) {
             const option = document.createElement('option');
             option.value = clave;
-            let textoOpcion = clave.replace(/_/g, ' ');
-            textoOpcion = textoOpcion.charAt(0).toUpperCase() + textoOpcion.slice(1);
-            option.textContent = textoOpcion;
-            ejemplosSelectEl.appendChild(option); // Usar la copia local ejemplosSelectEl
+
+            // Mapeo de claves a nombres descriptivos/cortos
+            const nombresDescriptivos = {
+                entrada_salida_basica: "E/S: Saludo Básico",
+                si_simple: "Si: Mayor de Edad",
+                prueba_si_simple: "Test: Si (Simple)", // Clave original mantenida
+                si_sino: "Si-Sino: Positivo/Negativo",
+                prueba_si_sino: "Test: Si-Sino", // Clave original mantenida
+                condicional_anidado: "Si: Anidado (Calificación)",
+                operadores_logicos: "Op. Lógicos: Prueba",
+                segun_dia_semana: "Según: Día de Semana",
+                mientras_contador: "Mientras: Contador Simple",
+                mientras_con_lectura: "Mientras: Suma con Leer",
+                mientras_anidado_tablas: "Mientras: Anidado (Tablas)",
+                para_suma_numeros: "Para: Suma Números",
+                para_cuenta_regresiva: "Para: Cuenta Regresiva",
+                para_con_lectura_promedio: "Para: Promedio con Leer",
+                para_no_ejecuta: "Para: No se Ejecuta",
+                repetir_hasta_que_adivina: "Repetir: Adivina Número",
+                leer_multiples_valores: "Leer: Múltiples Valores",
+                arreglos_basico: "Arreglos: Básico y Tipos",
+                ejemplo_modulo: "Op. Aritmético: Mod",
+                potencia_y_conversion: "Aritméticos: Pot y Convertir",
+                funciones_y_subprocesos: "Subprocesos: Básico",
+                prueba_acceso_arreglos_expresion: "Arreglos: En Expresión"
+            };
+
+            option.textContent = nombresDescriptivos[clave] || clave.replace(/_/g, ' ').charAt(0).toUpperCase() + clave.replace(/_/g, ' ').slice(1);
+            ejemplosSelectEl.appendChild(option);
         }
     }
-    console.log("uiManager.js: Selector de ejemplos poblado.");
+    console.log("uiManager.js: Selector de ejemplos poblado con nombres descriptivos.");
 };
 
 

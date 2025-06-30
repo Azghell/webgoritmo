@@ -204,24 +204,25 @@ FinAlgoritmo`,
     Escribir "Te llamas ", nombre, ", tienes ", edad, " años y vives en ", ciudad, "."
 FinAlgoritmo`,
     arreglos_basico: `Algoritmo EjemploArreglosBasico
-    Dimension notas[3]
+    // Usando Dimension para declaración implícita de tipo
+    Dimension notas_flexibles[3]
     Definir i Como Entero
 
-    Escribir "Cargando notas (numéricas inicialmente):"
-    Para i <- 1 Hasta 3 Hacer
-        notas[i] <- i * 2
-        Escribir "Nota ", i, ": ", notas[i]
-    FinPara
+    Escribir "Arreglo 'notas_flexibles' (tipo se infiere en primera asignación):"
+    notas_flexibles[1] <- 70 // Se vuelve Entero/Real
+    Escribir "notas_flexibles[1] (después de asignar 70): ", notas_flexibles[1]
 
-    Escribir "Asignando un texto a notas[2]. El arreglo se convertirá a Cadena."
-    notas[2] <- "Sobresaliente"
+    notas_flexibles[2] <- "matematicas" // Ahora todo el arreglo debería tratar de ser Cadena
+    Escribir "notas_flexibles[1] (después de asignar texto a [2]): ", notas_flexibles[1]
+    Escribir "notas_flexibles[2]: ", notas_flexibles[2]
 
-    Escribir "Mostrando todas las notas (ahora como cadenas):"
-    Para i <- 1 Hasta 3 Hacer
-        Escribir "Elemento ", i, ": ", notas[i]
-    FinPara
+    notas_flexibles[3] <- Verdadero // Ahora todo el arreglo podría ser Cadena (o fallar si es muy estricto)
+    Escribir "notas_flexibles[1] (después de asignar lógico a [3]): ", notas_flexibles[1]
+    Escribir "notas_flexibles[2]: ", notas_flexibles[2]
+    Escribir "notas_flexibles[3]: ", notas_flexibles[3]
 
-    Escribir "--- Ejemplo con arreglo definido con tipo ---"
+
+    Escribir "--- Ejemplo con arreglo definido con tipo explícito (Definir) ---"
     Definir nombres Como Cadena[2]
     nombres[1] <- "Ana"
     nombres[2] <- "Juan"
@@ -229,7 +230,7 @@ FinAlgoritmo`,
 
     Definir edades Como Entero[2]
     edades[1] <- 20
-    //edades[2] <- "treinta" // Esto debería dar error de tipo
+    //edades[2] <- "treinta" // Esto debería dar error de tipo si el intérprete es estricto después de definir como Entero
     edades[2] <- 30
     Escribir "Edades: ", edades[1], ", ", edades[2]
 FinAlgoritmo`,
