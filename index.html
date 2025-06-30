@@ -84,10 +84,13 @@
     <!-- Nuestros Scripts Modulares (MVP Fase 2) -->
     <script src="configGlobal.js"></script>
     <script src="datosEjemplos.js"></script>
+    <!-- motorInterprete.js DEBE cargarse antes de evaluadorExpresiones.js si este último usa Webgoritmo.Interprete.inferirTipo -->
+    <script src="motorInterprete.js"></script>
     <script src="evaluadorExpresiones.js"></script>
+    <!-- uiManager.js y modoEditor.js idealmente después de app.js si usan Webgoritmo.DOM extensivamente al cargar, -->
+    <!-- o app.js debe asegurarse de que DOM esté listo antes de que lo usen. Por ahora, mantenemos pero es un punto a revisar. -->
     <script src="uiManager.js"></script>
     <script src="modoEditor.js"></script>
-    <script src="motorInterprete.js"></script>
     <script src="app.js"></script>
 
     <!-- Eruda Console for Mobile Debugging -->
