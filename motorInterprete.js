@@ -91,9 +91,28 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
                 if (argsStrLlamada !== "") {
                     argExprsLlamada = argsStrLlamada.split(',').map(arg => limpiarComentariosDeExpresion(arg.trim()));
                 }
+                console.log(`[DEBUG ejecutarBloque L${numLineaGlobal}] matchLlamadaSubProceso ÉXITO. Nombre crudo: ${matchLlamadaSubProceso[1]}`);
+                const nombreFuncionLlamada = matchLlamadaSubProceso[1];
+                const argsStrLlamada = matchLlamadaSubProceso[2].trim();
+                let argExprsLlamada = [];
+                if (argsStrLlamada !== "") {
+                    argExprsLlamada = argsStrLlamada.split(',').map(arg => limpiarComentariosDeExpresion(arg.trim()));
+                }
+
+                console.log(`[DEBUG ejecutarBloque L${numLineaGlobal}] Intentando llamar a: '${nombreFuncionLlamada}', toLowerCase: '${nombreFuncionLlamada.toLowerCase()}'`);
+                console.log(`[DEBUG ejecutarBloque L${numLineaGlobal}] funcionesDefinidas tiene '${nombreFuncionLlamada.toLowerCase()}': ${Webgoritmo.estadoApp.funcionesDefinidas && Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(nombreFuncionLlamada.toLowerCase())}`);
+                try {
+                    console.log(`[DEBUG ejecutarBloque L${numLineaGlobal}] Contenido de funcionesDefinidas (claves):`, JSON.stringify(Object.keys(Webgoritmo.estadoApp.funcionesDefinidas || {})));
+                } catch (e) { console.error("Error stringifying funcionesDefinidas keys", e); }
+
+
                 if (Webgoritmo.estadoApp.funcionesDefinidas && Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(nombreFuncionLlamada.toLowerCase())) {
+                    console.log(`[DEBUG ejecutarBloque L${numLineaGlobal}] ENTRANDO a llamar Webgoritmo.Interprete.ejecutarSubProcesoLlamada para '${nombreFuncionLlamada}'`);
                     await Webgoritmo.Interprete.ejecutarSubProcesoLlamada(nombreFuncionLlamada, argExprsLlamada, ambitoActual, numLineaGlobal);
+                    console.log(`[DEBUG ejecutarBloque L${numLineaGlobal}] SALIENDO de llamar Webgoritmo.Interprete.ejecutarSubProcesoLlamada para '${nombreFuncionLlamada}'`);
                     instruccionManejada = true;
+                } else {
+                    console.log(`[DEBUG ejecutarBloque L${numLineaGlobal}] SubProceso '${nombreFuncionLlamada}' NO encontrado en funcionesDefinidas.`);
                 }
             }
 
@@ -112,7 +131,27 @@ Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoA
     Webgoritmo.estadoApp.currentLineInfo = null;
 };
 
-Webgoritmo.Interprete.ejecutarPseudocodigo = async function() { /* ... (como en Bloque 6.1 Corregido) ... */ };
+Webgoritmo.Interprete.ejecutarPseudocodigo = async function() {
+    if (!Webgoritmo.UI || !Webgoritmo.UI.añadirSalida) { console.error("UI.añadirSalida no disponible."); return; }
+    if (!Webgoritmo.Editor || !Webgoritmo.Editor.editorCodigo) { Webgoritmo.UI.añadirSalida("Error: Editor no listo.", "error"); return; }
+    if (!Webgoritmo.estadoApp) { Webgoritmo.UI.añadirSalida("Error: estadoApp no listo.", "error"); return; }
+    if (!Webgoritmo.Expresiones) { Webgoritmo.UI.añadirSalida("Error: Evaluador de expresiones no listo.", "error"); return; }
+    if (Webgoritmo.DOM && Webgoritmo.DOM.consolaSalida) Webgoritmo.DOM.consolaSalida.innerHTML = '';
+    Webgoritmo.UI.añadirSalida("--- Iniciando ejecución (Debug SubP Llamada) ---", "normal"); // Mensaje de log actualizado
+    Webgoritmo.estadoApp.variables = {}; Webgoritmo.estadoApp.detenerEjecucion = false; Webgoritmo.estadoApp.errorEjecucion = null;
+    Webgoritmo.estadoApp.esperandoEntrada = false; Webgoritmo.estadoApp.resolverPromesaEntrada = null; Webgoritmo.estadoApp.promesaEntradaPendiente = null;
+    Webgoritmo.estadoApp.pilaLlamadas = [];
+    Webgoritmo.estadoApp.lineasCodigo = Webgoritmo.Editor.editorCodigo.getValue().split('\n');
+    Webgoritmo.estadoApp.funcionesDefinidas = {}; const subProcesoLineIndices = new Set();
+    // ... (resto igual)
+    if (Webgoritmo.Interprete.parseDefinicionSubProceso) { for (let i = 0; i < Webgoritmo.estadoApp.lineasCodigo.length; i++) { const lineaOriginal = Webgoritmo.estadoApp.lineasCodigo[i]; let lineaParaAnalisis = limpiarComentariosDeExpresion(lineaOriginal.split('//')[0].trim()); if (lineaParaAnalisis.startsWith('/*') && lineaParaAnalisis.endsWith('*/')) lineaParaAnalisis = ''; const lineaLower = lineaParaAnalisis.toLowerCase(); if (lineaLower.startsWith("subproceso")) { try { const defSubProceso = Webgoritmo.Interprete.parseDefinicionSubProceso(lineaOriginal, i, Webgoritmo.estadoApp.lineasCodigo); if (Webgoritmo.estadoApp.funcionesDefinidas.hasOwnProperty(defSubProceso.nombreLc)) throw new Error(`SubProceso '${defSubProceso.nombreOriginal}' ya definido.`); Webgoritmo.estadoApp.funcionesDefinidas[defSubProceso.nombreLc] = defSubProceso; for (let k = i; k <= defSubProceso.indiceFinEnTodasLasLineas; k++) subProcesoLineIndices.add(k); i = defSubProceso.indiceFinEnTodasLasLineas; if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`SubProceso '${defSubProceso.nombreOriginal}' parseado (L${defSubProceso.lineaOriginalDef}). Parámetros: ${defSubProceso.parametros.map(p=>p.nombreOriginal + (p.esPorReferencia ? " PorRef" : "")).join(', ') || 'ninguno'}`, 'debug'); } catch (e) { Webgoritmo.estadoApp.errorEjecucion = e.message; Webgoritmo.estadoApp.detenerEjecucion = true; break; } } if (Webgoritmo.estadoApp.detenerEjecucion) break; } }
+    if (Webgoritmo.estadoApp.detenerEjecucion) { if (Webgoritmo.UI.añadirSalida) { Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error'); Webgoritmo.UI.añadirSalida("--- Ejecución con errores (Parseo SubProcesos) ---", "error");} return; }
+    let lineasDelPrincipal = []; let inicioBloquePrincipalLineaNum = -1; let processingState = 'buscar_inicio'; for (let j = 0; j < Webgoritmo.estadoApp.lineasCodigo.length; j++) { if (subProcesoLineIndices.has(j)) continue; const lineaOriginal = Webgoritmo.estadoApp.lineasCodigo[j]; let lineaParaAnalisis = limpiarComentariosDeExpresion(lineaOriginal.split('//')[0].trim()); if (lineaParaAnalisis.startsWith('/*') && lineaParaAnalisis.endsWith('*/')) lineaParaAnalisis = ''; const lineaLower = lineaParaAnalisis.toLowerCase(); if (processingState === 'buscar_inicio') { if (lineaLower.startsWith("proceso") || lineaLower.startsWith("algoritmo")) { inicioBloquePrincipalLineaNum = j + 1; processingState = 'en_bloque';} else if (lineaParaAnalisis !== "") { Webgoritmo.estadoApp.errorEjecucion = `Error L${j+1}: Código fuera de bloque.`; Webgoritmo.estadoApp.detenerEjecucion = true; break;} } else if (processingState === 'en_bloque') { if (lineaLower.startsWith("finproceso") || lineaLower.startsWith("finalgoritmo")) processingState = 'bloque_terminado'; else if (lineaLower.startsWith("proceso") || lineaLower.startsWith("algoritmo")) { Webgoritmo.estadoApp.errorEjecucion = `Error L${j+1}: Bloques anidados no permitidos.`; Webgoritmo.estadoApp.detenerEjecucion = true; break;} else lineasDelPrincipal.push(lineaOriginal); } else if (processingState === 'bloque_terminado') { if (lineaParaAnalisis !== "") { Webgoritmo.estadoApp.errorEjecucion = `Error L${j+1}: Código después de FinAlgoritmo.`; Webgoritmo.estadoApp.detenerEjecucion = true; break;} } }
+    if (!Webgoritmo.estadoApp.errorEjecucion) { const tieneCodigoEfectivo = Webgoritmo.estadoApp.lineasCodigo.some((l, idx) => { if(subProcesoLineIndices.has(idx))return false; let t=limpiarComentariosDeExpresion(l.split('//')[0].trim()); if(t.startsWith('/*')&&t.endsWith('*/'))t=''; return t !== ''; }); if (processingState === 'buscar_inicio' && tieneCodigoEfectivo) Webgoritmo.estadoApp.errorEjecucion = "No se encontró bloque 'Algoritmo'/'Proceso'."; else if (processingState === 'en_bloque') Webgoritmo.estadoApp.errorEjecucion = `Bloque 'Algoritmo'/'Proceso' L${inicioBloquePrincipalLineaNum} no cerrado.`;}
+    if (Webgoritmo.estadoApp.errorEjecucion) { if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error'); Webgoritmo.estadoApp.detenerEjecucion = true; } else if (inicioBloquePrincipalLineaNum !== -1 && processingState === 'bloque_terminado') { if (lineasDelPrincipal.length > 0) await Webgoritmo.Interprete.ejecutarBloque(lineasDelPrincipal, Webgoritmo.estadoApp.variables, inicioBloquePrincipalLineaNum -1 ); else if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Advertencia: Bloque principal vacío.", "warning"); } else { /* ... */ }
+    if (Webgoritmo.UI.añadirSalida) { if (Webgoritmo.estadoApp.errorEjecucion) Webgoritmo.UI.añadirSalida("--- Ejecución con errores (Debug SubP Llamada) ---", "error"); else if (Webgoritmo.estadoApp.detenerEjecucion && !Webgoritmo.estadoApp.esperandoEntrada) Webgoritmo.UI.añadirSalida("--- Ejecución interrumpida (Debug SubP Llamada) ---", "warning");  else if (!Webgoritmo.estadoApp.esperandoEntrada) Webgoritmo.UI.añadirSalida("--- Ejecución finalizada (Debug SubP Llamada) ---", "normal");  }
+    // ... (log de variables)
+};
 
 // --- Copiar las funciones de utilidad y handlers que no cambian ---
 Webgoritmo.Interprete.obtenerValorPorDefecto = function(tipo) { const t = String(tipo).toLowerCase(); switch(t){case 'entero':return 0;case 'real':return 0.0;case 'logico':return false;case 'caracter':case 'cadena':return '';case 'numero':return 0;default:return null;}};
