@@ -205,22 +205,22 @@ FinAlgoritmo`,
 FinAlgoritmo`,
     arreglos_basico: `Algoritmo EjemploArreglosBasico
     // Usando Dimension para declaración implícita de tipo
-    Dimension notas_flexibles[3]
+    Dimension notas_numericas[3]
+    Dimension nombres_cadenas[2]
     Definir i Como Entero
 
-    Escribir "Arreglo 'notas_flexibles' (tipo se infiere en primera asignación):"
-    notas_flexibles[1] <- 70 // Se vuelve Entero/Real
-    Escribir "notas_flexibles[1] (después de asignar 70): ", notas_flexibles[1]
+    Escribir "Arreglo 'notas_numericas':"
+    notas_numericas[1] <- 70
+    notas_numericas[2] <- 85
+    notas_numericas[3] <- notas_numericas[1] + 5
+    Para i <- 1 Hasta 3 Hacer
+        Escribir "Nota ", i, ": ", notas_numericas[i]
+    FinPara
 
-    notas_flexibles[2] <- "matematicas" // Ahora todo el arreglo debería tratar de ser Cadena
-    Escribir "notas_flexibles[1] (después de asignar texto a [2]): ", notas_flexibles[1]
-    Escribir "notas_flexibles[2]: ", notas_flexibles[2]
-
-    notas_flexibles[3] <- Verdadero // Ahora todo el arreglo podría ser Cadena (o fallar si es muy estricto)
-    Escribir "notas_flexibles[1] (después de asignar lógico a [3]): ", notas_flexibles[1]
-    Escribir "notas_flexibles[2]: ", notas_flexibles[2]
-    Escribir "notas_flexibles[3]: ", notas_flexibles[3]
-
+    Escribir "Arreglo 'nombres_cadenas':"
+    nombres_cadenas[1] <- "Ana"
+    nombres_cadenas[2] <- "Juan"
+    Escribir "Nombres: ", nombres_cadenas[1], ", ", nombres_cadenas[2]
 
     Escribir "--- Ejemplo con arreglo definido con tipo explícito (Definir) ---"
     Definir nombres Como Cadena[2]
