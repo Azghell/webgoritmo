@@ -301,7 +301,28 @@ SubProceso Intercambiar (numA Por Referencia, numB Por Referencia)
     numA <- numB
     numB <- temp
     Escribir "(Dentro de Intercambiar: numA=", numA, ", numB=", numB, ")"
-FinSubProceso`
+FinSubProceso`,
+    prueba_acceso_arreglos_expresion: `Algoritmo PruebaAccesoArregloExpresion
+    Definir notas Como Real[3]
+    Definir res Como Real
+
+    notas[1] <- 10.0
+    notas[2] <- 7.5
+    Escribir "notas[1] es: ", notas[1]
+    Escribir "notas[2] es: ", notas[2]
+
+    res <- (notas[1] + notas[2]) / 2
+    Escribir "El resultado de (notas[1] + notas[2]) / 2 es: ", res
+
+    Definir otraNota Como Entero
+    otraNota <- 1
+    Escribir "Accediendo con variable de índice notas[otraNota]: ", notas[otraNota]
+
+    // Prueba de asignación a un elemento usando una expresión de acceso
+    notas[otraNota + 1] <- notas[1] - 1.5 // notas[2] <- 10.0 - 1.5 = 8.5
+    Escribir "Nuevo notas[2] deberia ser 8.5: ", notas[2]
+
+FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js cargado y Webgoritmo.Datos.exampleCodes actualizado.");
+console.log("datosEjemplos.js cargado y Webgoritmo.Datos.exampleCodes actualizado con prueba_acceso_arreglos_expresion.");
