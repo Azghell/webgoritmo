@@ -36,20 +36,19 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) { // Acepta dom y da
     // const dom = Webgoritmo.DOM; // Ya no se toma de global
     // const datos = Webgoritmo.Datos; // Ya no se toma de global
     const ejemplosSelectEl = dom ? dom.ejemplosSelect : null;
-    const exampleCodesObj = datos ? datos.exampleCodes : null;
+    // Usar la nueva estructura de datosEjemplos.js
+    const codigosEjemploObj = datos ? datos.codigosEjemplo : null;
 
     // DEBUGGING:
-    console.log("DEBUG: Entrando a poblarSelectorEjemplos");
-    console.log("DEBUG: Parámetro dom:", dom);
-    console.log("DEBUG: Parámetro datos:", datos);
-    console.log("DEBUG: ejemplosSelectEl (de param dom):", ejemplosSelectEl);
-    console.log("DEBUG: exampleCodesObj (de param datos):", exampleCodesObj);
+    console.log("DEBUG: Entrando a poblarSelectorEjemplos (Fase 1 Reconstrucción)");
+    console.log("DEBUG: dom:", dom);
+    console.log("DEBUG: datos:", datos);
+    console.log("DEBUG: ejemplosSelectEl:", ejemplosSelectEl);
+    console.log("DEBUG: codigosEjemploObj:", codigosEjemploObj);
 
 
-    if (!ejemplosSelectEl || !exampleCodesObj) {
-        console.error("poblarSelectorEjemplos: Elemento select o datos de ejemplos (desde parámetros) no disponibles.");
-        if (!ejemplosSelectEl) console.error("DEBUG: ejemplosSelectEl (desde param dom) es null/undefined.");
-        if (!exampleCodesObj) console.error("DEBUG: exampleCodesObj (desde param datos) es null/undefined.");
+    if (!ejemplosSelectEl || !codigosEjemploObj) {
+        console.error("poblarSelectorEjemplos: Elemento select o datos.codigosEjemplo no disponibles.");
         return;
     }
 
@@ -58,57 +57,38 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) { // Acepta dom y da
         ejemplosSelectEl.remove(1);
     }
 
-    for (const clave in exampleCodesObj) {
-        if (exampleCodesObj.hasOwnProperty(clave)) {
+    // Mapeo de claves a nombres para esta fase
+    const nombresParaSelector = {
+        salida_literal_cadena: "Escribir: Literales"
+        // Se añadirán más a medida que se implementen ejemplos
+    };
+
+    for (const clave in codigosEjemploObj) {
+        if (codigosEjemploObj.hasOwnProperty(clave)) {
             const option = document.createElement('option');
             option.value = clave;
-
-            // Mapeo de claves a nombres descriptivos/cortos
-            const nombresDescriptivos = {
-                entrada_salida_basica: "E/S: Saludo Básico",
-                si_simple: "Si: Mayor de Edad",
-                prueba_si_simple: "Test: Si (Simple)", // Clave original mantenida
-                si_sino: "Si-Sino: Positivo/Negativo",
-                prueba_si_sino: "Test: Si-Sino", // Clave original mantenida
-                condicional_anidado: "Si: Anidado (Calificación)",
-                operadores_logicos: "Op. Lógicos: Prueba",
-                segun_dia_semana: "Según: Día de Semana",
-                mientras_contador: "Mientras: Contador Simple",
-                mientras_con_lectura: "Mientras: Suma con Leer",
-                mientras_anidado_tablas: "Mientras: Anidado (Tablas)",
-                para_suma_numeros: "Para: Suma Números",
-                para_cuenta_regresiva: "Para: Cuenta Regresiva",
-                para_con_lectura_promedio: "Para: Promedio con Leer",
-                para_no_ejecuta: "Para: No se Ejecuta",
-                repetir_hasta_que_adivina: "Repetir: Adivina Número",
-                leer_multiples_valores: "Leer: Múltiples Valores",
-                arreglos_basico: "Arreglos: Básico y Tipos",
-                ejemplo_modulo: "Op. Aritmético: Mod",
-                potencia_y_conversion: "Aritméticos: Pot y Convertir",
-                funciones_y_subprocesos: "Subprocesos: Básico",
-                prueba_acceso_arreglos_expresion: "Arreglos: En Expresión"
-            };
-
-            option.textContent = nombresDescriptivos[clave] || clave.replace(/_/g, ' ').charAt(0).toUpperCase() + clave.replace(/_/g, ' ').slice(1);
+            // Usar el nombre del mapeo o generar uno a partir de la clave
+            option.textContent = nombresParaSelector[clave] || clave.replace(/_/g, ' ').charAt(0).toUpperCase() + clave.replace(/_/g, ' ').slice(1);
             ejemplosSelectEl.appendChild(option);
         }
     }
-    console.log("uiManager.js: Selector de ejemplos poblado con nombres descriptivos.");
+    console.log("uiManager.js: Selector de ejemplos poblado (Fase 1 Reconstrucción).");
 };
 
 
 Webgoritmo.UI.cargarPlantillaInicial = function() {
-    if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo && Webgoritmo.Datos && Webgoritmo.Datos.exampleCodes && Webgoritmo.Datos.exampleCodes.simple_io) {
-        // Cargar el ejemplo 'simple_io' por defecto o el que se decida
-        let codigoInicial = Webgoritmo.Datos.exampleCodes.simple_io;
-        // Si la estructura de exampleCodes cambió a {titulo, codigo}, ajustar aquí:
-        // codigoInicial = Webgoritmo.Datos.exampleCodes.simple_io.codigo;
+    // Ajustar para usar la nueva estructura y clave si es necesario, o eliminar si no se carga nada al inicio.
+    if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo &&
+        Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo &&
+        Webgoritmo.Datos.codigosEjemplo.salida_literal_cadena) {
+
+        let codigoInicial = Webgoritmo.Datos.codigosEjemplo.salida_literal_cadena;
         Webgoritmo.Editor.editorCodigo.setValue(codigoInicial);
-        console.log("uiManager.js: Plantilla inicial cargada en el editor.");
+        console.log("uiManager.js: Plantilla inicial 'salida_literal_cadena' cargada en el editor.");
     } else {
-        // console.warn("uiManager.js: No se pudo cargar la plantilla inicial (editor o datos no listos)."); // Comentado temporalmente
+        // console.warn("uiManager.js: No se pudo cargar la plantilla inicial (Fase 1).");
     }
 };
 
 
-console.log("uiManager.js cargado y Webgoritmo.UI actualizado con funciones para Leer, añadirSalida y poblarSelectorEjemplos.");
+console.log("uiManager.js cargado y Webgoritmo.UI actualizado (Fase 1 Reconstrucción).");
