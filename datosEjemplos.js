@@ -322,7 +322,27 @@ FinSubProceso`,
     notas[otraNota + 1] <- notas[1] - 1.5 // notas[2] <- 10.0 - 1.5 = 8.5
     Escribir "Nuevo notas[2] deberia ser 8.5: ", notas[2]
 
+FinAlgoritmo`,
+    prueba_si_simple: `Algoritmo PruebaSiSimple
+    Definir edad Como Entero
+    Escribir "Ingresa tu edad:"
+    Leer edad
+    Si edad >= 18 Entonces
+        Escribir "Eres mayor de edad."
+    FinSi
+    Escribir "Fin de la prueba."
+FinAlgoritmo`,
+    prueba_si_sino: `Algoritmo PruebaSiSino
+    Definir numero Como Entero
+    Escribir "Ingresa un número:"
+    Leer numero
+    Si numero > 0 Entonces
+        Escribir "El número es positivo."
+    Sino
+        Escribir "El número NO es positivo (es cero o negativo)."
+    FinSi
+    Escribir "Evaluación completada."
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js cargado y Webgoritmo.Datos.exampleCodes actualizado con prueba_acceso_arreglos_expresion.");
+console.log("datosEjemplos.js cargado y Webgoritmo.Datos.exampleCodes actualizado con prueba_acceso_arreglos_expresion, PruebaSiSimple y PruebaSiSino.");
