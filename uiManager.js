@@ -81,7 +81,7 @@ Webgoritmo.UI.cargarPlantillaInicial = function() {
         Webgoritmo.Editor.editorCodigo.setValue(codigoInicial);
         console.log("uiManager.js: Plantilla inicial cargada en el editor.");
     } else {
-        console.warn("uiManager.js: No se pudo cargar la plantilla inicial (editor o datos no listos).");
+        // console.warn("uiManager.js: No se pudo cargar la plantilla inicial (editor o datos no listos)."); // Comentado temporalmente
     }
 };
 
