@@ -59,7 +59,10 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) { // Acepta dom y da
 
     // Mapeo de claves a nombres para esta fase
     const nombresParaSelector = {
-        salida_literal_cadena: "Escribir: Literales"
+        // Fase 1 (ya no existe como único ejemplo)
+        // salida_literal_cadena: "Escribir: Literales",
+        // Fase 2
+        variables_basicas_f2: "Variables: Definir, Asignar, Escribir"
         // Se añadirán más a medida que se implementen ejemplos
     };
 
@@ -67,28 +70,27 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) { // Acepta dom y da
         if (codigosEjemploObj.hasOwnProperty(clave)) {
             const option = document.createElement('option');
             option.value = clave;
-            // Usar el nombre del mapeo o generar uno a partir de la clave
             option.textContent = nombresParaSelector[clave] || clave.replace(/_/g, ' ').charAt(0).toUpperCase() + clave.replace(/_/g, ' ').slice(1);
             ejemplosSelectEl.appendChild(option);
         }
     }
-    console.log("uiManager.js: Selector de ejemplos poblado (Fase 1 Reconstrucción).");
+    console.log("uiManager.js: Selector de ejemplos poblado (Fase 2 Reconstrucción).");
 };
 
 
 Webgoritmo.UI.cargarPlantillaInicial = function() {
-    // Ajustar para usar la nueva estructura y clave si es necesario, o eliminar si no se carga nada al inicio.
+    // Cargar el ejemplo de la Fase 2 por defecto
     if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo &&
         Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo &&
-        Webgoritmo.Datos.codigosEjemplo.salida_literal_cadena) {
+        Webgoritmo.Datos.codigosEjemplo.variables_basicas_f2) { // Nueva clave del ejemplo
 
-        let codigoInicial = Webgoritmo.Datos.codigosEjemplo.salida_literal_cadena;
+        let codigoInicial = Webgoritmo.Datos.codigosEjemplo.variables_basicas_f2;
         Webgoritmo.Editor.editorCodigo.setValue(codigoInicial);
-        console.log("uiManager.js: Plantilla inicial 'salida_literal_cadena' cargada en el editor.");
+        console.log("uiManager.js: Plantilla inicial 'variables_basicas_f2' cargada en el editor.");
     } else {
-        // console.warn("uiManager.js: No se pudo cargar la plantilla inicial (Fase 1).");
+        console.warn("uiManager.js: No se pudo cargar la plantilla inicial 'variables_basicas_f2'.");
     }
 };
 
 
-console.log("uiManager.js cargado y Webgoritmo.UI actualizado (Fase 1 Reconstrucción).");
+console.log("uiManager.js cargado y Webgoritmo.UI actualizado (Fase 2 Reconstrucción).");
