@@ -1,4 +1,4 @@
-// uiManager.js
+// uiManager.js (ESTADO ESTABLE REVERTIDO)
 // Funciones de UI, incluyendo manejo para 'Leer'.
 
 window.Webgoritmo = window.Webgoritmo || {};
@@ -26,54 +26,40 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) {
         return;
     }
 
-    while (ejemplosSelectEl.options.length > 1) { // Dejar la opción "-- Seleccione --"
+    while (ejemplosSelectEl.options.length > 1) {
         ejemplosSelectEl.remove(1);
     }
 
-    // Mapeo de claves a nombres descriptivos/cortos
+    // Nombres en el estado en que estaban cuando las expresiones con arreglos funcionaban
     const nombresParaSelector = {
-        salida_literal_f1: "F1: Escribir Literal",
-        variables_basicas_f2: "F2: Variables Básico",
-        entrada_leer_f3: "F3: Leer Básico",
-        expresiones_f4: "F4: Expresiones Arit/Lóg",
-        condicional_si_f5: "F5: Si-Sino Básico",
-        condicional_sinosi_f6: "F6: Si-SinoSi-Sino", // Nuevo para Fase 6
-        arreglos_dimension_f11: "F11: Arreglos (Dimensión)",
-        // Añadir más ejemplos de fases previas si se desea que aparezcan
+        expresiones_f4: "Expresiones: Arit/Lóg", // Este era el nombre que tenía
+        prueba_acceso_arreglos_expresion: "Test: Arreglos en Expr.",
+        entrada_leer_f3: "Test: Leer Básico",
+        // Aquí podrían faltar los ejemplos de F1, F2 si no estaban en ese commit específico.
+        // Por ahora, nos enfocamos en los que estaban al momento de la estabilidad.
     };
 
-    // Crear opciones para cada ejemplo en codigosEjemploObj
-    // Iterar sobre nombresParaSelector para controlar el orden y los nombres mostrados preferentemente
-    for (const clave in nombresParaSelector) {
+    for (const clave in codigosEjemploObj) {
         if (codigosEjemploObj.hasOwnProperty(clave)) {
             const option = document.createElement('option');
             option.value = clave;
-            option.textContent = nombresParaSelector[clave];
+            option.textContent = nombresParaSelector[clave] || clave.replace(/_/g, ' ').charAt(0).toUpperCase() + clave.replace(/_/g, ' ').slice(1);
             ejemplosSelectEl.appendChild(option);
         }
     }
-
-    // Añadir cualquier otro ejemplo en codigosEjemploObj que no esté en nombresParaSelector (para desarrollo)
-    for (const clave in codigosEjemploObj) {
-        if (codigosEjemploObj.hasOwnProperty(clave) && !nombresParaSelector.hasOwnProperty(clave)) {
-            const option = document.createElement('option');
-            option.value = clave;
-            option.textContent = clave.replace(/_/g, ' ').charAt(0).toUpperCase() + clave.replace(/_/g, ' ').slice(1); // Nombre por defecto
-            ejemplosSelectEl.appendChild(option);
-        }
-    }
-    console.log("uiManager.js: Selector de ejemplos poblado (Fase 6 SinoSi).");
+    console.log("uiManager.js: Selector de ejemplos poblado (ESTADO ESTABLE REVERTIDO).");
 };
 
 Webgoritmo.UI.cargarPlantillaInicial = function() {
-    const claveEjemploPorDefecto = 'condicional_sinosi_f6'; // Cargar ejemplo de Si-SinoSi por defecto
+    // Cargar el ejemplo de prueba de acceso a arreglos por defecto, ya que ese funcionaba
+    const claveEjemploPorDefecto = 'prueba_acceso_arreglos_expresion';
     if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo &&
         Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo &&
         Webgoritmo.Datos.codigosEjemplo[claveEjemploPorDefecto]) {
 
         let codigoInicial = Webgoritmo.Datos.codigosEjemplo[claveEjemploPorDefecto];
         Webgoritmo.Editor.editorCodigo.setValue(codigoInicial);
-        console.log(`uiManager.js: Plantilla inicial '${claveEjemploPorDefecto}' cargada en el editor.`);
+        console.log(`uiManager.js: Plantilla inicial '${claveEjemploPorDefecto}' cargada (ESTADO ESTABLE REVERTIDO).`);
     } else {
         console.warn(`uiManager.js: No se pudo cargar plantilla inicial '${claveEjemploPorDefecto}'. Verifique datosEjemplos.js.`);
         if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo && Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo) {
@@ -88,4 +74,4 @@ Webgoritmo.UI.cargarPlantillaInicial = function() {
     }
 };
 
-console.log("uiManager.js cargado y Webgoritmo.UI actualizado (Fase 6 SinoSi).");
+console.log("uiManager.js cargado y Webgoritmo.UI actualizado (ESTADO ESTABLE REVERTIDO).");
