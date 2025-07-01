@@ -5,23 +5,25 @@ window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Datos = Webgoritmo.Datos || {};
 
 Webgoritmo.Datos.codigosEjemplo = {
-    entrada_leer_f3: `Algoritmo PruebaLeerBasico
-    Definir nombre Como Cadena
-    Definir edad Como Entero
+    expresiones_arit_log_f4: `Algoritmo PruebaExpresiones
+    Definir a, b, c Como Entero
+    Definir resultado Como Real
+    Definir esValido Como Logico
+    Definir mensaje Como Cadena
 
-    Escribir "Bienvenido. Por favor, ingresa tu nombre:"
-    Leer nombre
-    Escribir "Hola ", nombre, ". Ahora ingresa tu edad:"
-    Leer edad
-    Escribir "Gracias, ", nombre, ". Tienes ", edad, " años."
+    a <- 10
+    b <- 4
+    c <- 2
+    mensaje <- "Resultado: "
 
-    Definir val1 Como Entero
-    Definir val2 Como Cadena
-    Escribir "Ingresa un número y luego una palabra (separados por espacio o coma):"
-    Leer val1, val2
-    Escribir "Número ingresado: ", val1
-    Escribir "Palabra ingresada: ", val2
+    resultado <- (a + b) * c / (b - c) + (a MOD b) // Esperado: (14 * 2) / (2) + (2) = 28 / 2 + 2 = 14 + 2 = 16
+    Escribir mensaje, resultado
+
+    esValido <- (a > b Y b > c) O (a < 5) // (V Y V) O F  => V O F => V
+    Escribir "La condición es: ", esValido
+
+    Escribir "Negación de esValido: ", NO esValido // NO V => F
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js cargado para Fase 3 (entrada_leer_f3).");
+console.log("datosEjemplos.js cargado para Fase 4 (expresiones_arit_log_f4).");
