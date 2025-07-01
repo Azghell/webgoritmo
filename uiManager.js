@@ -26,20 +26,24 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) {
         return;
     }
 
-    while (ejemplosSelectEl.options.length > 1) {
+    while (ejemplosSelectEl.options.length > 1) { // Dejar la opción "-- Seleccione --"
         ejemplosSelectEl.remove(1);
     }
 
+    // Mapeo de claves a nombres descriptivos/cortos
     const nombresParaSelector = {
         salida_literal_f1: "F1: Escribir Literal",
         variables_basicas_f2: "F2: Variables Básico",
         entrada_leer_f3: "F3: Leer Básico",
         expresiones_f4: "F4: Expresiones Arit/Lóg",
         condicional_si_f5: "F5: Si-Sino Básico",
+        condicional_sinosi_f6: "F6: Si-SinoSi-Sino", // Nuevo para Fase 6
         arreglos_dimension_f11: "F11: Arreglos (Dimensión)",
+        // Añadir más ejemplos de fases previas si se desea que aparezcan
     };
 
-    // Añadir primero los que tienen nombre descriptivo definido
+    // Crear opciones para cada ejemplo en codigosEjemploObj
+    // Iterar sobre nombresParaSelector para controlar el orden y los nombres mostrados preferentemente
     for (const clave in nombresParaSelector) {
         if (codigosEjemploObj.hasOwnProperty(clave)) {
             const option = document.createElement('option');
@@ -48,20 +52,21 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) {
             ejemplosSelectEl.appendChild(option);
         }
     }
-    // Añadir cualquier otro ejemplo que no esté en nombresParaSelector (útil para desarrollo)
+
+    // Añadir cualquier otro ejemplo en codigosEjemploObj que no esté en nombresParaSelector (para desarrollo)
     for (const clave in codigosEjemploObj) {
         if (codigosEjemploObj.hasOwnProperty(clave) && !nombresParaSelector.hasOwnProperty(clave)) {
             const option = document.createElement('option');
             option.value = clave;
-            option.textContent = clave.replace(/_/g, ' ').charAt(0).toUpperCase() + clave.replace(/_/g, ' ').slice(1);
+            option.textContent = clave.replace(/_/g, ' ').charAt(0).toUpperCase() + clave.replace(/_/g, ' ').slice(1); // Nombre por defecto
             ejemplosSelectEl.appendChild(option);
         }
     }
-    console.log("uiManager.js: Selector de ejemplos poblado (Hasta Fase 5).");
+    console.log("uiManager.js: Selector de ejemplos poblado (Fase 6 SinoSi).");
 };
 
 Webgoritmo.UI.cargarPlantillaInicial = function() {
-    const claveEjemploPorDefecto = 'condicional_si_f5';
+    const claveEjemploPorDefecto = 'condicional_sinosi_f6'; // Cargar ejemplo de Si-SinoSi por defecto
     if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo &&
         Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo &&
         Webgoritmo.Datos.codigosEjemplo[claveEjemploPorDefecto]) {
@@ -83,4 +88,4 @@ Webgoritmo.UI.cargarPlantillaInicial = function() {
     }
 };
 
-console.log("uiManager.js cargado y Webgoritmo.UI actualizado (Hasta Fase 5).");
+console.log("uiManager.js cargado y Webgoritmo.UI actualizado (Fase 6 SinoSi).");
