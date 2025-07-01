@@ -4,14 +4,29 @@
 window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Datos = Webgoritmo.Datos || {};
 
-Webgoritmo.Datos.codigosEjemplo = { // Cambiado a 'codigosEjemplo' para reflejar nuevo enfoque
-    salida_literal_cadena: `Algoritmo PruebaSalidaLiteral
-    Escribir "Hola Mundo desde Webgoritmo!"
-    Escribir "Esta es otra línea de texto."
-    Escribir "Y una más, con números: 12345"
+Webgoritmo.Datos.codigosEjemplo = {
+    variables_basicas_f2: `Algoritmo PruebaVariablesBasicas
+    Definir mensaje Como Cadena
+    Definir contador Como Entero
+    Definir precio Como Real
+    Definir activo Como Logico
+
+    mensaje <- "Bienvenido"
+    contador <- 10
+    precio <- 99.95
+    activo <- Verdadero
+
+    Escribir "Mensaje: ", mensaje
+    Escribir "Contador: ", contador
+    Escribir "Precio: ", precio
+    Escribir "Activo: ", activo
+
+    // La siguiente línea está diseñada para fallar en Fase 2,
+    // ya que el evaluador de expresiones aún no maneja operaciones.
+    // Debería producir un error como "'contador + 5' no es un literal simple".
+    contador <- contador + 5
+    Escribir "Contador modificado (espera error o no cambio): ", contador
 FinAlgoritmo`
 };
 
-// También actualizaremos uiManager.js para usar esta nueva estructura y nombres.
-// Por ahora, el console.log se referirá al nombre antiguo hasta que se actualice uiManager.
-console.log("datosEjemplos.js cargado y Webgoritmo.Datos.codigosEjemplo definido con el primer ejemplo nuevo.");
+console.log("datosEjemplos.js cargado y Webgoritmo.Datos.codigosEjemplo actualizado para Fase 2 (variables_basicas_f2).");
