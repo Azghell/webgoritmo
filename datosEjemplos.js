@@ -5,28 +5,23 @@ window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Datos = Webgoritmo.Datos || {};
 
 Webgoritmo.Datos.codigosEjemplo = {
-    variables_basicas_f2: `Algoritmo PruebaVariablesBasicas
-    Definir mensaje Como Cadena
-    Definir contador Como Entero
-    Definir precio Como Real
-    Definir activo Como Logico
+    entrada_leer_f3: `Algoritmo PruebaLeerBasico
+    Definir nombre Como Cadena
+    Definir edad Como Entero
 
-    mensaje <- "Bienvenido"
-    contador <- 10
-    precio <- 99.95
-    activo <- Verdadero
+    Escribir "Bienvenido. Por favor, ingresa tu nombre:"
+    Leer nombre
+    Escribir "Hola ", nombre, ". Ahora ingresa tu edad:"
+    Leer edad
+    Escribir "Gracias, ", nombre, ". Tienes ", edad, " años."
 
-    Escribir "Mensaje: ", mensaje
-    Escribir "Contador: ", contador
-    Escribir "Precio: ", precio
-    Escribir "Activo: ", activo
-
-    // La siguiente línea está diseñada para fallar en Fase 2,
-    // ya que el evaluador de expresiones aún no maneja operaciones.
-    // Debería producir un error como "'contador + 5' no es un literal simple".
-    contador <- contador + 5
-    Escribir "Contador modificado (espera error o no cambio): ", contador
+    Definir val1 Como Entero
+    Definir val2 Como Cadena
+    Escribir "Ingresa un número y luego una palabra (separados por espacio o coma):"
+    Leer val1, val2
+    Escribir "Número ingresado: ", val1
+    Escribir "Palabra ingresada: ", val2
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js cargado y Webgoritmo.Datos.codigosEjemplo actualizado para Fase 2 (variables_basicas_f2).");
+console.log("datosEjemplos.js cargado para Fase 3 (entrada_leer_f3).");

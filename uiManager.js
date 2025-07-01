@@ -59,10 +59,7 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) { // Acepta dom y da
 
     // Mapeo de claves a nombres para esta fase
     const nombresParaSelector = {
-        // Fase 1 (ya no existe como único ejemplo)
-        // salida_literal_cadena: "Escribir: Literales",
-        // Fase 2
-        variables_basicas_f2: "Variables: Definir, Asignar, Escribir"
+        entrada_leer_f3: "Leer: Entrada Básica"
         // Se añadirán más a medida que se implementen ejemplos
     };
 
@@ -74,23 +71,23 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) { // Acepta dom y da
             ejemplosSelectEl.appendChild(option);
         }
     }
-    console.log("uiManager.js: Selector de ejemplos poblado (Fase 2 Reconstrucción).");
+    console.log("uiManager.js: Selector de ejemplos poblado (Fase 3 Reconstrucción).");
 };
 
 
 Webgoritmo.UI.cargarPlantillaInicial = function() {
-    // Cargar el ejemplo de la Fase 2 por defecto
+    // Cargar el ejemplo de la Fase 3 por defecto
     if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo &&
         Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo &&
-        Webgoritmo.Datos.codigosEjemplo.variables_basicas_f2) { // Nueva clave del ejemplo
+        Webgoritmo.Datos.codigosEjemplo.entrada_leer_f3) { // Nueva clave del ejemplo
 
-        let codigoInicial = Webgoritmo.Datos.codigosEjemplo.variables_basicas_f2;
+        let codigoInicial = Webgoritmo.Datos.codigosEjemplo.entrada_leer_f3;
         Webgoritmo.Editor.editorCodigo.setValue(codigoInicial);
-        console.log("uiManager.js: Plantilla inicial 'variables_basicas_f2' cargada en el editor.");
+        console.log("uiManager.js: Plantilla inicial 'entrada_leer_f3' cargada en el editor.");
     } else {
-        console.warn("uiManager.js: No se pudo cargar la plantilla inicial 'variables_basicas_f2'.");
+        console.warn("uiManager.js: No se pudo cargar la plantilla inicial 'entrada_leer_f3'.");
     }
 };
 
 
-console.log("uiManager.js cargado y Webgoritmo.UI actualizado (Fase 2 Reconstrucción).");
+console.log("uiManager.js cargado y Webgoritmo.UI actualizado (Fase 3 Reconstrucción).");
