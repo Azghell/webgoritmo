@@ -57,10 +57,21 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) { // Acepta dom y da
         ejemplosSelectEl.remove(1);
     }
 
-    // Mapeo de claves a nombres para esta fase
+    // Mapeo de claves a nombres descriptivos/cortos
     const nombresParaSelector = {
-        expresiones_arit_log_f4: "Expresiones: Arit/Lóg"
+        salida_literal_f1: "Escribir: Literal",
+        variables_basicas_f2: "Variables: Básico",
+        entrada_leer_f3: "Leer: Básico",
+        expresiones_f4: "Expresiones: Arit/Lóg",
+        arreglos_dimension_f11: "Arreglos: Dimension", // Placeholder para futura fase
         // Se añadirán más a medida que se implementen ejemplos
+        // Ejemplos anteriores que podríamos querer renombrar si los reutilizamos:
+        // si_simple: "Si: Mayor de Edad",
+        // prueba_si_simple: "Test: Si (Simple)",
+        // si_sino: "Si-Sino: Positivo/Negativo",
+        // prueba_si_sino: "Test: Si-Sino",
+        // condicional_anidado: "Si: Anidado (Calificación)",
+        // etc.
     };
 
     for (const clave in codigosEjemploObj) {
@@ -71,23 +82,34 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) { // Acepta dom y da
             ejemplosSelectEl.appendChild(option);
         }
     }
-    console.log("uiManager.js: Selector de ejemplos poblado (Fase 4 Reconstrucción).");
+    console.log("uiManager.js: Selector de ejemplos poblado (Post Fase 4).");
 };
 
 
 Webgoritmo.UI.cargarPlantillaInicial = function() {
-    // Cargar el ejemplo de la Fase 4 por defecto
+    // Cargar el ejemplo de la Fase 4 (expresiones) por defecto por ahora
+    const claveEjemploPorDefecto = 'expresiones_f4';
     if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo &&
         Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo &&
-        Webgoritmo.Datos.codigosEjemplo.expresiones_arit_log_f4) { // Nueva clave del ejemplo
+        Webgoritmo.Datos.codigosEjemplo[claveEjemploPorDefecto]) {
 
-        let codigoInicial = Webgoritmo.Datos.codigosEjemplo.expresiones_arit_log_f4;
+        let codigoInicial = Webgoritmo.Datos.codigosEjemplo[claveEjemploPorDefecto];
         Webgoritmo.Editor.editorCodigo.setValue(codigoInicial);
-        console.log("uiManager.js: Plantilla inicial 'expresiones_arit_log_f4' cargada en el editor.");
+        console.log(`uiManager.js: Plantilla inicial '${claveEjemploPorDefecto}' cargada en el editor.`);
     } else {
-        console.warn("uiManager.js: No se pudo cargar la plantilla inicial 'expresiones_arit_log_f4'.");
+        console.warn(`uiManager.js: No se pudo cargar la plantilla inicial '${claveEjemploPorDefecto}'. Verifique datosEjemplos.js.`);
+        // Como fallback, cargar el primer ejemplo disponible si existe alguno
+        if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo && Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo) {
+            const primeraClaveDisponible = Object.keys(Webgoritmo.Datos.codigosEjemplo)[0];
+            if (primeraClaveDisponible) {
+                Webgoritmo.Editor.editorCodigo.setValue(Webgoritmo.Datos.codigosEjemplo[primeraClaveDisponible]);
+                console.log(`uiManager.js: Fallback: Plantilla inicial '${primeraClaveDisponible}' cargada.`);
+            } else {
+                 console.warn("uiManager.js: No hay ejemplos disponibles en datosEjemplos.js para cargar como fallback.");
+            }
+        }
     }
 };
 
 
-console.log("uiManager.js cargado y Webgoritmo.UI actualizado (Fase 4 Reconstrucción).");
+console.log("uiManager.js cargado y Webgoritmo.UI actualizado (Post Fase 4).");
