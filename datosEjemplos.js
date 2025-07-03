@@ -23,7 +23,6 @@ Webgoritmo.Datos.codigosEjemplo = {
         b <- 200
     FinSi
     Escribir "Resultado Caso 1: a=", a, ", b=", b, ", mensaje='", mensaje, "'"
-    // Esperado: a=100, b=5, mensaje='a > b (VERDADERO)'
 
     Escribir "--- Caso 2: Si Falso, con Sino ---"
     a <- 5
@@ -39,11 +38,13 @@ Webgoritmo.Datos.codigosEjemplo = {
         b <- 200
     FinSi
     Escribir "Resultado Caso 2: a=", a, ", b=", b, ", mensaje='", mensaje, "'"
-    // Esperado: a=5, b=200, mensaje='a NO > b (FALSO)'
 
     Escribir "--- Caso 3: Si Anidado con Sino ---"
     // Si V Entonces (Si V Entonces ... Sino ...) FinSi
-    a <- 1; b <- 2; c <- 3; mensaje <- "Anidado Ini"
+    a <- 1
+    b <- 2
+    c <- 3
+    mensaje <- "Anidado Ini"
     Si a < b Entonces // Verdadero
         mensaje <- "Exterior V"
         Escribir "Exterior Si (V). Mensaje: ", mensaje
@@ -56,7 +57,7 @@ Webgoritmo.Datos.codigosEjemplo = {
             Escribir "Interior Sino (ERROR). Mensaje: ", mensaje
             b <- 20
         FinSi
-        Escribir "Exterior Si (V) - Post Interior. Mensaje: ", mensaje, ", a=",a,", b=",b // msg="Interior V", a=10, b=2
+        Escribir "Exterior Si (V) - Post Interior. Mensaje: ", mensaje, ", a=",a,", b=",b
         c <- 30
     Sino
         mensaje <- "Exterior F - ERROR"
@@ -64,11 +65,13 @@ Webgoritmo.Datos.codigosEjemplo = {
         c <- 40
     FinSi
     Escribir "Resultado Caso 3: a=",a,", b=",b,", c=",c,", mensaje='",mensaje,"'"
-    // Esperado: a=10, b=2, c=30, mensaje='Interior V'
 
     Escribir "--- Caso 4: Si Anidado con Sino (Interior Falso) ---"
     // Si V Entonces (Si F Entonces ... Sino ...) FinSi
-    a <- 1; b <- 3; c <- 2; mensaje <- "Anidado Ini 2" // b > c para que Si interno sea Falso
+    a <- 1
+    b <- 3
+    c <- 2  // b > c para que Si interno sea Falso
+    mensaje <- "Anidado Ini 2"
     Si a < b Entonces // Verdadero
         mensaje <- "Exterior V (2)"
         Escribir "Exterior Si (V) (2). Mensaje: ", mensaje
@@ -81,7 +84,7 @@ Webgoritmo.Datos.codigosEjemplo = {
             Escribir "Interior Sino (2). Mensaje: ", mensaje
             b <- 20
         FinSi
-        Escribir "Exterior Si (V) - Post Interior (2). Mensaje: ", mensaje, ", a=",a,", b=",b // msg="Interior F (2)", a=1, b=20
+        Escribir "Exterior Si (V) - Post Interior (2). Mensaje: ", mensaje, ", a=",a,", b=",b
         c <- 30
     Sino
         mensaje <- "Exterior F - ERROR (2)"
@@ -89,11 +92,13 @@ Webgoritmo.Datos.codigosEjemplo = {
         c <- 40
     FinSi
     Escribir "Resultado Caso 4: a=",a,", b=",b,", c=",c,", mensaje='",mensaje,"'"
-    // Esperado: a=1, b=20, c=30, mensaje='Interior F (2)'
 
     Escribir "--- Caso 5: Si Anidado (Exterior Falso) ---"
     // Si F Entonces (...) Sino (...) FinSi
-    a <- 3; b <- 1; c <- 2; mensaje <- "Anidado Ini 3" // a > b para que Si exterior sea Falso
+    a <- 3
+    b <- 1
+    c <- 2 // a > b para que Si exterior sea Falso
+    mensaje <- "Anidado Ini 3"
     Si a < b Entonces // Falso
         mensaje <- "Exterior V - ERROR (3)"
         Escribir "Exterior Si (ERROR) (3). Mensaje: ", mensaje
@@ -111,11 +116,10 @@ Webgoritmo.Datos.codigosEjemplo = {
              Escribir "Interior (en Ext F) Sino (ERROR) (3). Mensaje: ", mensaje
              c <- 300
         FinSi
-        Escribir "Exterior Sino (3) - Post Interior. Mensaje: ", mensaje, ", b=",b,", c=",c // msg="Interior (en Ext F) V (3)", b=200, c=2
+        Escribir "Exterior Sino (3) - Post Interior. Mensaje: ", mensaje, ", b=",b,", c=",c
         a <- 500
     FinSi
     Escribir "Resultado Caso 5: a=",a,", b=",b,", c=",c,", mensaje='",mensaje,"'"
-    // Esperado: a=500, b=200, c=2, mensaje='Interior (en Ext F) V (3)'
 
 FinAlgoritmo`,
     prueba_acceso_arreglos_expresion: `Algoritmo PruebaArregloLogicoRelacional
