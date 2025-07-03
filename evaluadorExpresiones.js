@@ -167,7 +167,7 @@ Webgoritmo.Expresiones.convertirInfijoAPostfijo = function(listaTokens) {
                 while (pilaOperadores.length > 0 && pilaOperadores[pilaOperadores.length - 1].tipo !== Tipos.CORCHETE_IZQ) colaSalida.push(pilaOperadores.pop());
                 if (pilaOperadores.length === 0 || pilaOperadores[pilaOperadores.length - 1].tipo !== Tipos.CORCHETE_IZQ) throw new Error("Shunting-Yard: Falta '['.");
                 pilaOperadores.pop();
-                colaSalida.push({ type: Tipos.OPERADOR_ACCESO_ARREGLO, valor: '[]', original: '[]', dimensions: 1 });
+                colaSalida.push({ tipo: Tipos.OPERADOR_ACCESO_ARREGLO, valor: '[]', original: '[]', dimensions: 1 }); // Corregido: type -> tipo
                 break;
             case Tipos.OPERADOR_UNARIO_NEG: case Tipos.OPERADOR_LOGICO_NO: // Estos son los tipos unarios explícitos
             case Tipos.OPERADOR_SUMA: case Tipos.OPERADOR_RESTA: /* ... y todos los demás tipos de OPERADOR_* */
