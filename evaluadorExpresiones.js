@@ -88,34 +88,33 @@ Webgoritmo.Expresiones.Util = {
 
 Webgoritmo.Expresiones.tokenizar = function(cadenaExpresion) {
     const tokens = []; let cursor = 0; const Tipos = Webgoritmo.Expresiones.TiposDeToken;
-    const patrones = [
-        // Operadores de palabra clave primero para evitar que subcadenas coincidan con identificadores
-        { tipo: Tipos.OPERADOR_LOGICO_Y,    regex: /\bY\b/i },
-        { tipo: Tipos.OPERADOR_LOGICO_O,     regex: /\bO\b/i },
-        { tipo: Tipos.OPERADOR_LOGICO_NO,    regex: /\bNO\b/i },
-        { tipo: Tipos.OPERADOR_MODULO,       regex: /\bMOD\b/i },
-        { tipo: Tipos.BOOLEANO, regex: /\b(Verdadero|Falso)\b/i }, // Booleanos también son palabras clave
 
-        // Operadores de múltiples caracteres antes de los de un solo carácter para evitar matcheos parciales
+    // Orden de patrones REVISADO:
+    // 1. Operadores multi-carácter (símbolos)
+    // 2. Operadores single-carácter (símbolos) - crucial que +/- vengan antes que NUMERO
+    // 3. Agrupadores y separadores
+    // 4. Literales NUMERO y CADENA
+    // 5. IDENTIFICADOR (para variables y potenciales palabras clave)
+    const patrones = [
+        // Operadores de múltiples caracteres (símbolos)
         { tipo: Tipos.OPERADOR_MENOR_IGUAL,  regex: /<=/ },
         { tipo: Tipos.OPERADOR_MAYOR_IGUAL,  regex: />=/ },
-        { tipo: Tipos.OPERADOR_IGUAL,        regex: /==/ }, // Doble igual antes de simple igual
+        { tipo: Tipos.OPERADOR_IGUAL,        regex: /==/ },
         { tipo: Tipos.OPERADOR_DISTINTO,     regex: /<>|!=/ },
-        { tipo: Tipos.OPERADOR_LOGICO_Y,   regex: /&&/ },
-        { tipo: Tipos.OPERADOR_LOGICO_O,    regex: /\|\|/ },
+        { tipo: Tipos.OPERADOR_LOGICO_Y,     regex: /&&/ },
+        { tipo: Tipos.OPERADOR_LOGICO_O,     regex: /\|\|/ },
 
-        // Operadores de un solo carácter que podrían ser prefijos de números o ambiguos, ANTES de NUMERO
-        // Tambien los que son simbolos unicos no ambiguos.
+        // Operadores de un solo carácter (símbolos)
         { tipo: Tipos.OPERADOR_SUMA,  regex: /\+/ },
         { tipo: Tipos.OPERADOR_RESTA, regex: /-/ },
         { tipo: Tipos.OPERADOR_MULTIPLICACION, regex: /\*/ },
         { tipo: Tipos.OPERADOR_DIVISION, regex: /\// },
         { tipo: Tipos.OPERADOR_POTENCIA,     regex: /\^/ },
-        { tipo: Tipos.OPERADOR_MODULO,       regex: /%/ }, // % como alternativa a MOD
-        { tipo: Tipos.OPERADOR_IGUAL,        regex: /=/ }, // Simple igual (para comparación en PSeInt)
+        { tipo: Tipos.OPERADOR_MODULO,       regex: /%/ },
+        { tipo: Tipos.OPERADOR_IGUAL,        regex: /=/ },
         { tipo: Tipos.OPERADOR_MENOR,        regex: /</ },
         { tipo: Tipos.OPERADOR_MAYOR,        regex: />/ },
-        { tipo: Tipos.OPERADOR_LOGICO_NO,    regex: /!|~/ }, // ~ a veces usado para NOT (ya estaba antes de IDENTIFICADOR)
+        { tipo: Tipos.OPERADOR_LOGICO_NO,    regex: /!|~/ },
 
         // Símbolos de agrupación y separadores
         { tipo: Tipos.PARENTESIS_IZQ, regex: /\(/ },
@@ -124,35 +123,61 @@ Webgoritmo.Expresiones.tokenizar = function(cadenaExpresion) {
         { tipo: Tipos.CORCHETE_DER,   regex: /\]/ },
         { tipo: Tipos.COMA,           regex: /,/ },
 
-        // Tipos de datos literales
-        // NUMERO después de operadores como '-' para correcta tokenización de 'idx-1' vs '-1'
-        { tipo: Tipos.NUMERO, regex: /^-?\d+(?:\.\d*)?\b|^-?\.\d+\b/ },
+        // Literales (NUMERO debe ir después de OPERADOR_RESTA para manejar casos como "a-5" vs "-5")
+        { tipo: Tipos.NUMERO, regex: /^-?\d+(?:\.\d*)?\b|^-?\.\d+\b/ }, // Esta regex ya maneja números negativos correctamente si es el primer match posible.
+                                                                    // El orden de los operadores antes que NUMERO es para casos como "variable-5".
         { tipo: Tipos.CADENA, regex: /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/ },
 
-        // IDENTIFICADOR al final, como un comodín para lo que no coincidió antes
+        // IDENTIFICADOR (debe ser el último para capturar nombres y palabras clave potenciales)
         { tipo: Tipos.IDENTIFICADOR,  regex: /[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*/ }
     ];
+
+    const KeywordMap = {
+        "Y":         { tipoFinal: Tipos.OPERADOR_LOGICO_Y, valorFinal: "Y" },
+        "O":         { tipoFinal: Tipos.OPERADOR_LOGICO_O,  valorFinal: "O" },
+        "NO":        { tipoFinal: Tipos.OPERADOR_LOGICO_NO, valorFinal: "NO" },
+        "MOD":       { tipoFinal: Tipos.OPERADOR_MODULO,    valorFinal: "MOD" },
+        "VERDADERO": { tipoFinal: Tipos.BOOLEANO,           valorFinal: true },
+        "FALSO":     { tipoFinal: Tipos.BOOLEANO,           valorFinal: false }
+    };
+
     const regexEspacio = /^\s+/;
     while (cursor < cadenaExpresion.length) {
         let subcadena = cadenaExpresion.substring(cursor);
         const matchEspacio = subcadena.match(regexEspacio);
         if (matchEspacio) { cursor += matchEspacio[0].length; continue; }
+
         let coincidenciaEncontrada = false;
-        for (const { tipo, regex } of patrones) {
-            const match = subcadena.match(regex);
+        for (const patron of patrones) { // Renombrado 'tipo' a 'patron.tipo' para claridad
+            const match = subcadena.match(patron.regex);
             if (match && match.index === 0) {
-                let valorOriginal = match[0]; let valorProcesado = valorOriginal;
-                if (tipo === Tipos.NUMERO) valorProcesado = Number(valorOriginal);
-                else if (tipo === Tipos.CADENA) valorProcesado = valorOriginal.substring(1, valorOriginal.length - 1).replace(/\\(["'])/g, '$1');
-                else if (tipo === Tipos.BOOLEANO) valorProcesado = valorOriginal.toLowerCase() === "verdadero";
-                else if (tipo === Tipos.IDENTIFICADOR) { /* No procesar valor, es el nombre */ }
-                else { valorProcesado = valorOriginal.toUpperCase(); } // Para operadores Y, O, NO, MOD y símbolos
-                tokens.push({ tipo: tipo, valor: valorProcesado, original: valorOriginal });
-                cursor += valorOriginal.length; coincidenciaEncontrada = true; break;
+                let tipoDetectado = patron.tipo; // El tipo que vino del patrón
+                let valorOriginal = match[0];
+                let valorFinalProcesado = valorOriginal; // Por defecto, para operadores símbolo
+
+                if (tipoDetectado === Tipos.IDENTIFICADOR) {
+                    const valorOriginalUpper = valorOriginal.toUpperCase();
+                    if (KeywordMap.hasOwnProperty(valorOriginalUpper)) {
+                        tipoDetectado = KeywordMap[valorOriginalUpper].tipoFinal;
+                        valorFinalProcesado = KeywordMap[valorOriginalUpper].valorFinal;
+                    }
+                    // Si no es una palabra clave, se queda como IDENTIFICADOR y valorFinalProcesado es valorOriginal (ya asignado)
+                } else if (tipoDetectado === Tipos.NUMERO) {
+                    valorFinalProcesado = Number(valorOriginal);
+                } else if (tipoDetectado === Tipos.CADENA) {
+                    valorFinalProcesado = valorOriginal.substring(1, valorOriginal.length - 1).replace(/\\(["'])/g, '$1');
+                }
+                // Para otros tipos (operadores símbolo, paréntesis, etc.), valorFinalProcesado ya es valorOriginal.
+
+                tokens.push({ tipo: tipoDetectado, valor: valorFinalProcesado, original: valorOriginal });
+                cursor += valorOriginal.length;
+                coincidenciaEncontrada = true;
+                break;
             }
         }
         if (!coincidenciaEncontrada) throw new Error(`Tokenización: Carácter(es) inesperado(s) cerca de: '${cadenaExpresion.substring(cursor, cursor + 10)}...'`);
-    } return tokens;
+    }
+    return tokens;
 };
 
 Webgoritmo.Expresiones.convertirInfijoAPostfijo = function(listaTokens) {
