@@ -7,7 +7,7 @@ Webgoritmo.Datos = Webgoritmo.Datos || {};
 Webgoritmo.Datos.codigosEjemplo = {
     prueba_para_simple: `Algoritmo PruebaParaComplejo
     Definir i, j, k, suma Como Entero
-    Definir x, y, z, p Como Entero // Para pruebas de expresiones en Para
+    Definir x, varY, z, p Como Entero // 'y' cambiada a 'varY'
 
     Escribir "CASO 1: Bucle Para simple (1 a 3, paso 1)"
     suma <- 0
@@ -38,12 +38,12 @@ Webgoritmo.Datos.codigosEjemplo = {
     Escribir "-------------------------------------"
     Escribir "CASO 4: Bucle Para con expresiones en límites y paso"
     x <- 1
-    y <- 2
+    varY <- 2 // 'y' cambiada a 'varY'
     z <- 3 // paso será z-1 = 2
-    p <- 5 // fin será y+p = 2+5 = 7
-    // Bucle de x=1 hasta y+p=7 con paso z-1=2  => i = 1, 3, 5, 7
+    p <- 5 // fin será varY+p = 2+5 = 7
+    // Bucle de x=1 hasta varY+p=7 con paso z-1=2  => i = 1, 3, 5, 7
     suma <- 0
-    Para i <- x Hasta y+p Con Paso z-1 Hacer
+    Para i <- x Hasta varY+p Con Paso z-1 Hacer // 'y' cambiada a 'varY'
         Escribir "Iteración i con expresiones: ", i
         suma <- suma + i
     FinPara
