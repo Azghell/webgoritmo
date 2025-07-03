@@ -89,29 +89,48 @@ Webgoritmo.Expresiones.Util = {
 Webgoritmo.Expresiones.tokenizar = function(cadenaExpresion) {
     const tokens = []; let cursor = 0; const Tipos = Webgoritmo.Expresiones.TiposDeToken;
     const patrones = [
-        { tipo: Tipos.NUMERO, regex: /^-?\d+(?:\.\d*)?\b|^-?\.\d+\b/ },
-        { tipo: Tipos.CADENA, regex: /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/ },
-        { tipo: Tipos.BOOLEANO, regex: /\b(Verdadero|Falso)\b/i },
-        { tipo: Tipos.OPERADOR_LOGICO_Y,    regex: /\bY\b/i },      // Palabra clave Y
-        { tipo: Tipos.OPERADOR_LOGICO_O,     regex: /\bO\b/i },       // Palabra clave O
-        { tipo: Tipos.OPERADOR_LOGICO_NO,    regex: /\bNO\b/i },      // Palabra clave NO
-        { tipo: Tipos.OPERADOR_MODULO,       regex: /\bMOD\b/i },     // Palabra clave MOD
+        // Operadores de palabra clave primero para evitar que subcadenas coincidan con identificadores
+        { tipo: Tipos.OPERADOR_LOGICO_Y,    regex: /\bY\b/i },
+        { tipo: Tipos.OPERADOR_LOGICO_O,     regex: /\bO\b/i },
+        { tipo: Tipos.OPERADOR_LOGICO_NO,    regex: /\bNO\b/i },
+        { tipo: Tipos.OPERADOR_MODULO,       regex: /\bMOD\b/i },
+        { tipo: Tipos.BOOLEANO, regex: /\b(Verdadero|Falso)\b/i }, // Booleanos también son palabras clave
+
+        // Operadores de múltiples caracteres antes de los de un solo carácter para evitar matcheos parciales
         { tipo: Tipos.OPERADOR_MENOR_IGUAL,  regex: /<=/ },
         { tipo: Tipos.OPERADOR_MAYOR_IGUAL,  regex: />=/ },
-        { tipo: Tipos.OPERADOR_IGUAL,        regex: /==/ },
+        { tipo: Tipos.OPERADOR_IGUAL,        regex: /==/ }, // Doble igual antes de simple igual
         { tipo: Tipos.OPERADOR_DISTINTO,     regex: /<>|!=/ },
-        // { tipo: Tipos.OPERADOR_ASIGNACION, regex: /<-/ }, // No se tokeniza en expresiones
-        { tipo: Tipos.PARENTESIS_IZQ, regex: /\(/ }, { tipo: Tipos.PARENTESIS_DER, regex: /\)/ },
-        { tipo: Tipos.CORCHETE_IZQ,   regex: /\[/ }, { tipo: Tipos.CORCHETE_DER,   regex: /\]/ },
-        { tipo: Tipos.COMA,           regex: /,/ },
-        { tipo: Tipos.OPERADOR_SUMA,  regex: /\+/ }, { tipo: Tipos.OPERADOR_RESTA, regex: /-/ },
-        { tipo: Tipos.OPERADOR_MULTIPLICACION, regex: /\*/ }, { tipo: Tipos.OPERADOR_DIVISION, regex: /\// },
-        { tipo: Tipos.OPERADOR_POTENCIA,     regex: /\^/ }, { tipo: Tipos.OPERADOR_MODULO, regex: /%/ }, // % como alternativa a MOD
-        { tipo: Tipos.OPERADOR_IGUAL,        regex: /=/ }, { tipo: Tipos.OPERADOR_MENOR, regex: /</ },
+        { tipo: Tipos.OPERADOR_LOGICO_Y,   regex: /&&/ },
+        { tipo: Tipos.OPERADOR_LOGICO_O,    regex: /\|\|/ },
+
+        // Operadores de un solo carácter que podrían ser prefijos de números o ambiguos, ANTES de NUMERO
+        // Tambien los que son simbolos unicos no ambiguos.
+        { tipo: Tipos.OPERADOR_SUMA,  regex: /\+/ },
+        { tipo: Tipos.OPERADOR_RESTA, regex: /-/ },
+        { tipo: Tipos.OPERADOR_MULTIPLICACION, regex: /\*/ },
+        { tipo: Tipos.OPERADOR_DIVISION, regex: /\// },
+        { tipo: Tipos.OPERADOR_POTENCIA,     regex: /\^/ },
+        { tipo: Tipos.OPERADOR_MODULO,       regex: /%/ }, // % como alternativa a MOD
+        { tipo: Tipos.OPERADOR_IGUAL,        regex: /=/ }, // Simple igual (para comparación en PSeInt)
+        { tipo: Tipos.OPERADOR_MENOR,        regex: /</ },
         { tipo: Tipos.OPERADOR_MAYOR,        regex: />/ },
-        { tipo: Tipos.OPERADOR_LOGICO_Y,   regex: /&&/ }, { tipo: Tipos.OPERADOR_LOGICO_O,    regex: /\|\|/ },
-        { tipo: Tipos.OPERADOR_LOGICO_NO,   regex: /!|~/ }, // ~ a veces usado para NOT
-        { tipo: Tipos.IDENTIFICADOR,  regex: /[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*/ } // Al final
+        { tipo: Tipos.OPERADOR_LOGICO_NO,    regex: /!|~/ }, // ~ a veces usado para NOT (ya estaba antes de IDENTIFICADOR)
+
+        // Símbolos de agrupación y separadores
+        { tipo: Tipos.PARENTESIS_IZQ, regex: /\(/ },
+        { tipo: Tipos.PARENTESIS_DER, regex: /\)/ },
+        { tipo: Tipos.CORCHETE_IZQ,   regex: /\[/ },
+        { tipo: Tipos.CORCHETE_DER,   regex: /\]/ },
+        { tipo: Tipos.COMA,           regex: /,/ },
+
+        // Tipos de datos literales
+        // NUMERO después de operadores como '-' para correcta tokenización de 'idx-1' vs '-1'
+        { tipo: Tipos.NUMERO, regex: /^-?\d+(?:\.\d*)?\b|^-?\.\d+\b/ },
+        { tipo: Tipos.CADENA, regex: /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/ },
+
+        // IDENTIFICADOR al final, como un comodín para lo que no coincidió antes
+        { tipo: Tipos.IDENTIFICADOR,  regex: /[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*/ }
     ];
     const regexEspacio = /^\s+/;
     while (cursor < cadenaExpresion.length) {
