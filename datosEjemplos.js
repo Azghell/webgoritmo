@@ -5,77 +5,117 @@ window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Datos = Webgoritmo.Datos || {};
 
 Webgoritmo.Datos.codigosEjemplo = {
-    prueba_si_entonces_simple: `Algoritmo PruebaSiEntoncesSimple
-    Definir a, b Como Entero
+    prueba_si_entonces_simple: `Algoritmo PruebaSiEntoncesSinoCompleto
+    Definir a, b, c Como Entero
     Definir mensaje Como Cadena
 
+    Escribir "--- Caso 1: Si Verdadero, con Sino ---"
     a <- 10
     b <- 5
     mensaje <- "Inicial"
-
-    Escribir "Antes del Si. a=", a, ", b=", b, ", mensaje='", mensaje, "'"
-
     Si a > b Entonces
-        mensaje <- "a es mayor que b"
-        Escribir "Dentro del Si (Condición Verdadera). Mensaje ahora es: '", mensaje, "'"
-        a <- a + 1
-    FinSi
-
-    Escribir "Después del Primer Si. a=", a, ", b=", b, ", mensaje='", mensaje, "'" // a debería ser 11, mensaje cambiado
-
-    // Prueba con condición falsa
-    b <- 15 // Ahora b > a (a es 11, b es 15)
-    Escribir "Preparando para Si con condición Falsa. a=", a, ", b=", b
-
-    Si a > b Entonces // 11 > 15 es Falso, este bloque no debería ejecutarse
-        mensaje <- "Este mensaje NO debería aparecer"
-        Escribir "DENTRO DEL SI FALSO. Mensaje ahora es: '", mensaje, "'"
-        a <- 999
-    FinSi
-
-    Escribir "Después del Segundo Si (Condición Falsa). a=", a, ", b=", b, ", mensaje='", mensaje, "'"
-    // a debería seguir siendo 11, mensaje debería ser "a es mayor que b"
-
-    // Prueba de Si anidado
-    Escribir "--- Prueba Si Anidado ---"
-    a <- 5
-    b <- 10
-    Definir c Como Entero
-    c <- 15
-    Escribir "Valores para Si anidado: a=",a,", b=",b,", c=",c
-
-    Si a < b Entonces // 5 < 10 -> Verdadero
-        Escribir "Exterior Si (V): a < b"
-        mensaje <- "Exterior V"
-        Si b < c Entonces // 10 < 15 -> Verdadero
-            Escribir "Interior Si (V): b < c"
-            mensaje <- "Interior V"
-            a <- 100
-        FinSi
-        Escribir "Exterior Si (V) - Después de Interior. Mensaje='",mensaje,"', a=",a // mensaje="Interior V", a=100
+        mensaje <- "a > b (VERDADERO)"
+        Escribir "Bloque Entonces ejecutado. Mensaje: ", mensaje
+        a <- 100
+    Sino
+        mensaje <- "a NO > b (FALSO) - ERROR SI APARECE"
+        Escribir "Bloque Sino ejecutado. Mensaje: ", mensaje
         b <- 200
     FinSi
-    Escribir "Después de Si anidado. Mensaje='",mensaje,"', a=",a,", b=",b // mensaje="Interior V", a=100, b=200
+    Escribir "Resultado Caso 1: a=", a, ", b=", b, ", mensaje='", mensaje, "'"
+    // Esperado: a=100, b=5, mensaje='a > b (VERDADERO)'
 
-    // Prueba de Si anidado con el interno falso
-    Escribir "--- Prueba Si Anidado (interno falso) ---"
+    Escribir "--- Caso 2: Si Falso, con Sino ---"
     a <- 5
-    b <- 15 // b > c para que el interno sea falso
-    c <- 10
-    Escribir "Valores: a=",a,", b=",b,", c=",c
-
-    Si a < b Entonces // 5 < 15 -> Verdadero
-        Escribir "Exterior Si (V): a < b"
-        mensaje <- "Exterior V de nuevo"
-        Si b < c Entonces // 15 < 10 -> Falso -> No se ejecuta
-            Escribir "ESTO NO DEBERIA APARECER (Interior Si Falso)"
-            mensaje <- "Interior Falso - ERROR"
-            a <- 999
-        FinSi
-        Escribir "Exterior Si (V) - Después de Interior Falso. Mensaje='",mensaje,"', a=",a // mensaje="Exterior V de nuevo", a=5
-        b <- 777
+    b <- 10
+    mensaje <- "Inicial"
+    Si a > b Entonces
+        mensaje <- "a > b (VERDADERO) - ERROR SI APARECE"
+        Escribir "Bloque Entonces ejecutado. Mensaje: ", mensaje
+        a <- 100
+    Sino
+        mensaje <- "a NO > b (FALSO)"
+        Escribir "Bloque Sino ejecutado. Mensaje: ", mensaje
+        b <- 200
     FinSi
-    Escribir "Después de Si anidado (interno falso). Mensaje='",mensaje,"', a=",a,", b=",b // mensaje="Exterior V de nuevo", a=5, b=777
+    Escribir "Resultado Caso 2: a=", a, ", b=", b, ", mensaje='", mensaje, "'"
+    // Esperado: a=5, b=200, mensaje='a NO > b (FALSO)'
+
+    Escribir "--- Caso 3: Si Anidado con Sino ---"
+    // Si V Entonces (Si V Entonces ... Sino ...) FinSi
+    a <- 1; b <- 2; c <- 3; mensaje <- "Anidado Ini"
+    Si a < b Entonces // Verdadero
+        mensaje <- "Exterior V"
+        Escribir "Exterior Si (V). Mensaje: ", mensaje
+        Si b < c Entonces // Verdadero
+            mensaje <- "Interior V"
+            Escribir "Interior Si (V). Mensaje: ", mensaje
+            a <- 10
+        Sino
+            mensaje <- "Interior F - ERROR"
+            Escribir "Interior Sino (ERROR). Mensaje: ", mensaje
+            b <- 20
+        FinSi
+        Escribir "Exterior Si (V) - Post Interior. Mensaje: ", mensaje, ", a=",a,", b=",b // msg="Interior V", a=10, b=2
+        c <- 30
+    Sino
+        mensaje <- "Exterior F - ERROR"
+        Escribir "Exterior Sino (ERROR). Mensaje: ", mensaje
+        c <- 40
+    FinSi
+    Escribir "Resultado Caso 3: a=",a,", b=",b,", c=",c,", mensaje='",mensaje,"'"
+    // Esperado: a=10, b=2, c=30, mensaje='Interior V'
+
+    Escribir "--- Caso 4: Si Anidado con Sino (Interior Falso) ---"
+    // Si V Entonces (Si F Entonces ... Sino ...) FinSi
+    a <- 1; b <- 3; c <- 2; mensaje <- "Anidado Ini 2" // b > c para que Si interno sea Falso
+    Si a < b Entonces // Verdadero
+        mensaje <- "Exterior V (2)"
+        Escribir "Exterior Si (V) (2). Mensaje: ", mensaje
+        Si b < c Entonces // Falso (3 < 2 es F)
+            mensaje <- "Interior V - ERROR (2)"
+            Escribir "Interior Si (ERROR) (2). Mensaje: ", mensaje
+            a <- 10
+        Sino
+            mensaje <- "Interior F (2)"
+            Escribir "Interior Sino (2). Mensaje: ", mensaje
+            b <- 20
+        FinSi
+        Escribir "Exterior Si (V) - Post Interior (2). Mensaje: ", mensaje, ", a=",a,", b=",b // msg="Interior F (2)", a=1, b=20
+        c <- 30
+    Sino
+        mensaje <- "Exterior F - ERROR (2)"
+        Escribir "Exterior Sino (ERROR) (2). Mensaje: ", mensaje
+        c <- 40
+    FinSi
+    Escribir "Resultado Caso 4: a=",a,", b=",b,", c=",c,", mensaje='",mensaje,"'"
+    // Esperado: a=1, b=20, c=30, mensaje='Interior F (2)'
+
+    Escribir "--- Caso 5: Si Anidado (Exterior Falso) ---"
+    // Si F Entonces (...) Sino (...) FinSi
+    a <- 3; b <- 1; c <- 2; mensaje <- "Anidado Ini 3" // a > b para que Si exterior sea Falso
+    Si a < b Entonces // Falso
+        mensaje <- "Exterior V - ERROR (3)"
+        Escribir "Exterior Si (ERROR) (3). Mensaje: ", mensaje
+        a <- 10
+    Sino
+        mensaje <- "Exterior F (3)"
+        Escribir "Exterior Sino (3). Mensaje: ", mensaje
+        // Si anidado dentro de este Sino
+        Si b < c Entonces // Verdadero (1 < 2)
+             mensaje <- "Interior (en Exterior F) V (3)"
+             Escribir "Interior (en Ext F) Si (V) (3). Mensaje: ", mensaje
+             b <- 200
+        Sino
+             mensaje <- "Interior (en Exterior F) F - ERROR (3)"
+             Escribir "Interior (en Ext F) Sino (ERROR) (3). Mensaje: ", mensaje
+             c <- 300
+        FinSi
+        Escribir "Exterior Sino (3) - Post Interior. Mensaje: ", mensaje, ", b=",b,", c=",c // msg="Interior (en Ext F) V (3)", b=200, c=2
+        a <- 500
+    FinSi
+    Escribir "Resultado Caso 5: a=",a,", b=",b,", c=",c,", mensaje='",mensaje,"'"
+    // Esperado: a=500, b=200, c=2, mensaje='Interior (en Ext F) V (3)'
 
 FinAlgoritmo`,
     prueba_acceso_arreglos_expresion: `Algoritmo PruebaArregloLogicoRelacional
@@ -168,12 +208,12 @@ FinAlgoritmo`,
     Escribir "Esta línea no debería alcanzarse si hay error"
 FinAlgoritmo`,
     prueba_error_finsi_huerfano: `Algoritmo ErrorFinSiHuerfano
-    Definir y Como Entero
-    y <- 20
-    Escribir "Valor de y: ", y
+    Definir i Como Entero // Cambiado de 'y' a 'i' para evitar colisión con palabra reservada Y
+    i <- 20
+    Escribir "Valor de i: ", i
     FinSi // FinSi sin un Si previo
     Escribir "Esta línea tampoco debería alcanzarse"
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Actualizado con ejemplos de error para Si-Entonces) cargado.");
+console.log("datosEjemplos.js (Actualizado con prueba Si-Entonces-Sino y ejemplos de error) cargado.");

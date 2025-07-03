@@ -138,20 +138,33 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
         const lineaProcesada = limpiarComentariosYEspacios(lineaOriginalFuente);
         const lineaMinusculas = lineaProcesada.toLowerCase();
 
-        // Inicio de Lógica de Salto para Si-Entonces (CORREGIDA)
+        // Inicio de Lógica de Salto para Si-Entonces-Sino
         if (Webgoritmo.estadoApp.pilaControl.length > 0) {
             const controlActual = Webgoritmo.estadoApp.pilaControl[Webgoritmo.estadoApp.pilaControl.length - 1];
-            if (controlActual.tipo === "SI" && controlActual.saltandoHastaFinSi) {
-                // Si estamos saltando Y AÚN NO HEMOS LLEGADO AL FinSi de este SI
-                if (i < controlActual.indiceFinSiRelativo) {
-                    // console.log(`[DEBUG Si-Salto L${numeroLineaActualGlobal}] Saltando línea: "${lineaProcesada}" (buscando FinSi en ${numeroLineaOffset + controlActual.indiceFinSiRelativo})`);
+            if (controlActual.tipo === "SI") {
+                let debeSaltarEstePaso = false;
+                if (!controlActual.condicionOriginalFueVerdadera && !controlActual.seHaProcesadoElSino) {
+                    // Condición del Si fue FALSA, y aún no hemos procesado/llegado al Sino (o al FinSi si no hay Sino).
+                    // Destino del salto es el Sino (si existe) o el FinSi.
+                    const destinoSaltoInmediato = controlActual.indiceSinoRelativo !== -1 ? controlActual.indiceSinoRelativo : controlActual.indiceFinSiRelativo;
+                    if (i < destinoSaltoInmediato) {
+                        debeSaltarEstePaso = true;
+                        // console.log(`[DEBUG Si-Salto L${numeroLineaActualGlobal}] CondFalsa. Saltando "${lineaProcesada}" hacia Sino/FinSi en L${numeroLineaOffset + destinoSaltoInmediato}`);
+                    }
+                } else if (controlActual.condicionOriginalFueVerdadera && controlActual.seHaProcesadoElSino) {
+                    // Condición del Si fue VERDADERA, y ya hemos procesado la línea Sino.
+                    // Debemos saltar el bloque de código del Sino, hasta el FinSi.
+                    if (i < controlActual.indiceFinSiRelativo) {
+                        debeSaltarEstePaso = true;
+                        // console.log(`[DEBUG Si-Salto L${numeroLineaActualGlobal}] CondVerdadera, PostSino. Saltando "${lineaProcesada}" hacia FinSi en L${numeroLineaOffset + controlActual.indiceFinSiRelativo}`);
+                    }
+                }
+
+                if (debeSaltarEstePaso) {
                     if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: [SALTANDO] ${lineaProcesada}`, 'debug-skip');
                     i++;
                     continue;
                 }
-                // Si i === controlActual.indiceFinSiRelativo (hemos llegado al FinSi),
-                // ya no saltamos aquí. Dejamos que la línea FinSi se procese normalmente más abajo,
-                // lo que causará el pop de la pila.
             }
         }
         // Fin de Lógica de Salto
@@ -164,52 +177,66 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
 
         let instruccionManejada = false;
         try {
-            const regexSiEntonces = /^\s*si\s+(.+?)\s+entonces\s*$/i;
-            const regexFinSi = /^\s*finsi\s*$/i;
-            // const regexSino = /^\s*sino\s*$/i; // Para el futuro
+            // Las regex globales Webgoritmo.Interprete.regexSiEntonces, regexSino, regexFinSi ya están definidas.
 
-            if (regexSiEntonces.test(lineaMinusculas)) {
-                const matchSi = lineaMinusculas.match(regexSiEntonces);
+            if (Webgoritmo.Interprete.regexSiEntonces.test(lineaMinusculas)) {
+                const matchSi = lineaMinusculas.match(Webgoritmo.Interprete.regexSiEntonces);
                 const expresionCondicion = limpiarComentariosYEspaciosInternos(matchSi[1]);
-                if (expresionCondicion === "") {
-                    throw new Error("Condición del 'Si' está vacía.");
-                }
+                if (expresionCondicion === "") throw new Error("Condición del 'Si' está vacía.");
+
                 const resultadoCondicion = await Webgoritmo.Expresiones.evaluarExpresion(expresionCondicion, ambitoEjecucion, numeroLineaActualGlobal);
                 if (typeof resultadoCondicion !== 'boolean') {
-                    throw new Error(`La condición del 'Si' debe evaluarse a un valor lógico (Verdadero/Falso), se obtuvo '${resultadoCondicion}' (tipo: ${typeof resultadoCondicion}).`);
+                    throw new Error(`La condición del 'Si' debe ser lógica, se obtuvo '${resultadoCondicion}' (tipo: ${typeof resultadoCondicion}).`);
                 }
 
-                const indiceFinSiRelativo = Webgoritmo.Interprete.escanearParaFinSi(lineasDelBloque, i, numeroLineaActualGlobal);
+                const { indiceSinoRelativo, indiceFinSiRelativo } = Webgoritmo.Interprete.escanearBloqueSiLogico(lineasDelBloque, i, numeroLineaActualGlobal);
 
                 Webgoritmo.estadoApp.pilaControl.push({
                     tipo: "SI",
-                    lineaSiRelativa: i, // Índice relativo de la línea Si actual
-                    saltandoHastaFinSi: !resultadoCondicion, // Si la condición es Falsa, empezamos a saltar
-                    indiceFinSiRelativo: indiceFinSiRelativo
-                    // indiceSinoRelativo: -1, // Para el futuro
+                    lineaSiRelativa: i,
+                    condicionOriginalFueVerdadera: resultadoCondicion,
+                    indiceSinoRelativo: indiceSinoRelativo,
+                    indiceFinSiRelativo: indiceFinSiRelativo,
+                    seHaProcesadoElSino: false
                 });
-                console.log(`[DEBUG Si L${numeroLineaActualGlobal}] Condición: ${resultadoCondicion}. ${!resultadoCondicion ? "Saltando" : "Ejecutando"} hasta FinSi en línea relativa ${indiceFinSiRelativo} (global ${numeroLineaOffset + indiceFinSiRelativo}). Pila:`, JSON.stringify(Webgoritmo.estadoApp.pilaControl));
-
-                // No se necesita acción de salto aquí; la lógica al inicio del bucle se encarga si saltandoHastaFinSi es true.
+                console.log(`[DEBUG Si L${numeroLineaActualGlobal}] Cond: ${resultadoCondicion}. Sino: L${indiceSinoRelativo !== -1 ? numeroLineaOffset + indiceSinoRelativo : 'N/A'}. FinSi: L${numeroLineaOffset + indiceFinSiRelativo}. Pila:`, JSON.stringify(Webgoritmo.estadoApp.pilaControl));
+                // El salto (si !resultadoCondicion) se maneja al inicio del bucle en la siguiente iteración.
                 instruccionManejada = true;
 
-            } else if (Webgoritmo.Interprete.regexFinSi.test(lineaMinusculas)) { // Usar la regex global
+            } else if (Webgoritmo.Interprete.regexSino.test(lineaMinusculas)) {
                 const pila = Webgoritmo.estadoApp.pilaControl;
-                if (pila.length > 0 && pila[pila.length - 1].tipo === "SI") {
-                    const siContext = pila[pila.length - 1];
-                    if (i === siContext.indiceFinSiRelativo) { // Este FinSi corresponde al Si del tope de la pila
-                        pila.pop();
-                        console.log(`[DEBUG FinSi L${numeroLineaActualGlobal}] FinSi correspondiente al Si (L${numeroLineaOffset + siContext.lineaSiRelativa}) encontrado y popeado. Pila:`, JSON.stringify(pila));
-                    } else {
-                        throw new Error(`Error de estructura: 'FinSi' en línea ${numeroLineaActualGlobal} no coincide con el 'FinSi' esperado en línea ${numeroLineaOffset + siContext.indiceFinSiRelativo} para el 'Si' de la línea ${numeroLineaOffset + siContext.lineaSiRelativa}.`);
-                    }
+                if (pila.length === 0 || pila[pila.length - 1].tipo !== "SI") {
+                    throw new Error(`'Sino' inesperado en línea ${numeroLineaActualGlobal} sin un 'Si' correspondiente.`);
+                }
+                const siContext = pila[pila.length - 1];
+                if (i !== siContext.indiceSinoRelativo) {
+                    throw new Error(`Error de estructura: 'Sino' en línea ${numeroLineaActualGlobal} no está en la posición esperada (L${numeroLineaOffset + siContext.indiceSinoRelativo}) para el 'Si' de la línea ${numeroLineaOffset + siContext.lineaSiRelativa}.`);
+                }
+
+                siContext.seHaProcesadoElSino = true; // Marcar que hemos procesado la instrucción Sino
+
+                if (siContext.condicionOriginalFueVerdadera) {
+                    // Si la condición original fue V, el bloque Entonces se ejecutó. Ahora debemos saltar el bloque Sino.
+                    // La lógica de salto al inicio del bucle se encargará a partir de la siguiente línea.
+                    console.log(`[DEBUG Sino L${numeroLineaActualGlobal}] Condición del Si fue Verdadera. Se saltará el bloque Sino.`);
                 } else {
-                    throw new Error(`'FinSi' inesperado en línea ${numeroLineaActualGlobal} sin un 'Si' correspondiente activo en la pila.`);
+                    // Condición original fue F, el bloque Entonces se saltó. Este bloque Sino se ejecuta.
+                    console.log(`[DEBUG Sino L${numeroLineaActualGlobal}] Condición del Si fue Falsa. Se ejecutará el bloque Sino.`);
                 }
                 instruccionManejada = true;
 
-            // Aquí irían las otras instrucciones (Definir, Escribir, etc.)
-            // } else if (lineaMinusculas.startsWith("sino")) { ... } // Futuro
+            } else if (Webgoritmo.Interprete.regexFinSi.test(lineaMinusculas)) {
+                const pila = Webgoritmo.estadoApp.pilaControl;
+                if (pila.length === 0 || pila[pila.length - 1].tipo !== "SI") {
+                    throw new Error(`'FinSi' inesperado en línea ${numeroLineaActualGlobal} sin un 'Si' correspondiente.`);
+                }
+                const siContext = pila[pila.length - 1];
+                if (i !== siContext.indiceFinSiRelativo) {
+                    throw new Error(`Error de estructura: 'FinSi' en línea ${numeroLineaActualGlobal} no está en la posición esperada (L${numeroLineaOffset + siContext.indiceFinSiRelativo}) para el 'Si' de la línea ${numeroLineaOffset + siContext.lineaSiRelativa}.`);
+                }
+                pila.pop();
+                console.log(`[DEBUG FinSi L${numeroLineaActualGlobal}] FinSi correspondiente al Si (L${numeroLineaOffset + siContext.lineaSiRelativa}) encontrado y popeado. Pila:`, JSON.stringify(pila));
+                instruccionManejada = true;
 
             } else { // Comprobación de otras instrucciones existentes
                 const regexAsignacion = /^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?\s*(?:<-|=)/;
@@ -256,30 +283,49 @@ Webgoritmo.Interprete.obtenerIndiceSiOriginal = function(pilaControl) {
 };
 
 Webgoritmo.Interprete.regexSiEntonces = /^\s*si\s+(.+?)\s+entonces\s*$/i;
+Webgoritmo.Interprete.regexSino = /^\s*sino\s*$/i;
 Webgoritmo.Interprete.regexFinSi = /^\s*finsi\s*$/i;
-// Webgoritmo.Interprete.regexSino = /^\s*sino\s*$/i; // Para el futuro
 
-Webgoritmo.Interprete.escanearParaFinSi = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) {
-    // lineasDelBloque: array de strings de todo el bloque donde reside el Si.
-    // indiceSiRelativoActual: índice de la línea "Si" actual, relativo a lineasDelBloque.
-    // numeroLineaGlobalSi: número de línea global (en el editor) donde está este "Si".
-
+Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) {
     let nivelAnidamiento = 0;
+    let indiceSinoEncontrado = -1;
+    let indiceFinSiEncontrado = -1;
+
     for (let j = indiceSiRelativoActual + 1; j < lineasDelBloque.length; j++) {
         const lineaActual = limpiarComentariosYEspacios(lineasDelBloque[j]).toLowerCase();
 
         if (Webgoritmo.Interprete.regexSiEntonces.test(lineaActual)) {
             nivelAnidamiento++;
+        } else if (Webgoritmo.Interprete.regexSino.test(lineaActual)) {
+            if (nivelAnidamiento === 0) {
+                if (indiceSinoEncontrado !== -1) {
+                    throw new Error(`Error de sintaxis: Múltiples 'Sino' para el 'Si' de la línea ${numeroLineaGlobalSi}. Segundo 'Sino' en línea ${numeroLineaGlobalSi - indiceSiRelativoActual + j}.`);
+                }
+                indiceSinoEncontrado = j;
+            }
         } else if (Webgoritmo.Interprete.regexFinSi.test(lineaActual)) {
             if (nivelAnidamiento === 0) {
-                return j; // Devuelve el índice relativo del FinSi correspondiente
+                indiceFinSiEncontrado = j;
+                break; // FinSi encontrado para el Si actual, terminar escaneo.
             } else {
                 nivelAnidamiento--;
             }
         }
     }
-    // Si se llega aquí, no se encontró FinSi correspondiente
-    throw new Error(`Error de sintaxis: La estructura 'Si' iniciada en la línea ${numeroLineaGlobalSi} no tiene un 'FinSi' correspondiente.`);
+
+    if (indiceFinSiEncontrado === -1) {
+        throw new Error(`Error de sintaxis: La estructura 'Si' iniciada en la línea ${numeroLineaGlobalSi} no tiene un 'FinSi' correspondiente.`);
+    }
+
+    // Validar que el Sino, si existe, esté antes del FinSi
+    if (indiceSinoEncontrado !== -1 && indiceSinoEncontrado >= indiceFinSiEncontrado) {
+        throw new Error(`Error de sintaxis: 'Sino' en línea ${numeroLineaGlobalSi - indiceSiRelativoActual + indiceSinoEncontrado} debe aparecer antes del 'FinSi' (L${numeroLineaGlobalSi - indiceSiRelativoActual + indiceFinSiEncontrado}) para el 'Si' de la línea ${numeroLineaGlobalSi}.`);
+    }
+
+    return {
+        indiceSinoRelativo: indiceSinoEncontrado,
+        indiceFinSiRelativo: indiceFinSiEncontrado
+    };
 };
 
 Webgoritmo.Interprete.Utilidades.obtenerValorPorDefectoSegunTipo = function(tipo) { const t = String(tipo).toLowerCase(); switch(t){case 'entero':return 0;case 'real':return 0.0;case 'logico':return false;case 'caracter':return '';case 'cadena':return '';default:return null;}};
