@@ -5,6 +5,49 @@ window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Datos = Webgoritmo.Datos || {};
 
 Webgoritmo.Datos.codigosEjemplo = {
+    prueba_para_simple: `Algoritmo PruebaParaSimple
+    Definir i Como Entero
+    Definir suma Como Entero
+
+    suma <- 0
+    Escribir "Iniciando bucle Para de 1 a 3 (paso implícito 1)..."
+    Para i <- 1 Hasta 3 Hacer
+        Escribir "Iteración i: ", i
+        suma <- suma + i
+    FinPara
+    Escribir "Bucle (1 a 3) finalizado. Suma: ", suma // Esperado: 6
+
+    Escribir "-------------------------------------"
+    Escribir "Iniciando bucle Para de 3 a 1 Con Paso -1..."
+    suma <- 0 // Reiniciar suma
+    Para i <- 3 Hasta 1 Con Paso -1 Hacer
+        Escribir "Iteración i: ", i
+        suma <- suma + i
+    FinPara
+    Escribir "Bucle (3 a 1, paso -1) finalizado. Suma: ", suma // Esperado: 6
+
+    Escribir "-------------------------------------"
+    Escribir "Iniciando bucle Para que no debería ejecutarse (5 Hasta 1, paso implícito 1)..."
+    // El Para hace: i <- 5. Condición: 5 <= 1 (Falso, porque paso es positivo). No entra.
+
+    suma <- 100 // Valor para detectar si el bucle se ejecuta
+    Para i <- 5 Hasta 1 Hacer
+        Escribir "DENTRO DE BUCLE NO EJECUTADO (5 a 1) - ERROR SI APARECE"
+        suma <- 999
+    FinPara
+    Escribir "Bucle (5 a 1) no ejecutado finalizado. Suma: ", suma // Esperado: 100
+
+    Escribir "-------------------------------------"
+    Escribir "Iniciando bucle Para que no debería ejecutarse (1 Hasta 5, paso -1)..."
+    // El Para hace: i <- 1. Condición: 1 >= 5 (Falso, porque paso es negativo). No entra.
+    suma <- 200
+    Para i <- 1 Hasta 5 Con Paso -1 Hacer
+        Escribir "DENTRO DE BUCLE NO EJECUTADO (1 a 5, paso -1) - ERROR SI APARECE"
+        suma <- 888
+    FinPara
+    Escribir "Bucle (1 a 5, paso -1) no ejecutado finalizado. Suma: ", suma // Esperado: 200
+
+FinAlgoritmo`,
     prueba_si_entonces_simple: `Algoritmo PruebaSiEntoncesSinoCompleto
     Definir a, b, c Como Entero
     Definir mensaje Como Cadena
@@ -220,4 +263,4 @@ FinAlgoritmo`,
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Actualizado con prueba Si-Entonces-Sino y ejemplos de error) cargado.");
+console.log("datosEjemplos.js (Actualizado con prueba Para y otros) cargado.");

@@ -138,33 +138,33 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
         const lineaProcesada = limpiarComentariosYEspacios(lineaOriginalFuente);
         const lineaMinusculas = lineaProcesada.toLowerCase();
 
-        // Inicio de Lógica de Salto para Si-Entonces-Sino
+        // Inicio de Lógica de Salto para Estructuras de Control
         if (Webgoritmo.estadoApp.pilaControl.length > 0) {
             const controlActual = Webgoritmo.estadoApp.pilaControl[Webgoritmo.estadoApp.pilaControl.length - 1];
-            if (controlActual.tipo === "SI") {
-                let debeSaltarEstePaso = false;
-                if (!controlActual.condicionOriginalFueVerdadera && !controlActual.seHaProcesadoElSino) {
-                    // Condición del Si fue FALSA, y aún no hemos procesado/llegado al Sino (o al FinSi si no hay Sino).
-                    // Destino del salto es el Sino (si existe) o el FinSi.
-                    const destinoSaltoInmediato = controlActual.indiceSinoRelativo !== -1 ? controlActual.indiceSinoRelativo : controlActual.indiceFinSiRelativo;
-                    if (i < destinoSaltoInmediato) {
-                        debeSaltarEstePaso = true;
-                        // console.log(`[DEBUG Si-Salto L${numeroLineaActualGlobal}] CondFalsa. Saltando "${lineaProcesada}" hacia Sino/FinSi en L${numeroLineaOffset + destinoSaltoInmediato}`);
-                    }
-                } else if (controlActual.condicionOriginalFueVerdadera && controlActual.seHaProcesadoElSino) {
-                    // Condición del Si fue VERDADERA, y ya hemos procesado la línea Sino.
-                    // Debemos saltar el bloque de código del Sino, hasta el FinSi.
-                    if (i < controlActual.indiceFinSiRelativo) {
-                        debeSaltarEstePaso = true;
-                        // console.log(`[DEBUG Si-Salto L${numeroLineaActualGlobal}] CondVerdadera, PostSino. Saltando "${lineaProcesada}" hacia FinSi en L${numeroLineaOffset + controlActual.indiceFinSiRelativo}`);
-                    }
-                }
+            let debeSaltarEstePaso = false;
 
-                if (debeSaltarEstePaso) {
-                    if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: [SALTANDO] ${lineaProcesada}`, 'debug-skip');
-                    i++;
-                    continue;
+            if (controlActual.tipo === "SI") {
+                if (!controlActual.condicionOriginalFueVerdadera && !controlActual.seHaProcesadoElSino) {
+                    const destinoSaltoInmediato = controlActual.indiceSinoRelativo !== -1 ? controlActual.indiceSinoRelativo : controlActual.indiceFinSiRelativo;
+                    if (i < destinoSaltoInmediato) debeSaltarEstePaso = true;
+                } else if (controlActual.condicionOriginalFueVerdadera && controlActual.seHaProcesadoElSino) {
+                    if (i < controlActual.indiceFinSiRelativo) debeSaltarEstePaso = true;
                 }
+            } else if (controlActual.tipo === "PARA") {
+                if (controlActual.saltarBloquePara) {
+                    // Si la condición inicial del Para fue falsa, saltamos todo hasta el FinPara.
+                    if (i < controlActual.indiceFinParaRelativo) {
+                        debeSaltarEstePaso = true;
+                    }
+                }
+                // Nota: El salto para la re-iteración se maneja en FinPara, no aquí.
+                // Aquí solo se salta si el bucle no debe ejecutarse ni una vez.
+            }
+
+            if (debeSaltarEstePaso) {
+                if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: [SALTANDO] ${lineaProcesada}`, 'debug-skip');
+                i++;
+                continue;
             }
         }
         // Fin de Lógica de Salto
@@ -238,6 +238,74 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                 console.log(`[DEBUG FinSi L${numeroLineaActualGlobal}] FinSi correspondiente al Si (L${numeroLineaOffset + siContext.lineaSiRelativa}) encontrado y popeado. Pila:`, JSON.stringify(pila));
                 instruccionManejada = true;
 
+            } else if (Webgoritmo.Interprete.regexParaHacer.test(lineaMinusculas) || Webgoritmo.Interprete.regexParaConPasoHacer.test(lineaMinusculas)) {
+                let matchPara = lineaMinusculas.match(Webgoritmo.Interprete.regexParaConPasoHacer);
+                let conPaso = true;
+                if (!matchPara) {
+                    matchPara = lineaMinusculas.match(Webgoritmo.Interprete.regexParaHacer);
+                    conPaso = false;
+                }
+
+                const varControlNombre = limpiarComentariosYEspaciosInternos(matchPara[1]);
+                const exprInicialStr = limpiarComentariosYEspaciosInternos(matchPara[2]);
+                const exprFinalStr = limpiarComentariosYEspaciosInternos(matchPara[3]);
+                const exprPasoStr = conPaso ? limpiarComentariosYEspaciosInternos(matchPara[4]) : "1";
+
+                if (!varControlNombre || !exprInicialStr || !exprFinalStr || (conPaso && !exprPasoStr)) {
+                    throw new Error(`Sintaxis incompleta para la instrucción 'Para' en línea ${numeroLineaActualGlobal}.`);
+                }
+
+                // Validar variable de control
+                const varControlNombreLc = varControlNombre.toLowerCase();
+                if (!ambitoEjecucion.hasOwnProperty(varControlNombreLc)) {
+                    throw new Error(`Error en línea ${numeroLineaActualGlobal}: La variable de control '${varControlNombre}' del bucle Para debe ser definida previamente.`);
+                }
+                const descVarControl = ambitoEjecucion[varControlNombreLc];
+                if (descVarControl.esArreglo || !['entero', 'real', 'numero'].includes(descVarControl.tipoDeclarado) ) { // 'numero' por si acaso
+                    throw new Error(`Error en línea ${numeroLineaActualGlobal}: La variable de control '${varControlNombre}' del bucle Para debe ser de tipo numérico (Entero o Real).`);
+                }
+
+                // Evaluar expresiones una vez al inicio
+                const valorInicial = await Webgoritmo.Expresiones.evaluarExpresion(exprInicialStr, ambitoEjecucion, numeroLineaActualGlobal);
+                const valorFinal = await Webgoritmo.Expresiones.evaluarExpresion(exprFinalStr, ambitoEjecucion, numeroLineaActualGlobal);
+                const paso = await Webgoritmo.Expresiones.evaluarExpresion(exprPasoStr, ambitoEjecucion, numeroLineaActualGlobal);
+
+                if (typeof valorInicial !== 'number' || typeof valorFinal !== 'number' || typeof paso !== 'number') {
+                    throw new Error(`Error en línea ${numeroLineaActualGlobal}: Las expresiones de valor inicial, final y paso para el bucle Para deben evaluarse a números.`);
+                }
+                if (paso === 0) {
+                    throw new Error(`Error en línea ${numeroLineaActualGlobal}: El paso en un bucle Para no puede ser cero.`);
+                }
+
+                // Asignar valor inicial
+                descVarControl.valor = valorInicial;
+                if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: Var '${descVarControl.nombreOriginal}' (control Para) <- ${descVarControl.valor}`, 'debug');
+
+
+                // Condición de entrada
+                let continuarBucle = false;
+                if (paso > 0) {
+                    continuarBucle = descVarControl.valor <= valorFinal;
+                } else { // paso < 0
+                    continuarBucle = descVarControl.valor >= valorFinal;
+                }
+
+                const indiceFinParaRelativo = Webgoritmo.Interprete.escanearParaFinPara(lineasDelBloque, i, numeroLineaActualGlobal);
+
+                Webgoritmo.estadoApp.pilaControl.push({
+                    tipo: "PARA",
+                    lineaParaRelativa: i,
+                    variableControlNombreLc: varControlNombreLc,
+                    valorFinal: valorFinal,
+                    paso: paso,
+                    indiceFinParaRelativo: indiceFinParaRelativo,
+                    saltarBloquePara: !continuarBucle // Si la condición de entrada es falsa, saltar todo el bloque
+                });
+                console.log(`[DEBUG Para L${numeroLineaActualGlobal}] VC: ${varControlNombre}, Ini:${valorInicial}, Fin:${valorFinal}, Paso:${paso}. CondEntrada: ${continuarBucle}. FinParaRel: ${indiceFinParaRelativo}. Pila:`, JSON.stringify(Webgoritmo.estadoApp.pilaControl));
+
+                // El salto (si !continuarBucle) se maneja al inicio del bucle `while` en la siguiente iteración.
+                instruccionManejada = true;
+
             } else { // Comprobación de otras instrucciones existentes
                 const regexAsignacion = /^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?\s*(?:<-|=)/;
                 const esPotencialAsignacion = regexAsignacion.test(lineaProcesada);
@@ -250,14 +318,48 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                     instruccionManejada = await Webgoritmo.Interprete.procesarEntradaUsuario(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
                 } else if (esPotencialAsignacion) {
                     instruccionManejada = await Webgoritmo.Interprete.procesarAsignacion(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
+                } else if (Webgoritmo.Interprete.regexFinPara.test(lineaMinusculas)) {
+                    const pila = Webgoritmo.estadoApp.pilaControl;
+                    if (pila.length === 0 || pila[pila.length - 1].tipo !== "PARA") {
+                        throw new Error(`'FinPara' inesperado en línea ${numeroLineaActualGlobal} sin un 'Para' correspondiente.`);
+                    }
+                    const paraContext = pila[pila.length - 1];
+                    if (i !== paraContext.indiceFinParaRelativo) {
+                        throw new Error(`Error de estructura: 'FinPara' en línea ${numeroLineaActualGlobal} no coincide con el 'FinPara' esperado para el 'Para' de la línea ${numeroLineaOffset + paraContext.lineaParaRelativa}.`);
+                    }
+
+                    // Actualizar variable de control
+                    const descVarControl = ambitoEjecucion[paraContext.variableControlNombreLc];
+                    descVarControl.valor += paraContext.paso;
+                    if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: Var '${descVarControl.nombreOriginal}' (control Para) actualizada a ${descVarControl.valor}`, 'debug');
+
+                    // Re-evaluar condición de continuación
+                    let continuarBucle = false;
+                    if (paraContext.paso > 0) {
+                        continuarBucle = descVarControl.valor <= paraContext.valorFinal;
+                    } else { // paso < 0
+                        continuarBucle = descVarControl.valor >= paraContext.valorFinal;
+                    }
+
+                    if (continuarBucle) {
+                        // Saltar de vuelta al inicio del cuerpo del bucle Para
+                        // El cuerpo del Para comienza en la línea después de la declaración Para.
+                        i = paraContext.lineaParaRelativa; // El i++ al final del while nos llevará a lineaParaRelativa + 1
+                        console.log(`[DEBUG FinPara L${numeroLineaActualGlobal}] Continuando bucle. Saltando a línea relativa ${i + 1} (después de Para en L${numeroLineaOffset + paraContext.lineaParaRelativa}). VC: ${descVarControl.valor}`);
+                        // No necesitamos 'continue' aquí si el i++ está al final del bucle while.
+                        // Si queremos usar continue, sería i = paraContext.lineaParaRelativa; continue;
+                    } else {
+                        // El bucle ha terminado, popear el contexto.
+                        pila.pop();
+                        console.log(`[DEBUG FinPara L${numeroLineaActualGlobal}] Bucle Para (L${numeroLineaOffset + paraContext.lineaParaRelativa}) finalizado. Popeado de pila. Pila:`, JSON.stringify(pila));
+                    }
+                    instruccionManejada = true;
                 } else {
                     const primeraPalabra = lineaMinusculas.split(" ")[0];
-                    // Añadir Si, Sino, FinSi a palabras clave que no deberían dar "no reconocida" si se alcanzan erróneamente
-                    const palabrasClaveConocidas = ["algoritmo","proceso","finalgoritmo","finproceso", "si", "entonces", "sino", "finsi"];
+                    const palabrasClaveConocidas = ["algoritmo","proceso","finalgoritmo","finproceso", "si", "entonces", "sino", "finsi", "para", "hacer", "con", "paso", "finpara"];
                     if (!palabrasClaveConocidas.includes(primeraPalabra) && lineaProcesada) {
                         throw new Error(`Instrucción no reconocida: '${lineaProcesada}'`);
                     }
-                    // Si es una palabra clave de control que no se manejó (ej. Sino sin Si), el error se lanza arriba o se ignora si es parte de un salto.
                 }
             }
         } catch (error) { Webgoritmo.estadoApp.errorEnEjecucion = error.message.startsWith(`Error en línea ${numeroLineaActualGlobal}`) ? error.message : `Error en línea ${numeroLineaActualGlobal}: ${error.message}`; Webgoritmo.estadoApp.detenerEjecucion = true; if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEnEjecucion, "error"); break;  }
@@ -285,6 +387,10 @@ Webgoritmo.Interprete.obtenerIndiceSiOriginal = function(pilaControl) {
 Webgoritmo.Interprete.regexSiEntonces = /^\s*si\s+(.+?)\s+entonces\s*$/i;
 Webgoritmo.Interprete.regexSino = /^\s*sino\s*$/i;
 Webgoritmo.Interprete.regexFinSi = /^\s*finsi\s*$/i;
+
+Webgoritmo.Interprete.regexParaHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+hacer\s*$/i;
+Webgoritmo.Interprete.regexParaConPasoHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+con\s+paso\s+(.+?)\s+hacer\s*$/i;
+Webgoritmo.Interprete.regexFinPara = /^\s*finpara\s*$/i;
 
 Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) {
     let nivelAnidamiento = 0;
@@ -326,6 +432,26 @@ Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceS
         indiceSinoRelativo: indiceSinoEncontrado,
         indiceFinSiRelativo: indiceFinSiEncontrado
     };
+};
+
+Webgoritmo.Interprete.escanearParaFinPara = function(lineasDelBloque, indiceParaRelativoActual, numeroLineaGlobalPara) {
+    let nivelAnidamiento = 0;
+    for (let j = indiceParaRelativoActual + 1; j < lineasDelBloque.length; j++) {
+        const lineaActual = limpiarComentariosYEspacios(lineasDelBloque[j]).toLowerCase();
+
+        // Comprobar si es una instrucción Para (cualquiera de las dos formas)
+        if (Webgoritmo.Interprete.regexParaHacer.test(lineaActual) || Webgoritmo.Interprete.regexParaConPasoHacer.test(lineaActual)) {
+            nivelAnidamiento++;
+        } else if (Webgoritmo.Interprete.regexFinPara.test(lineaActual)) {
+            if (nivelAnidamiento === 0) {
+                return j; // Devuelve el índice relativo del FinPara correspondiente
+            } else {
+                nivelAnidamiento--;
+            }
+        }
+    }
+    // Si se llega aquí, no se encontró FinPara correspondiente
+    throw new Error(`Error de sintaxis: La estructura 'Para' iniciada en la línea ${numeroLineaGlobalPara} no tiene un 'FinPara' correspondiente.`);
 };
 
 Webgoritmo.Interprete.Utilidades.obtenerValorPorDefectoSegunTipo = function(tipo) { const t = String(tipo).toLowerCase(); switch(t){case 'entero':return 0;case 'real':return 0.0;case 'logico':return false;case 'caracter':return '';case 'cadena':return '';default:return null;}};
