@@ -310,6 +310,7 @@ Webgoritmo.Expresiones.evaluarExpresion = async function(expresionComoTexto, amb
     }
     try {
         const tokens = Webgoritmo.Expresiones.tokenizar(textoTrim);
+        console.log(`[DEBUG Tokenizador Escribir] Expr: "${textoTrim}", Tokens:`, JSON.stringify(tokens)); // <--- LOG AÑADIDO
         // console.log(`[NUEVO Tokens] para "${textoTrim}":`, JSON.stringify(tokens.map(t=>({t:t.tipo,v:String(t.valor)}))));
         const rpn = Webgoritmo.Expresiones.convertirInfijoAPostfijo(tokens);
         // console.log(`[RPN con NUEVO Tokens] para "${textoTrim}":`, JSON.stringify(rpn.map(t=>({t:t.tipo,v:String(t.valor)}))));
