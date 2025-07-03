@@ -25,13 +25,21 @@ Webgoritmo.Datos.codigosEjemplo = {
 
     Escribir "Negación de esValido: ", NO esValido // Esperado: Falso
 FinAlgoritmo`,
-    prueba_acceso_arreglos_expresion: `Algoritmo PruebaArregloSimple
-    Definir notas Como Real[3] // Sintaxis directa para definir arreglo
+    prueba_acceso_arreglos_expresion: `Algoritmo PruebaArregloIndiceVariable
+    Definir notas Como Real[3]
 
-    Escribir "Asignando notas[1]..."
     notas[1] <- 10.5
+    notas[2] <- 20.8
+    notas[3] <- 30.2
 
-    Escribir "El valor de notas[1] es: ", notas[1]
+    Escribir "notas[1] asignado como: ", notas[1]
+
+    Definir idx Como Entero
+    idx <- 1
+    Escribir "Usando idx = 1, notas[idx] es: ", notas[idx] // Debe mostrar 10.5
+
+    idx <- 2
+    Escribir "Usando idx = 2, notas[idx] es: ", notas[idx] // Debe mostrar 20.8
 FinAlgoritmo`,
     entrada_leer_f3: `Algoritmo PruebaLeerBasico
     Definir nombre Como Cadena
@@ -44,4 +52,4 @@ FinAlgoritmo`,
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Actualizado con ejemplo de arreglos MUY SIMPLIFICADO) cargado.");
+console.log("datosEjemplos.js (Actualizado con prueba de índice variable) cargado.");
