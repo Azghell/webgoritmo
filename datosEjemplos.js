@@ -25,38 +25,58 @@ Webgoritmo.Datos.codigosEjemplo = {
 
     Escribir "Negación de esValido: ", NO esValido // Esperado: Falso
 FinAlgoritmo`,
-    prueba_acceso_arreglos_expresion: `Algoritmo PruebaArregloExpresionIndice
+    prueba_acceso_arreglos_expresion: `Algoritmo PruebaArregloLogicoRelacional
     Definir notas Como Real[3]
     Definir idx Como Entero
-    Definir valorCalculado Como Real
+    Definir esVerdadero, esFalso Como Logico
+    Definir condicionA, condicionB, condicionFinal Como Logico
 
     // Asignar valores iniciales
     notas[1] <- 10.0
     notas[2] <- 20.0
-    notas[3] <- 30.0
+    notas[3] <- 10.0 // notas[3] igual a notas[1] para algunas pruebas
     idx <- 1
 
-    Escribir "Valor inicial de notas[idx+1] (notas[2]): ", notas[idx+1] // Esperado: 20.0
+    Escribir "Valores iniciales: notas[1]=", notas[1], ", notas[2]=", notas[2], ", notas[3]=", notas[3], ", idx=", idx
 
-    Escribir "Asignando 25.0 a notas[idx+1]..."
-    notas[idx+1] <- 25.0 // notas[2] ahora debería ser 25.0
-    Escribir "Nuevo valor de notas[2]: ", notas[2] // Esperado: 25.0
+    // Pruebas Relacionales
+    esVerdadero <- notas[idx+1] > notas[idx]  // 20.0 > 10.0 -> Verdadero
+    Escribir "notas[idx+1] > notas[idx] (20.0 > 10.0) es: ", esVerdadero
 
-    // idx sigue siendo 1
-    Escribir "Verificando notas[idx+1] de nuevo: ", notas[idx+1] // Esperado: 25.0
+    esFalso <- notas[idx] > notas[idx+1]    // 10.0 > 20.0 -> Falso
+    Escribir "notas[idx] > notas[idx+1] (10.0 > 20.0) es: ", esFalso
 
-    valorCalculado <- notas[idx+1] * 2 // 25.0 * 2
-    Escribir "notas[idx+1] * 2 (25.0 * 2): ", valorCalculado // Esperado: 50.0
+    condicionA <- notas[idx] = notas[3]      // 10.0 = 10.0 -> Verdadero
+    Escribir "notas[idx] = notas[3] (10.0 = 10.0) es: ", condicionA
 
-    idx <- 0
-    // Prueba con expresión más compleja en el índice
-    notas[idx + (3 - 1)] <- notas[1] + 5.5 // notas[0 + 2] = notas[2] <- 10.0 + 5.5 = 15.5
-                                           // Como notas[2] era 25.0, ahora será 15.5
-    Escribir "Después de notas[idx + (3-1)] <- notas[1] + 5.5"
-    Escribir "notas[1]: ", notas[1] // Esperado: 10.0
-    Escribir "notas[2]: ", notas[2] // Esperado: 15.5
-    Escribir "notas[3]: ", notas[3] // Esperado: 30.0
+    condicionB <- notas[1] <> notas[3]     // 10.0 <> 10.0 -> Falso
+    Escribir "notas[1] <> notas[3] (10.0 <> 10.0) es: ", condicionB
 
+    // Pruebas Lógicas
+    Escribir "--- Pruebas Lógicas ---"
+    condicionFinal <- esVerdadero Y condicionA  // Verdadero Y Verdadero -> Verdadero
+    Escribir "esVerdadero Y condicionA (V Y V) es: ", condicionFinal
+
+    condicionFinal <- esVerdadero Y esFalso     // Verdadero Y Falso -> Falso
+    Escribir "esVerdadero Y esFalso (V Y F) es: ", condicionFinal
+
+    condicionFinal <- esFalso O condicionA      // Falso O Verdadero -> Verdadero
+    Escribir "esFalso O condicionA (F O V) es: ", condicionFinal
+
+    condicionFinal <- NO esFalso               // NO Falso -> Verdadero
+    Escribir "NO esFalso es: ", condicionFinal
+
+    // Combinada más compleja
+    idx <- 2 // notas[idx] es notas[2] = 20.0
+             // notas[idx-1] es notas[1] = 10.0
+    condicionA <- (notas[idx] > 15.0) Y (notas[idx-1] < 15.0) // (20.0 > 15.0) Y (10.0 < 15.0) -> V Y V -> V
+    Escribir "(notas[idx] > 15.0) Y (notas[idx-1] < 15.0) es: ", condicionA
+
+    condicionB <- (notas[1] = 10.0) O (notas[3] < 5.0)       // (10.0 = 10.0) O (10.0 < 5.0) -> V O F -> V
+    Escribir "(notas[1] = 10.0) O (notas[3] < 5.0) es: ", condicionB
+
+    condicionFinal <- NO (condicionA Y condicionB) Y ( (notas[1]+notas[3])/2 = 10.0 ) // NO(V Y V) Y ( (10+10)/2 = 10 ) -> NO(V) Y (V) -> F Y V -> F
+    Escribir "NO(condA Y condB) Y ((notas[1]+notas[3])/2 = 10.0) es: ", condicionFinal
 FinAlgoritmo`,
     entrada_leer_f3: `Algoritmo PruebaLeerBasico
     Definir nombre Como Cadena
@@ -69,4 +89,4 @@ FinAlgoritmo`,
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Actualizado con prueba de expresiones en índice) cargado.");
+console.log("datosEjemplos.js (Actualizado con prueba de ops lógicos/relacionales en arreglos) cargado.");
