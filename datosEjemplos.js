@@ -158,7 +158,22 @@ FinAlgoritmo`,
     Escribir "Hola ", nombre, ". Ahora ingresa tu edad:"
     Leer edad
     Escribir "Gracias, ", nombre, ". Tienes ", edad, " años."
+FinAlgoritmo`,
+    prueba_error_si_sin_finsi: `Algoritmo ErrorSiSinFinSi
+    Definir x Como Entero
+    x <- 10
+    Si x > 5 Entonces
+        Escribir "x es mayor que 5"
+    // Falta FinSi aquí
+    Escribir "Esta línea no debería alcanzarse si hay error"
+FinAlgoritmo`,
+    prueba_error_finsi_huerfano: `Algoritmo ErrorFinSiHuerfano
+    Definir y Como Entero
+    y <- 20
+    Escribir "Valor de y: ", y
+    FinSi // FinSi sin un Si previo
+    Escribir "Esta línea tampoco debería alcanzarse"
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Actualizado con prueba Si-Entonces y prueba de ops lógicos/relacionales en arreglos) cargado.");
+console.log("datosEjemplos.js (Actualizado con ejemplos de error para Si-Entonces) cargado.");
