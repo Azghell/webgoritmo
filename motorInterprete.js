@@ -122,24 +122,20 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
         const lineaProcesada = limpiarComentariosYEspacios(lineaOriginalFuente);
         const lineaMinusculas = lineaProcesada.toLowerCase();
 
-        // Inicio de Lógica de Salto para Si-Entonces
+        // Inicio de Lógica de Salto para Si-Entonces (CORREGIDA)
         if (Webgoritmo.estadoApp.pilaControl.length > 0) {
             const controlActual = Webgoritmo.estadoApp.pilaControl[Webgoritmo.estadoApp.pilaControl.length - 1];
             if (controlActual.tipo === "SI" && controlActual.saltandoHastaFinSi) {
-                if (i === controlActual.indiceFinSiRelativo) { // Llegamos al FinSi que estábamos buscando
-                    Webgoritmo.estadoApp.pilaControl.pop(); // Salimos de este nivel de control Si
-                    // Continuar normalmente con la ejecución del FinSi (que no hará nada) y luego i++
-                } else if (lineaMinusculas.match(Webgoritmo.Interprete.regexFinSi) && i < controlActual.indiceFinSiRelativo) {
-                    // Podríamos verificar si es un FinSi de un Si anidado que también se está saltando,
-                    // pero escanearParaFinSi ya debería haber manejado el anidamiento correctamente.
-                    // Por ahora, si estamos saltando y no es NUESTRO FinSi, simplemente saltamos.
-                } else if (i < controlActual.indiceFinSiRelativo) {
-                     console.log(`[DEBUG Si-Salto L${numeroLineaActualGlobal}] Saltando línea: "${lineaProcesada}" (buscando FinSi en ${numeroLineaOffset + controlActual.indiceFinSiRelativo})`);
+                // Si estamos saltando Y AÚN NO HEMOS LLEGADO AL FinSi de este SI
+                if (i < controlActual.indiceFinSiRelativo) {
+                    // console.log(`[DEBUG Si-Salto L${numeroLineaActualGlobal}] Saltando línea: "${lineaProcesada}" (buscando FinSi en ${numeroLineaOffset + controlActual.indiceFinSiRelativo})`);
                     if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: [SALTANDO] ${lineaProcesada}`, 'debug-skip');
                     i++;
                     continue;
                 }
-                // Si i >= controlActual.indiceFinSiRelativo, algo podría estar mal o el FinSi se procesará normalmente.
+                // Si i === controlActual.indiceFinSiRelativo (hemos llegado al FinSi),
+                // ya no saltamos aquí. Dejamos que la línea FinSi se procese normalmente más abajo,
+                // lo que causará el pop de la pila.
             }
         }
         // Fin de Lógica de Salto
@@ -171,39 +167,28 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
 
                 Webgoritmo.estadoApp.pilaControl.push({
                     tipo: "SI",
+                    lineaSiRelativa: i, // Índice relativo de la línea Si actual
                     saltandoHastaFinSi: !resultadoCondicion, // Si la condición es Falsa, empezamos a saltar
-                    indiceFinSiRelativo: indiceFinSiRelativo,
+                    indiceFinSiRelativo: indiceFinSiRelativo
                     // indiceSinoRelativo: -1, // Para el futuro
-                    // ejecutandoBloqueEntonces: resultadoCondicion // Para el futuro manejo de Sino
                 });
-                console.log(`[DEBUG Si L${numeroLineaActualGlobal}] Condición: ${resultadoCondicion}. ${!resultadoCondicion ? "Saltando" : "Ejecutando"} hasta línea relativa ${indiceFinSiRelativo} (global ${numeroLineaOffset + indiceFinSiRelativo}). Pila:`, JSON.stringify(Webgoritmo.estadoApp.pilaControl));
+                console.log(`[DEBUG Si L${numeroLineaActualGlobal}] Condición: ${resultadoCondicion}. ${!resultadoCondicion ? "Saltando" : "Ejecutando"} hasta FinSi en línea relativa ${indiceFinSiRelativo} (global ${numeroLineaOffset + indiceFinSiRelativo}). Pila:`, JSON.stringify(Webgoritmo.estadoApp.pilaControl));
 
-                if (!resultadoCondicion) { // Si la condición es FALSA, el chequeo al inicio del próximo ciclo se encargará de saltar.
-                    // No necesitamos hacer i = indiceFinSiRelativo aquí directamente,
-                    // porque el chequeo al inicio del bucle while manejará el salto línea por línea.
-                }
+                // No se necesita acción de salto aquí; la lógica al inicio del bucle se encarga si saltandoHastaFinSi es true.
                 instruccionManejada = true;
 
-            } else if (regexFinSi.test(lineaMinusculas)) {
-                if (Webgoritmo.estadoApp.pilaControl.length > 0 &&
-                    Webgoritmo.estadoApp.pilaControl[Webgoritmo.estadoApp.pilaControl.length - 1].tipo === "SI") {
-
-                    const siContext = Webgoritmo.estadoApp.pilaControl[Webgoritmo.estadoApp.pilaControl.length - 1];
-                    if (i === siContext.indiceFinSiRelativo) {
-                        Webgoritmo.estadoApp.pilaControl.pop();
-                        console.log(`[DEBUG FinSi L${numeroLineaActualGlobal}] FinSi correspondiente encontrado y popeado. Pila:`, JSON.stringify(Webgoritmo.estadoApp.pilaControl));
+            } else if (Webgoritmo.Interprete.regexFinSi.test(lineaMinusculas)) { // Usar la regex global
+                const pila = Webgoritmo.estadoApp.pilaControl;
+                if (pila.length > 0 && pila[pila.length - 1].tipo === "SI") {
+                    const siContext = pila[pila.length - 1];
+                    if (i === siContext.indiceFinSiRelativo) { // Este FinSi corresponde al Si del tope de la pila
+                        pila.pop();
+                        console.log(`[DEBUG FinSi L${numeroLineaActualGlobal}] FinSi correspondiente al Si (L${numeroLineaOffset + siContext.lineaSiRelativa}) encontrado y popeado. Pila:`, JSON.stringify(pila));
                     } else {
-                        // Esto podría ocurrir si hay un FinSi anidado mientras se salta un bloque Si externo.
-                        // El FinSi del bloque externo será manejado cuando i llegue a él.
-                        // O es un error de FinSi desajustado si no estamos saltando.
-                         console.warn(`[DEBUG FinSi L${numeroLineaActualGlobal}] FinSi encontrado, pero i (${i}) no coincide con indiceFinSiRelativo (${siContext.indiceFinSiRelativo}) del tope de la pila. Pila:`, JSON.stringify(Webgoritmo.estadoApp.pilaControl));
-                         // Si no estábamos saltando, y este FinSi no es el esperado, es un error.
-                         if (!siContext.saltandoHastaFinSi) {
-                            throw new Error(`'FinSi' en línea ${numeroLineaActualGlobal} no corresponde con el 'Si' esperado en línea ${numeroLineaOffset + Webgoritmo.Interprete.obtenerIndiceSiOriginal(Webgoritmo.estadoApp.pilaControl)}.`);
-                         }
+                        throw new Error(`Error de estructura: 'FinSi' en línea ${numeroLineaActualGlobal} no coincide con el 'FinSi' esperado en línea ${numeroLineaOffset + siContext.indiceFinSiRelativo} para el 'Si' de la línea ${numeroLineaOffset + siContext.lineaSiRelativa}.`);
                     }
                 } else {
-                    throw new Error(`'FinSi' inesperado en línea ${numeroLineaActualGlobal} sin un 'Si' correspondiente.`);
+                    throw new Error(`'FinSi' inesperado en línea ${numeroLineaActualGlobal} sin un 'Si' correspondiente activo en la pila.`);
                 }
                 instruccionManejada = true;
 
