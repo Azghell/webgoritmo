@@ -25,21 +25,38 @@ Webgoritmo.Datos.codigosEjemplo = {
 
     Escribir "Negación de esValido: ", NO esValido // Esperado: Falso
 FinAlgoritmo`,
-    prueba_acceso_arreglos_expresion: `Algoritmo PruebaArregloIndiceVariable
+    prueba_acceso_arreglos_expresion: `Algoritmo PruebaArregloExpresionIndice
     Definir notas Como Real[3]
-
-    notas[1] <- 10.5
-    notas[2] <- 20.8
-    notas[3] <- 30.2
-
-    Escribir "notas[1] asignado como: ", notas[1]
-
     Definir idx Como Entero
-    idx <- 1
-    Escribir "Usando idx = 1, notas[idx] es: ", notas[idx] // Debe mostrar 10.5
+    Definir valorCalculado Como Real
 
-    idx <- 2
-    Escribir "Usando idx = 2, notas[idx] es: ", notas[idx] // Debe mostrar 20.8
+    // Asignar valores iniciales
+    notas[1] <- 10.0
+    notas[2] <- 20.0
+    notas[3] <- 30.0
+    idx <- 1
+
+    Escribir "Valor inicial de notas[idx+1] (notas[2]): ", notas[idx+1] // Esperado: 20.0
+
+    Escribir "Asignando 25.0 a notas[idx+1]..."
+    notas[idx+1] <- 25.0 // notas[2] ahora debería ser 25.0
+    Escribir "Nuevo valor de notas[2]: ", notas[2] // Esperado: 25.0
+
+    // idx sigue siendo 1
+    Escribir "Verificando notas[idx+1] de nuevo: ", notas[idx+1] // Esperado: 25.0
+
+    valorCalculado <- notas[idx+1] * 2 // 25.0 * 2
+    Escribir "notas[idx+1] * 2 (25.0 * 2): ", valorCalculado // Esperado: 50.0
+
+    idx <- 0
+    // Prueba con expresión más compleja en el índice
+    notas[idx + (3 - 1)] <- notas[1] + 5.5 // notas[0 + 2] = notas[2] <- 10.0 + 5.5 = 15.5
+                                           // Como notas[2] era 25.0, ahora será 15.5
+    Escribir "Después de notas[idx + (3-1)] <- notas[1] + 5.5"
+    Escribir "notas[1]: ", notas[1] // Esperado: 10.0
+    Escribir "notas[2]: ", notas[2] // Esperado: 15.5
+    Escribir "notas[3]: ", notas[3] // Esperado: 30.0
+
 FinAlgoritmo`,
     entrada_leer_f3: `Algoritmo PruebaLeerBasico
     Definir nombre Como Cadena
@@ -52,4 +69,4 @@ FinAlgoritmo`,
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Actualizado con prueba de índice variable) cargado.");
+console.log("datosEjemplos.js (Actualizado con prueba de expresiones en índice) cargado.");
