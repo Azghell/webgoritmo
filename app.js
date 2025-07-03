@@ -335,20 +335,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // Listener para el botón de cargar ejemplo
     if (Webgoritmo.DOM.btnCargarEjemplo && Webgoritmo.DOM.ejemplosSelect) {
         Webgoritmo.DOM.btnCargarEjemplo.addEventListener('click', function() {
-            if (!Webgoritmo.Editor || !Webgoritmo.Editor.editorCodigo || !Webgoritmo.Datos || !Webgoritmo.Datos.exampleCodes) {
+            if (!Webgoritmo.Editor || !Webgoritmo.Editor.editorCodigo || !Webgoritmo.Datos || !Webgoritmo.Datos.codigosEjemplo) { // CORREGIDO: exampleCodes -> codigosEjemplo
                 console.error("No se puede cargar el ejemplo: Editor o datos no disponibles.");
+                // Adicionalmente, loguear qué falta específicamente:
+                if (!Webgoritmo.Editor || !Webgoritmo.Editor.editorCodigo) console.error("Cargar Ejemplo: Editor no disponible.");
+                if (!Webgoritmo.Datos) console.error("Cargar Ejemplo: Webgoritmo.Datos no disponible.");
+                else if (!Webgoritmo.Datos.codigosEjemplo) console.error("Cargar Ejemplo: Webgoritmo.Datos.codigosEjemplo no disponible.");
                 return;
             }
             const claveSeleccionada = Webgoritmo.DOM.ejemplosSelect.value;
-            if (claveSeleccionada && Webgoritmo.Datos.exampleCodes[claveSeleccionada]) {
-                let codigoACargar = Webgoritmo.Datos.exampleCodes[claveSeleccionada];
-                // Si la estructura de exampleCodes fuera {titulo, codigo}, se accedería a .codigo
-                // codigoACargar = Webgoritmo.Datos.exampleCodes[claveSeleccionada].codigo;
+            if (claveSeleccionada && Webgoritmo.Datos.codigosEjemplo[claveSeleccionada]) { // CORREGIDO: exampleCodes -> codigosEjemplo
+                let codigoACargar = Webgoritmo.Datos.codigosEjemplo[claveSeleccionada]; // CORREGIDO: exampleCodes -> codigosEjemplo
+                // Asumiendo que la estructura es directa: clave: "código"
+                // Si fuera clave: {nombreVisible: "...", codigo: "..."} entonces sería .codigo
                 Webgoritmo.Editor.editorCodigo.setValue(codigoACargar);
                 if (Webgoritmo.DOM.consolaSalida) Webgoritmo.DOM.consolaSalida.innerHTML = ''; // Limpiar consola
-                if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`Ejemplo '${claveSeleccionada.replace(/_/g, ' ')}' cargado.`, 'normal');
+                if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) {
+                    // Intentar obtener un nombre más amigable si está disponible (como en poblarSelectorEjemplos)
+                    const nombreAmigable = Webgoritmo.DOM.ejemplosSelect.options[Webgoritmo.DOM.ejemplosSelect.selectedIndex].text;
+                    Webgoritmo.UI.añadirSalida(`Ejemplo '${nombreAmigable}' cargado.`, 'normal');
+                }
             } else if (claveSeleccionada) {
-                console.warn(`Clave de ejemplo '${claveSeleccionada}' no encontrada en Webgoritmo.Datos.exampleCodes.`);
+                console.warn(`Clave de ejemplo '${claveSeleccionada}' no encontrada en Webgoritmo.Datos.codigosEjemplo.`); // CORREGIDO: exampleCodes -> codigosEjemplo
                  if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`Error: Ejemplo '${claveSeleccionada}' no encontrado.`, 'error');
             } else {
                  if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Por favor, seleccione un ejemplo de la lista.", "warning");
