@@ -5,12 +5,12 @@ window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Datos = Webgoritmo.Datos || {};
 
 Webgoritmo.Datos.codigosEjemplo = {
-    prueba_para_simple: `Algoritmo PruebaParaSimple
-    Definir i Como Entero
-    Definir suma Como Entero
+    prueba_para_simple: `Algoritmo PruebaParaComplejo
+    Definir i, j, k, suma Como Entero
+    Definir x, y, z, p Como Entero // Para pruebas de expresiones en Para
 
+    Escribir "CASO 1: Bucle Para simple (1 a 3, paso 1)"
     suma <- 0
-    Escribir "Iniciando bucle Para de 1 a 3 (paso implícito 1)..."
     Para i <- 1 Hasta 3 Hacer
         Escribir "Iteración i: ", i
         suma <- suma + i
@@ -18,8 +18,8 @@ Webgoritmo.Datos.codigosEjemplo = {
     Escribir "Bucle (1 a 3) finalizado. Suma: ", suma // Esperado: 6
 
     Escribir "-------------------------------------"
-    Escribir "Iniciando bucle Para de 3 a 1 Con Paso -1..."
-    suma <- 0 // Reiniciar suma
+    Escribir "CASO 2: Bucle Para con paso negativo (3 a 1, paso -1)"
+    suma <- 0
     Para i <- 3 Hasta 1 Con Paso -1 Hacer
         Escribir "Iteración i: ", i
         suma <- suma + i
@@ -27,10 +27,8 @@ Webgoritmo.Datos.codigosEjemplo = {
     Escribir "Bucle (3 a 1, paso -1) finalizado. Suma: ", suma // Esperado: 6
 
     Escribir "-------------------------------------"
-    Escribir "Iniciando bucle Para que no debería ejecutarse (5 Hasta 1, paso implícito 1)..."
-    // El Para hace: i <- 5. Condición: 5 <= 1 (Falso, porque paso es positivo). No entra.
-
-    suma <- 100 // Valor para detectar si el bucle se ejecuta
+    Escribir "CASO 3: Bucle Para que no se ejecuta (5 a 1, paso 1)"
+    suma <- 100
     Para i <- 5 Hasta 1 Hacer
         Escribir "DENTRO DE BUCLE NO EJECUTADO (5 a 1) - ERROR SI APARECE"
         suma <- 999
@@ -38,14 +36,50 @@ Webgoritmo.Datos.codigosEjemplo = {
     Escribir "Bucle (5 a 1) no ejecutado finalizado. Suma: ", suma // Esperado: 100
 
     Escribir "-------------------------------------"
-    Escribir "Iniciando bucle Para que no debería ejecutarse (1 Hasta 5, paso -1)..."
-    // El Para hace: i <- 1. Condición: 1 >= 5 (Falso, porque paso es negativo). No entra.
-    suma <- 200
-    Para i <- 1 Hasta 5 Con Paso -1 Hacer
-        Escribir "DENTRO DE BUCLE NO EJECUTADO (1 a 5, paso -1) - ERROR SI APARECE"
-        suma <- 888
+    Escribir "CASO 4: Bucle Para con expresiones en límites y paso"
+    x <- 1
+    y <- 2
+    z <- 3 // paso será z-1 = 2
+    p <- 5 // fin será y+p = 2+5 = 7
+    // Bucle de x=1 hasta y+p=7 con paso z-1=2  => i = 1, 3, 5, 7
+    suma <- 0
+    Para i <- x Hasta y+p Con Paso z-1 Hacer
+        Escribir "Iteración i con expresiones: ", i
+        suma <- suma + i
     FinPara
-    Escribir "Bucle (1 a 5, paso -1) no ejecutado finalizado. Suma: ", suma // Esperado: 200
+    Escribir "Bucle con expresiones finalizado. Suma: ", suma // Esperado: 1+3+5+7 = 16
+
+    Escribir "-------------------------------------"
+    Escribir "CASO 5: Bucles Para anidados"
+    Para i <- 1 Hasta 2 Hacer
+        Escribir "  Ciclo Exterior i: ", i
+        Para j <- 1 Hasta 3 Hacer
+            Escribir "    Ciclo Interior j: ", j
+        FinPara
+        Escribir "  --- Fin ciclo interno j ---"
+    FinPara
+    Escribir "Bucles anidados finalizados."
+
+    Escribir "-------------------------------------"
+    Escribir "CASO 6: Bucle Para con Si-Entonces-Sino anidado"
+    Para k <- 1 Hasta 5 Hacer
+        Escribir "k = ", k
+        Si k MOD 2 = 0 Entonces
+            Escribir "  ", k, " es par"
+            Si k = 4 Entonces
+                Escribir "    Además, k es cuatro!"
+            Sino
+                Escribir "    k no es cuatro, pero es par."
+            FinSi
+        Sino
+            Escribir "  ", k, " es impar"
+            Si k = 1 O k = 5 Entonces
+                 Escribir "    k es uno o cinco!"
+            FinSi
+        FinSi
+        Escribir "  ---"
+    FinPara
+    Escribir "Bucle Para con Si-Entonces-Sino anidado finalizado."
 
 FinAlgoritmo`,
     prueba_si_entonces_simple: `Algoritmo PruebaSiEntoncesSinoCompleto
@@ -263,4 +297,4 @@ FinAlgoritmo`,
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Actualizado con prueba Para y otros) cargado.");
+console.log("datosEjemplos.js (Actualizado con prueba Para complejo y otros) cargado.");
