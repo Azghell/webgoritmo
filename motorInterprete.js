@@ -1,701 +1,361 @@
-// motorInterprete.js
-// Contiene el núcleo del intérprete: utilidades de tipo/conversión,
-// manejadores de instrucciones MVP, y motor de ejecución básico.
+// motorInterprete.js (Revertido a post Si-Entonces-Sino y Para Fase 1)
 
 window.Webgoritmo = window.Webgoritmo || {};
-Webgoritmo.Interprete = Webgoritmo.Interprete || {};
+Webgoritmo.Interprete = {};
 
-// --- FUNCIONES DE UTILIDAD DEL INTÉRPRETE ---
-Webgoritmo.Interprete.obtenerValorPorDefecto = function(tipo) {
-    const tipoLower = String(tipo).toLowerCase();
-    switch (tipoLower) {
-        case 'entero': return 0;
-        case 'real': return 0.0;
-        case 'logico': return false;
-        case 'caracter': return '';
-        case 'cadena': return '';
-        default:
-            console.warn(`Tipo '${tipo}' no reconocido en obtenerValorPorDefecto. Usando null.`);
-            return null;
-    }
-};
-Webgoritmo.Interprete.inferirTipo = function(valor) {
-    if (typeof valor === 'number') return Number.isInteger(valor) ? 'Entero' : 'Real';
-    if (typeof valor === 'boolean') return 'Logico';
-    if (typeof valor === 'string') return 'Cadena';
-    return 'Desconocido';
-};
-Webgoritmo.Interprete.convertirValorParaAsignacion = function(valor, tipoDestino) {
-    const tipoDestinoLower = String(tipoDestino).toLowerCase();
-    const tipoOrigen = Webgoritmo.Interprete.inferirTipo(valor).toLowerCase();
-    if (tipoOrigen === tipoDestinoLower) return valor;
-    if (tipoDestinoLower === 'real' && tipoOrigen === 'entero') return valor;
-    if (typeof valor === 'string') {
-        switch (tipoDestinoLower) {
-            case 'entero':
-                const intVal = parseInt(valor);
-                if (isNaN(intVal) || String(intVal) !== valor.trim()) throw new Error(`La cadena '${valor}' no es un entero válido.`);
-                return intVal;
-            case 'real':
-                const floatVal = parseFloat(valor);
-                if (isNaN(floatVal)) throw new Error(`La cadena '${valor}' no es un número real válido.`);
-                return floatVal;
-            case 'logico':
-                const lowerVal = valor.toLowerCase();
-                if (lowerVal === 'verdadero') return true;
-                if (lowerVal === 'falso') return false;
-                throw new Error(`La cadena '${valor}' no es un valor lógico válido ('Verdadero' o 'Falso').`);
-            case 'caracter': return valor.length > 0 ? valor.charAt(0) : '';
-            case 'cadena': return valor;
-        }
-    } else if (typeof valor === 'number') {
-        if (tipoDestinoLower === 'entero') return Math.trunc(valor);
-        if (tipoDestinoLower === 'cadena') return String(valor);
-        if (tipoDestinoLower === 'caracter') return String(valor).charAt(0) || '';
-    } else if (typeof valor === 'boolean') {
-        if (tipoDestinoLower === 'cadena') return valor ? 'Verdadero' : 'Falso';
-        if (tipoDestinoLower === 'entero') return valor ? 1 : 0;
-        if (tipoDestinoLower === 'real') return valor ? 1.0 : 0.0;
-    }
-    throw new Error(`Incompatibilidad de tipo: no se puede convertir ${tipoOrigen} a ${tipoDestinoLower}.`);
-};
+function limpiarComentariosYEspacios(linea) { if (typeof linea !== 'string') return ""; let l = linea; const i = l.indexOf('//'); if (i !== -1) l = l.substring(0, i); return l.trim(); }
+function limpiarComentariosYEspaciosInternos(texto) { if (typeof texto !== 'string') return ""; let l = texto; const i = l.indexOf('//'); if (i !== -1) l = l.substring(0, i); return l.trim(); }
 
-// --- MANEJADORES DE INSTRUCCIONES ---
-Webgoritmo.Interprete.handleDefinir = function(linea, ambitoActual, numLineaOriginal) { /* ... (código como antes) ... */
-    const coincidenciaDefinir = linea.match(/^Definir\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\s*,\s*[a-zA-Z_][a-zA-Z0-9_]*)*)\s+Como\s+(Entero|Real|Logico|Caracter|Cadena)/i);
-    if (coincidenciaDefinir) {
-        const nombresVariables = coincidenciaDefinir[1].split(',').map(s => s.trim());
-        const tipoVariable = coincidenciaDefinir[2];
-        nombresVariables.forEach(nombre => {
-            if (ambitoActual.hasOwnProperty(nombre)) {
-                if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[ADVERTENCIA en línea ${numLineaOriginal}]: La variable '${nombre}' ya está definida. Sobrescribiendo.`, 'warning');
-            }
-            ambitoActual[nombre] = { value: Webgoritmo.Interprete.obtenerValorPorDefecto(tipoVariable), type: tipoVariable };
-        });
-        return true;
-    }
-    return false;
+Webgoritmo.Interprete.Utilidades = {
+    PALABRAS_RESERVADAS: new Set([
+        "PROCESO", "FINPROCESO", "ALGORITMO", "FINALGORITMO",
+        "DEFINIR", "COMO", "LEER", "ESCRIBIR", "IMPRIMIR", "MOSTRAR",
+        "SI", "ENTONCES", "SINO", "FINSI",
+        "MIENTRAS", "HACER", "FINMIENTRAS",
+        "PARA", "HASTA", "CON", "PASO", "FINPARA",
+        "SEGUN", "DE", "OTRO", "MODO", "FINSEGUN",
+        "FUNCION", "FINFUNCION", "SUBPROCESO", "FINSUBPROCESO",
+        "Y", "O", "NO", "MOD",
+        "VERDADERO", "FALSO",
+        "ENTERO", "REAL", "LOGICO", "CARACTER", "CADENA", "NUMERO", "TEXTO"
+    ])
 };
-Webgoritmo.Interprete.handleAsignacion = function(linea, ambitoActual, numLineaOriginal) { /* ... (código como antes, adaptado para arreglos si es necesario) ... */
-    const coincidenciaAsignacion = linea.match(/^([a-zA-Z_][a-zA-Z0-9_]*(?:\[.+?\])?)\s*<-\s*(.*)/);
-    if (coincidenciaAsignacion) {
-        const destinoCompleto = coincidenciaAsignacion[1];
-        const expresion = coincidenciaAsignacion[2].trim();
-        let nombreVarAcceso = destinoCompleto;
-        let esAccesoArreglo = false;
-        let indicesExpr = [];
-        const coincidenciaAccesoArreglo = destinoCompleto.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[\s*(.+?)\s*\]$/);
-        if (coincidenciaAccesoArreglo) {
-            nombreVarAcceso = coincidenciaAccesoArreglo[1];
-            esAccesoArreglo = true;
-            indicesExpr = coincidenciaAccesoArreglo[2].split(',').map(e => e.trim());
-        }
-        if (!ambitoActual.hasOwnProperty(nombreVarAcceso)) {
-            throw new Error(`Variable '${nombreVarAcceso}' no ha sido definida (en línea ${numLineaOriginal}).`);
-        }
-        let valorEvaluado = Webgoritmo.Expresiones.evaluarExpresion(expresion, ambitoActual);
-        const varMeta = ambitoActual[nombreVarAcceso];
-        if (esAccesoArreglo) {
-            if (!varMeta || varMeta.type !== 'array') throw new Error(`'${nombreVarAcceso}' no es un arreglo.`);
-            if (!varMeta.dimensions || indicesExpr.length !== varMeta.dimensions.length) throw new Error(`Dimensiones incorrectas para '${nombreVarAcceso}'.`);
-            const indicesValue = [];
-            for(let k=0; k < indicesExpr.length; k++) {
-                let idxVal = Webgoritmo.Expresiones.evaluarExpresion(indicesExpr[k], ambitoActual);
-                if (typeof idxVal !== 'number' || !Number.isInteger(idxVal) || idxVal <= 0 || idxVal > varMeta.dimensions[k]) {
-                    throw new Error(`Índice inválido en dimensión ${k+1} para '${nombreVarAcceso}'.`);
-                }
-                indicesValue.push(idxVal);
+Webgoritmo.Interprete.Utilidades.obtenerValorPorDefectoSegunTipo = function(tipo) { const t = String(tipo).toLowerCase(); switch(t){case 'entero':return 0;case 'real':return 0.0;case 'logico':return false;case 'caracter':return '';case 'cadena':return '';default:return null;}};
+Webgoritmo.Interprete.Utilidades.crearDescriptorVariable = function(nom,tipoD,valIni){const tipoN=String(tipoD).toLowerCase();return{nombreOriginal:nom,tipoDeclarado:tipoN,valor:valIni,esArreglo: (tipoD.includes('[') && tipoD.includes(']')),dimensiones:[]};};
+Webgoritmo.Interprete.Utilidades.inferirTipoDesdeValor = function(v){if(typeof v==='number')return Number.isInteger(v)?'entero':'real';if(typeof v==='boolean')return 'logico';if(typeof v==='string')return 'cadena';return 'desconocido';};
+Webgoritmo.Interprete.Utilidades.convertirValorParaTipo = function(val,tipoDest,numLn){const tipoDestN=String(tipoDest).toLowerCase();const tipoOriN=Webgoritmo.Interprete.Utilidades.inferirTipoDesdeValor(val);if(tipoOriN===tipoDestN)return val;if(tipoDestN==='real'&&tipoOriN==='entero')return parseFloat(val);if(tipoDestN==='cadena')return String(val);if(tipoDestN==='entero'){if(tipoOriN==='real')return Math.trunc(val);if(tipoOriN==='cadena'){const n=parseInt(val,10);if(!isNaN(n)&&String(n)===String(val).trim())return n;}}if(tipoDestN==='real'){if(tipoOriN==='cadena'){const n=parseFloat(val);if(!isNaN(n)&&String(n)===String(val).trim().replace(/^0+([1-9])/,'$1').replace(/^0+\.0+$/,'0'))return n;}}if(tipoDestN==='logico'&&tipoOriN==='cadena'){const valL=String(val).trim().toLowerCase();if(valL==="verdadero"||valL==="v")return true;if(valL==="falso"||valL==="f")return false;}throw new Error(`L${numLn}: No se puede convertir '${val}' (${tipoOriN}) a '${tipoDestN}'.`);};
+Webgoritmo.Interprete.Utilidades.inicializarArregloConDescriptor = function(dims,baseT){const defV=this.obtenerValorPorDefectoSegunTipo(baseT);function cD(dI){const dS=dims[dI];if(typeof dS!=='number'||!Number.isInteger(dS)||dS<=0)throw new Error("Dim inválida.");let arr=new Array(dS+1);if(dI===dims.length-1){for(let i=1;i<=dS;i++)arr[i]=defV;}else{for(let i=1;i<=dS;i++)arr[i]=cD(dI+1);}return arr;}if(!dims||dims.length===0)throw new Error("No dims.");return cD(0);};
+Webgoritmo.Interprete.Utilidades.obtenerValorRealVariable = function(nombreVariable, ambitoActual, numeroLinea) { const nombreVarLc = String(nombreVariable).toLowerCase(); if (!ambitoActual.hasOwnProperty(nombreVarLc)) { throw new Error(`Error en línea ${numeroLinea}: Variable '${nombreVariable}' no definida.`); } const descriptor = ambitoActual[nombreVarLc]; if (descriptor.esArreglo && !(Webgoritmo.Expresiones && Webgoritmo.Expresiones.permitirArregloComoOperandoGlobal)) { return descriptor;} return descriptor.valor; };
+
+Webgoritmo.Interprete.procesarSalidaConsola = async function(linea,ambito,numLn){const rgx= /^(?:escribir|imprimir|mostrar)\s+(.*)/i;const m=linea.match(rgx);if(!m||!m[1])throw new Error("Escribir mal formado.");const argsTxt=limpiarComentariosYEspaciosInternos(m[1]);if(argsTxt===""&&linea.match(rgx)[0].trim()!==m[0].split(" ")[0])return true; if(argsTxt==="")throw new Error(`'${m[0].split(" ")[0]}' sin args L${numLn}.`);const exprs=[];let buff="";let inQ=false;let qT='';for(let i=0;i<argsTxt.length;i++){const ch=argsTxt[i]; if((ch==='"'||ch==="'")&&(i===0||argsTxt[i-1]!=='\\')){if(!inQ){inQ=true;qT=ch;buff+=ch;}else if(ch===qT){inQ=false;buff+=ch;}else{buff+=ch;}}else if(ch===','&&!inQ){exprs.push(buff.trim());buff="";}else{buff+=ch;}}if(buff.trim()!=="")exprs.push(buff.trim());let outF="";for(const exT of exprs){if(exT==="")continue; const evalPart=await Webgoritmo.Expresiones.evaluarExpresion(exT,ambito,numLn); outF+=typeof evalPart==='boolean'?(evalPart?'Verdadero':'Falso'):(evalPart===null?'nulo':String(evalPart));} if(Webgoritmo.UI.añadirSalida)Webgoritmo.UI.añadirSalida(outF,'normal'); return true;};
+Webgoritmo.Interprete.procesarDefinicion = async function(linea,ambitoEjecucion,numLn){
+    console.log(`[DEBUG procesarDefinicion L${numLn}] Entrando con línea: "${linea}"`);
+    const regexDefinirArreglo = /definir\s+(.+?)\s+como\s+(entero|real|logico|caracter|cadena)\s*\[\s*(.+?)\s*\]/i;
+    const regexDefinirSimple = /definir\s+(.+?)\s+como\s+(entero|real|logico|caracter|cadena)/i;
+    let coincidencia; let esDefinicionArreglo = false;
+    coincidencia = linea.match(regexDefinirArreglo);
+    if (coincidencia) { esDefinicionArreglo = true; } else { coincidencia = linea.match(regexDefinirSimple); }
+    if (!coincidencia || coincidencia.length < 3) { throw new Error(`Sintaxis incorrecta 'Definir' L${numLn}. Recibido: "${linea}"`); }
+    const nombresVariables = coincidencia[1].split(',').map(nombre => nombre.trim());
+    const tipoVariable = coincidencia[2].toLowerCase();
+    for (const nombreVar of nombresVariables) {
+        if (nombreVar === "") throw new Error(`Nombre de variable no puede ser vacío en línea ${numLn}.`);
+        if (!/^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*$/.test(nombreVar)) throw new Error(`Nombre de variable inválido: '${nombreVar}' en línea ${numLn}.`);
+        if (Webgoritmo.Interprete.Utilidades.PALABRAS_RESERVADAS.has(nombreVar.toUpperCase())) throw new Error(`Error en línea ${numLn}: El nombre de variable '${nombreVar}' es una palabra reservada.`);
+        const nombreVarLc = nombreVar.toLowerCase();
+        if (ambitoEjecucion.hasOwnProperty(nombreVarLc)) if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`Advertencia L${numLn}: Var '${nombreVar}' redefinida.`,'warning');
+        if (esDefinicionArreglo) {
+            const dimsStrLimpio = limpiarComentariosYEspaciosInternos(coincidencia[3]);
+            if (dimsStrLimpio === "") throw new Error(`Dimensión vacía para arreglo '${nombreVar}' L${numLn}.`);
+            const dimExprs = dimsStrLimpio.split(',').map(s => s.trim()); const evalDimensiones = [];
+            for (const expr of dimExprs) {
+                if (expr === "") throw new Error(`Dimensión vacía (post-coma) para arreglo '${nombreVar}' L${numLn}.`);
+                let dimVal = await Webgoritmo.Expresiones.evaluarExpresion(expr, ambitoEjecucion, numLn);
+                if (typeof dimVal !== 'number' || !Number.isInteger(dimVal) || dimVal <= 0) throw new Error(`Dimensiones deben ser enteros >0. Error en '${expr}'->${dimVal} para '${nombreVar}' L${numLn}.`);
+                evalDimensiones.push(dimVal);
             }
-            let subArreglo = varMeta.value;
-            for (let k = 0; k < indicesValue.length - 1; k++) subArreglo = subArreglo[indicesValue[k]];
-            let tipoEsperado = varMeta.baseType;
-            if (tipoEsperado === 'desconocido') {
-                tipoEsperado = Webgoritmo.Interprete.inferirTipo(valorEvaluado).toLowerCase();
-                if (tipoEsperado === 'desconocido' && valorEvaluado !== null) throw new Error(`Tipo desconocido para inferir tipo base de '${nombreVarAcceso}'.`);
-                varMeta.baseType = tipoEsperado;
-            }
-            subArreglo[indicesValue[indicesValue.length - 1]] = Webgoritmo.Interprete.convertirValorParaAsignacion(valorEvaluado, tipoEsperado);
+            const descriptor = Webgoritmo.Interprete.Utilidades.crearDescriptorVariable(nombreVar, tipoVariable, null);
+            descriptor.esArreglo = true; descriptor.dimensiones = evalDimensiones; descriptor.valor = Webgoritmo.Interprete.Utilidades.inicializarArregloConDescriptor(evalDimensiones, tipoVariable); descriptor.tipoDeclarado = tipoVariable;
+            ambitoEjecucion[nombreVarLc] = descriptor;
+            if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numLn}: Arreglo '${nombreVar}' (${tipoVariable}[${evalDimensiones.join(',')}]) definido.`, 'debug');
         } else {
-            if (!varMeta) throw new Error(`Metadatos no encontrados para '${nombreVarAcceso}'.`);
-            varMeta.value = Webgoritmo.Interprete.convertirValorParaAsignacion(valorEvaluado, varMeta.type);
+            const valorPorDefecto = Webgoritmo.Interprete.Utilidades.obtenerValorPorDefectoSegunTipo(tipoVariable);
+            ambitoEjecucion[nombreVarLc] = Webgoritmo.Interprete.Utilidades.crearDescriptorVariable(nombreVar, tipoVariable, valorPorDefecto);
+            if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numLn}: Variable '${nombreVar}' (${tipoVariable}) definida.`, 'debug');
         }
-        return true;
-    }
-    return false;
+    } return true;
 };
-Webgoritmo.Interprete.handleEscribir = function(linea, ambitoActual, numLineaOriginal) {
-    const regexEscribir = /^(Escribir|Imprimir|Mostrar)\s+(.*)/i;
-    const coincidenciaEscribir = linea.match(regexEscribir);
+Webgoritmo.Interprete.procesarAsignacion = async function(linea,ambito,numLn){ const regexAsignacion = /^\s*([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?)\s*(?:<-|=)\s*(.+)\s*$/; const m=linea.match(regexAsignacion); if(!m)throw new Error("Sintaxis asignación incorrecta L"+numLn); const destStr=m[1].trim(); const exprStrCruda=m[2]; const exprAEval=limpiarComentariosYEspaciosInternos(exprStrCruda); if(exprAEval==="")throw new Error(`Expresión vacía L${numLn}.`); const valEval=await Webgoritmo.Expresiones.evaluarExpresion(exprAEval,ambito,numLn); const accArrMatch=destStr.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*\[\s*(.+?)\s*\]$/); if(accArrMatch){const arrNom=accArrMatch[1]; const idxTxt=limpiarComentariosYEspaciosInternos(accArrMatch[2]); const arrNomLc=arrNom.toLowerCase(); if(!ambito.hasOwnProperty(arrNomLc)||!ambito[arrNomLc].esArreglo)throw new Error(`Arreglo '${arrNom}' no def L${numLn}.`); const descArr=ambito[arrNomLc]; const exprIdxs=idxTxt.split(',').map(s=>s.trim()); if(exprIdxs.some(s=>s===""))throw new Error(`Índice vacío L${numLn}.`); if(exprIdxs.length!==descArr.dimensiones.length)throw new Error(`Dims incorrectas L${numLn}.`); const evalIdxs=[]; for(const exIdx of exprIdxs){const vIdx=await Webgoritmo.Expresiones.evaluarExpresion(exIdx,ambito,numLn); if(typeof vIdx!=='number'||!Number.isInteger(vIdx))throw new Error(`Índice para '${arrNom}' debe ser entero. Obt: '${vIdx}' de '${exIdx}' L${numLn}.`); if(vIdx<=0||vIdx>descArr.dimensiones[evalIdxs.length])throw new Error(`Índice [${vIdx}] fuera de límites L${numLn}.`); evalIdxs.push(vIdx);} let target=descArr.valor; for(let k=0;k<evalIdxs.length-1;k++)target=target[evalIdxs[k]]; const valConvElem=Webgoritmo.Interprete.Utilidades.convertirValorParaTipo(valEval,descArr.tipoDeclarado,numLn); target[evalIdxs[evalIdxs.length-1]]=valConvElem; if(Webgoritmo.UI.añadirSalida)Webgoritmo.UI.añadirSalida(`L${numLn}: Arreglo '${descArr.nombreOriginal}'[${evalIdxs.join(',')}] <- ${valConvElem}`,'debug');} else {const varNomLc=destStr.toLowerCase(); if(!ambito.hasOwnProperty(varNomLc))throw new Error(`Var '${destStr}' no def L${numLn}.`); const descVar=ambito[varNomLc]; if(descVar.esArreglo)throw new Error(`Asignar a arreglo completo no permitido L${numLn}.`); try{descVar.valor=Webgoritmo.Interprete.Utilidades.convertirValorParaTipo(valEval,descVar.tipoDeclarado,numLn);if(Webgoritmo.UI.añadirSalida)Webgoritmo.UI.añadirSalida(`L${numLn}: Var '${descVar.nombreOriginal}' <- ${descVar.valor}`,'debug');}catch(e){throw e;}} return true;};
+Webgoritmo.Interprete.procesarEntradaUsuario = async function(linea,ambito,numLn){ const matchLeer=linea.match(/^leer\s+(.+)/i); if(!matchLeer)throw new Error("Error interno Leer L"+numLn); const nomsOrigRaw=limpiarComentariosYEspaciosInternos(matchLeer[1]); const nomsPrompt=nomsOrigRaw.split(',').map(v=>v.trim()); const nomsDest=nomsPrompt.map(n=>n.toLowerCase()); if(nomsDest.length===0||nomsDest.some(v=>v===""))throw new Error("Leer sin vars L"+numLn); for(const nomLc of nomsDest){const nomP=nomsPrompt.find(n=>n.toLowerCase()===nomLc)||nomLc; if(!/^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*$/.test(nomLc))throw new Error(`Var '${nomP}' inválida L${numLn}.`); if(!ambito.hasOwnProperty(nomLc))throw new Error(`Var '${nomP}' no def L${numLn}.`); if(ambito[nomLc].esArreglo)throw new Error(`Leer arreglo completo no soportado L${numLn}.`);} let pMsg=nomsPrompt.length===1?`Ingrese valor para ${nomsPrompt[0]}:`:`Ingrese ${nomsPrompt.length} valores (separados por espacio/coma) para ${nomsPrompt.join(', ')}:`; if(window.WebgoritmoGlobal&&typeof window.WebgoritmoGlobal.solicitarEntradaUsuario==='function')window.WebgoritmoGlobal.solicitarEntradaUsuario(pMsg); else {console.error("solicitarEntradaUsuario no disponible");} Webgoritmo.estadoApp.esperandoEntradaUsuario=true; Webgoritmo.estadoApp.variablesDestinoEntrada=nomsDest; Webgoritmo.estadoApp.nombresOriginalesParaPrompt=nomsPrompt; Webgoritmo.estadoApp.promesaEntradaPendiente=new Promise(resolve=>{Webgoritmo.estadoApp.resolverPromesaEntrada=resolve; if(Webgoritmo.estadoApp.detenerEjecucion)resolve();}); await Webgoritmo.estadoApp.promesaEntradaPendiente; Webgoritmo.estadoApp.promesaEntradaPendiente=null; Webgoritmo.estadoApp.esperandoEntradaUsuario=false; if(Webgoritmo.estadoApp.detenerEjecucion&&Webgoritmo.estadoApp.errorEnEjecucion)throw new Error(Webgoritmo.estadoApp.errorEnEjecucion); return true;};
 
-    console.log(`HANDLEESCRIBIR DEBUG: Recibida línea: "${linea}". Coincidencia con regexEscribir: `, coincidenciaEscribir);
+Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal = async function() {
+    console.log("[motorInterprete DEBUG] Entrando a ejecutarAlgoritmoPrincipal.");
+    if (!Webgoritmo.UI || !Webgoritmo.UI.añadirSalida) { console.error("[motorInterprete DEBUG] UI.añadirSalida no disponible."); return; }
+    if (!Webgoritmo.Editor || !Webgoritmo.Editor.editorCodigo) { Webgoritmo.UI.añadirSalida("Error crítico: Editor no inicializado.", "error"); return; }
+    if (!Webgoritmo.estadoApp) { Webgoritmo.UI.añadirSalida("Error crítico: Estado de la aplicación no disponible.", "error"); return; }
+    if (!Webgoritmo.Expresiones || !Webgoritmo.Expresiones.evaluarExpresion) { Webgoritmo.UI.añadirSalida("Error crítico: Evaluador de expresiones no disponible.", "error"); return; }
 
-    if (coincidenciaEscribir) {
-        const cadenaArgs = coincidenciaEscribir[2];
-        console.log(`HANDLEESCRIBIR DEBUG: cadenaArgs extraída: "${cadenaArgs}"`);
+    if (Webgoritmo.DOM && Webgoritmo.DOM.consolaSalida) Webgoritmo.DOM.consolaSalida.innerHTML = '';
+    Webgoritmo.UI.añadirSalida("--- Iniciando ejecución ---", "normal");
 
-        // Intento de split más robusto para argumentos de Escribir, considerando comas dentro de strings
-        const args = [];
-        let buffer = "";
-        let dentroDeComillasDobles = false;
-        let dentroDeComillasSimples = false;
+    Webgoritmo.estadoApp.variablesGlobales = {}; Webgoritmo.estadoApp.funcionesDefinidas = {}; Webgoritmo.estadoApp.detenerEjecucion = false; Webgoritmo.estadoApp.errorEnEjecucion = null; Webgoritmo.estadoApp.esperandoEntradaUsuario = false; Webgoritmo.estadoApp.variablesDestinoEntrada = []; Webgoritmo.estadoApp.nombresOriginalesParaPrompt = []; Webgoritmo.estadoApp.promesaEntradaPendiente = null; Webgoritmo.estadoApp.resolverPromesaEntrada = null; Webgoritmo.estadoApp.pilaLlamadasSubprocesos = [];
+    Webgoritmo.estadoApp.pilaControl = [];
 
-        for (let i = 0; i < cadenaArgs.length; i++) {
-            const char = cadenaArgs[i];
-            if (char === '"' && (i === 0 || cadenaArgs[i-1] !== '\\')) {
-                dentroDeComillasDobles = !dentroDeComillasDobles;
-            } else if (char === "'" && (i === 0 || cadenaArgs[i-1] !== '\\')) {
-                dentroDeComillasSimples = !dentroDeComillasSimples;
+    const todasLasLineas = Webgoritmo.Editor.editorCodigo.getValue().split('\n');
+    let lineasAlgoritmoPrincipal = []; let dentroBloquePrincipal = false; let numeroLineaInicioBloque = -1;
+
+    for (let i = 0; i < todasLasLineas.length; i++) {
+        const lineaOriginal = todasLasLineas[i];
+        const lineaProcesada = limpiarComentariosYEspacios(lineaOriginal);
+        const lineaMinusculas = lineaProcesada.toLowerCase();
+        if (lineaMinusculas.startsWith("algoritmo") || lineaMinusculas.startsWith("proceso")) {
+            if (dentroBloquePrincipal) { Webgoritmo.estadoApp.errorEnEjecucion = `Error L${i + 1}: No anidar Algoritmo/Proceso.`; break; }
+            dentroBloquePrincipal = true; numeroLineaInicioBloque = i;
+        } else if (lineaMinusculas.startsWith("finalgoritmo") || lineaMinusculas.startsWith("finproceso")) {
+            if (!dentroBloquePrincipal) { Webgoritmo.estadoApp.errorEnEjecucion = `Error L${i + 1}: Fin inesperado.`; }
+            dentroBloquePrincipal = false; break;
+        } else if (dentroBloquePrincipal) {
+            lineasAlgoritmoPrincipal.push(lineaOriginal);
+        } else if (lineaProcesada !== "") {
+            Webgoritmo.estadoApp.errorEnEjecucion = `Error L${i + 1}: Instrucción '${lineaProcesada}' fuera de bloque.`; break;
+        }
+    }
+    if (numeroLineaInicioBloque === -1 && !Webgoritmo.estadoApp.errorEnEjecucion && todasLasLineas.some(l => limpiarComentariosYEspacios(l) !== "")) {
+        Webgoritmo.estadoApp.errorEnEjecucion = "No se encontró bloque 'Algoritmo' o 'Proceso'.";
+    } else if (dentroBloquePrincipal && !Webgoritmo.estadoApp.errorEnEjecucion) {
+        Webgoritmo.estadoApp.errorEnEjecucion = `Bloque Algoritmo/Proceso (iniciado en línea ${numeroLineaInicioBloque + 1}) no fue cerrado.`;
+    }
+
+    if (Webgoritmo.estadoApp.errorEnEjecucion) {
+        Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEnEjecucion, "error");
+        Webgoritmo.UI.añadirSalida("--- Ejecución con errores de estructura ---", "error");
+    } else if (lineasAlgoritmoPrincipal.length > 0) {
+        await Webgoritmo.Interprete.ejecutarBloqueCodigo(lineasAlgoritmoPrincipal, Webgoritmo.estadoApp.variablesGlobales, numeroLineaInicioBloque + 1);
+    } else if (numeroLineaInicioBloque !== -1) {
+        Webgoritmo.UI.añadirSalida("Advertencia: Bloque principal del algoritmo está vacío.", "warning");
+    } else {
+         Webgoritmo.UI.añadirSalida("No hay código para ejecutar.", "normal");
+    }
+
+    if (!Webgoritmo.estadoApp.errorEnEjecucion && !Webgoritmo.estadoApp.esperandoEntradaUsuario) {
+        Webgoritmo.UI.añadirSalida("--- Ejecución finalizada ---", "normal");
+    } else if (Webgoritmo.estadoApp.errorEnEjecucion && !Webgoritmo.estadoApp.esperandoEntradaUsuario) {
+        Webgoritmo.UI.añadirSalida("--- Ejecución con errores ---", "error");
+    }
+};
+
+Webgoritmo.Interprete.regexSiEntonces = /^\s*si\s+(.+?)\s+entonces\s*$/i;
+Webgoritmo.Interprete.regexSino = /^\s*sino\s*$/i;
+Webgoritmo.Interprete.regexFinSi = /^\s*finsi\s*$/i;
+Webgoritmo.Interprete.regexParaHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+hacer\s*$/i;
+Webgoritmo.Interprete.regexParaConPasoHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+con\s+paso\s+(.+?)\s+hacer\s*$/i;
+Webgoritmo.Interprete.regexFinPara = /^\s*finpara\s*$/i;
+
+Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) {
+    let nivelAnidamiento = 0; let indiceSinoEncontrado = -1; let indiceFinSiEncontrado = -1;
+    for (let j = indiceSiRelativoActual + 1; j < lineasDelBloque.length; j++) {
+        const lineaActual = limpiarComentariosYEspacios(lineasDelBloque[j]).toLowerCase();
+        if (Webgoritmo.Interprete.regexSiEntonces.test(lineaActual)) nivelAnidamiento++;
+        else if (Webgoritmo.Interprete.regexSino.test(lineaActual)) { if (nivelAnidamiento === 0) { if (indiceSinoEncontrado !== -1) throw new Error(`Múltiples 'Sino' L${numeroLineaGlobalSi}.`); indiceSinoEncontrado = j; }}
+        else if (Webgoritmo.Interprete.regexFinSi.test(lineaActual)) { if (nivelAnidamiento === 0) { indiceFinSiEncontrado = j; break; } else nivelAnidamiento--; }
+    }
+    if (indiceFinSiEncontrado === -1) throw new Error(`'Si' L${numeroLineaGlobalSi} sin 'FinSi'.`);
+    if (indiceSinoEncontrado !== -1 && indiceSinoEncontrado >= indiceFinSiEncontrado) throw new Error(`'Sino' L${numeroLineaGlobalSi - indiceSiRelativoActual + indiceSinoEncontrado} después de 'FinSi' L${numeroLineaGlobalSi - indiceSiRelativoActual + indiceFinSiEncontrado}.`);
+    return { indiceSinoRelativo: indiceSinoEncontrado, indiceFinSiRelativo: indiceFinSiEncontrado };
+};
+
+Webgoritmo.Interprete.escanearParaFinPara = function(lineasDelBloque, indiceParaRelativoActual, numeroLineaGlobalPara) {
+    let nivelAnidamiento = 0;
+    for (let j = indiceParaRelativoActual + 1; j < lineasDelBloque.length; j++) {
+        const lineaActual = limpiarComentariosYEspacios(lineasDelBloque[j]).toLowerCase();
+        if (Webgoritmo.Interprete.regexParaHacer.test(lineaActual) || Webgoritmo.Interprete.regexParaConPasoHacer.test(lineaActual)) nivelAnidamiento++;
+        else if (Webgoritmo.Interprete.regexFinPara.test(lineaActual)) { if (nivelAnidamiento === 0) return j; else nivelAnidamiento--; }
+    }
+    throw new Error(`'Para' L${numeroLineaGlobalPara} sin 'FinPara'.`);
+};
+
+Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, ambitoEjecucion, numeroLineaOffset) {
+    console.log(`[motorInterprete DEBUG] Entrando a ejecutarBloqueCodigo con ${lineasDelBloque ? lineasDelBloque.length : 'N/A'} líneas. Offset: ${numeroLineaOffset}`);
+    if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`ejecutarBloqueCodigo procesando ${lineasDelBloque.length} líneas. Offset: ${numeroLineaOffset}`, 'debug');
+
+    let i = 0;
+    while (i < lineasDelBloque.length) {
+        if (Webgoritmo.estadoApp.detenerEjecucion) break;
+
+        const lineaOriginalFuente = lineasDelBloque[i];
+        const numeroLineaActualGlobal = numeroLineaOffset + i;
+        Webgoritmo.estadoApp.lineaEnEjecucion = { numero: numeroLineaActualGlobal, contenidoOriginal: lineaOriginalFuente };
+        const lineaProcesada = limpiarComentariosYEspacios(lineaOriginalFuente);
+        const lineaMinusculas = lineaProcesada.toLowerCase();
+
+        if (Webgoritmo.estadoApp.pilaControl.length > 0) {
+            const controlActual = Webgoritmo.estadoApp.pilaControl[Webgoritmo.estadoApp.pilaControl.length - 1];
+            let debeSaltarEstePaso = false;
+            if (controlActual.tipo === "SI") {
+                if (!controlActual.condicionOriginalFueVerdadera && !controlActual.seHaProcesadoElSino) {
+                    const destino = controlActual.indiceSinoRelativo !== -1 ? controlActual.indiceSinoRelativo : controlActual.indiceFinSiRelativo;
+                    if (i < destino) debeSaltarEstePaso = true;
+                } else if (controlActual.condicionOriginalFueVerdadera && controlActual.seHaProcesadoElSino) {
+                    if (i < controlActual.indiceFinSiRelativo) debeSaltarEstePaso = true;
+                }
+            } else if (controlActual.tipo === "PARA") {
+                if (controlActual.saltarBloquePara && i < controlActual.indiceFinParaRelativo) debeSaltarEstePaso = true;
             }
 
-            if (char === ',' && !dentroDeComillasDobles && !dentroDeComillasSimples) {
-                args.push(buffer.trim());
-                buffer = "";
-            } else {
-                buffer += char;
+            if (debeSaltarEstePaso) {
+                if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: [SALTANDO] ${lineaProcesada}`, 'debug-skip');
+                i++; continue;
             }
         }
-        args.push(buffer.trim()); // Añadir el último argumento
-        console.log(`HANDLEESCRIBIR DEBUG: Args parseados: `, args);
 
+        if (lineaProcesada === "") { i++; continue; }
+        if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: ${lineaProcesada}`, 'debug');
 
-        let partesMensajeSalida = [];
-        for (const arg of args) {
-            const parteEvaluada = Webgoritmo.Expresiones.evaluarExpresion(arg, ambitoActual);
-            if (typeof parteEvaluada === 'boolean') partesMensajeSalida.push(parteEvaluada ? 'Verdadero' : 'Falso');
-            else if (parteEvaluada === null) partesMensajeSalida.push('nulo');
-            else partesMensajeSalida.push(String(parteEvaluada));
-        }
-        if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(partesMensajeSalida.join(''), 'normal');
-        return true;
-    }
-    return false;
-};
-Webgoritmo.Interprete.handleSi = async function(lineaActual, ambitoActual, numLineaOriginalSi, lineasBloque, indiceEnBloque) { /* ... (código como se definió en el paso anterior) ... */
-    if (!Webgoritmo.estadoApp || !Webgoritmo.Expresiones || !Webgoritmo.Interprete || !Webgoritmo.UI) {
-        throw new Error("Error interno: Módulos no disponibles para 'Si'.");
-    }
-    const siMatch = lineaActual.match(/^Si\s+(.+?)\s+Entonces$/i);
-    if (!siMatch) throw new Error(`Sintaxis 'Si' incorrecta en línea ${numLineaOriginalSi}.`);
-    const condicionPrincipalStr = siMatch[1];
-    let condicionPrincipalVal;
-    try {
-        condicionPrincipalVal = Webgoritmo.Expresiones.evaluarExpresion(condicionPrincipalStr, ambitoActual);
-    } catch (e) { throw new Error(`Evaluando condición 'Si' ("${condicionPrincipalStr}") en línea ${numLineaOriginalSi}: ${e.message}`); }
-    if (typeof condicionPrincipalVal !== 'boolean') {
-        throw new Error(`Condición 'Si' ("${condicionPrincipalStr}") en línea ${numLineaOriginalSi} debe ser lógica, se obtuvo: ${condicionPrincipalVal}.`);
-    }
-    let bloqueEntonces = [], bloquesSinoSi = [], bloqueSino = [];
-    let bufferBloqueActual = bloqueEntonces, siAnidados = 0, i = indiceEnBloque + 1;
-    let numLineaOriginalOffset = ambitoActual === Webgoritmo.estadoApp.variables ? 0 : (lineasBloque.length > 0 && lineasBloque[0].numOriginal ? lineasBloque[0].numOriginal -1 - indiceEnBloque : numLineaOriginalSi - indiceEnBloque -1) ; // Mejorar esto
-
-    while (i < lineasBloque.length) {
-        if (Webgoritmo.estadoApp.detenerEjecucion) return i;
-        const lineaIter = lineasBloque[i].trim(), lineaIterLower = lineaIter.toLowerCase();
-        const numLineaIter = (ambitoActual === Webgoritmo.estadoApp.variables ? i+1 : numLineaOriginalOffset + i +1);
-
-        if (lineaIterLower.startsWith("si ") && lineaIterLower.includes(" entonces")) {
-            siAnidados++; bufferBloqueActual.push(lineasBloque[i]);
-        } else if (lineaIterLower === "finsi") {
-            if (siAnidados > 0) { siAnidados--; bufferBloqueActual.push(lineasBloque[i]); }
-            else { i++; break; }
-        } else if (siAnidados === 0) {
-            const sinoSiMatch = lineaIter.match(/^SinoSi\s+(.+?)\s+Entonces$/i);
-            if (sinoSiMatch) {
-                const nuevoBloqueSinoSi = { condicionStr: sinoSiMatch[1], cuerpo: [], lineaOriginal: numLineaIter };
-                bloquesSinoSi.push(nuevoBloqueSinoSi); bufferBloqueActual = nuevoBloqueSinoSi.cuerpo;
-            } else if (lineaIterLower === "sino") {
-                bufferBloqueActual = bloqueSino;
-            } else { bufferBloqueActual.push(lineasBloque[i]); }
-        } else { bufferBloqueActual.push(lineasBloque[i]); }
-        i++;
-    }
-    if (i >= lineasBloque.length && siAnidados >=0 ) { // Si se acabó el bloque y el Si no se cerró
-         if (!(siAnidados === 0 && lineasBloque[i-1] && lineasBloque[i-1].trim().toLowerCase() === "finsi")) { // Salvo que la última línea fuera el finsi correcto
-            throw new Error(`Se esperaba 'FinSi' para cerrar el bloque 'Si' iniciado en la línea ${numLineaOriginalSi}.`);
-         }
-    }
-
-    if (condicionPrincipalVal) {
-        await Webgoritmo.Interprete.ejecutarBloque(bloqueEntonces, ambitoActual, indiceEnBloque + 1);
-    } else {
-        let sinoSiEjecutado = false;
-        for (const bloqueSCS of bloquesSinoSi) { /* ... (lógica de SinoSi, usando bloqueSCS.lineaOriginal para offset) ... */ }
-        if (!sinoSiEjecutado && bloqueSino.length > 0 && !Webgoritmo.estadoApp.detenerEjecucion) { /* ... (lógica de Sino) ... */ }
-    }
-    return i - 1;
-};
-
-Webgoritmo.Interprete.handleLeer = async function(linea, ambitoActual, numLineaOriginal) { /* ... (código como se definió en el Paso 1 de esta Fase) ... */
-    if (!Webgoritmo.estadoApp || !Webgoritmo.UI || !Webgoritmo.DOM) throw new Error("Error interno: Módulos no disponibles para 'Leer'.");
-    const coincidenciaLeer = linea.match(/^Leer\s+(.+)/i);
-    if (!coincidenciaLeer) throw new Error("Sintaxis 'Leer' incorrecta en línea " + numLineaOriginal);
-    const nombresVariablesArray = coincidenciaLeer[1].split(',').map(v => v.trim());
-    if (nombresVariablesArray.length === 0 || nombresVariablesArray.some(v => v === "")) throw new Error("Instrucción 'Leer' debe especificar variable(s) válidas en línea " + numLineaOriginal);
-    for (const nombreVar of nombresVariablesArray) {
-        if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(nombreVar)) throw new Error(`Nombre de variable inválido '${nombreVar}' en 'Leer' en línea ${numLineaOriginal}.`);
-        if (!ambitoActual.hasOwnProperty(nombreVar)) throw new Error(`Variable '${nombreVar}' no definida antes de 'Leer' en línea ${numLineaOriginal}.`);
-        if (ambitoActual[nombreVar].type === 'array') throw new Error(`Lectura en arreglos completos no soportada en MVP ('Leer ${nombreVar}'). Línea ${numLineaOriginal}.`);
-    }
-    let promptMensaje = nombresVariablesArray.length === 1 ? `Ingrese valor para ${nombresVariablesArray[0]}:` : `Ingrese ${nombresVariablesArray.length} valores (separados por espacio/coma) para ${nombresVariablesArray.join(', ')}:`;
-
-    // Llamar a la función global expuesta por app.js para mostrar el input
-    if (window.WebgoritmoGlobal && typeof window.WebgoritmoGlobal.solicitarEntradaUsuario === 'function') {
-        window.WebgoritmoGlobal.solicitarEntradaUsuario(promptMensaje);
-    } else {
-        console.error("motorInterprete.js: La función global solicitarEntradaUsuario no está disponible.");
-        // Fallback: intentar al menos mostrar el prompt en la consola de salida si la UI principal falla
-        if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) {
-            Webgoritmo.UI.añadirSalida(promptMensaje, 'input-prompt');
-            Webgoritmo.UI.añadirSalida("[Error Interno: No se pudo preparar el área de input. La ejecución podría no continuar correctamente después de este Leer.]", 'error');
-        }
-        // Considerar lanzar un error aquí o detener la ejecución si la UI de input es crítica y no se puede mostrar
-        // throw new Error("No se pudo inicializar la UI para la entrada del usuario.");
-    }
-
-    Webgoritmo.estadoApp.esperandoEntrada = true; Webgoritmo.estadoApp.variableEntradaActual = nombresVariablesArray;
-    console.log(`handleLeer: Esperando entrada para: ${nombresVariablesArray.join(', ')}`);
-    await new Promise(resolve => {
-        Webgoritmo.estadoApp.resolverPromesaEntrada = resolve;
-        if (Webgoritmo.estadoApp.detenerEjecucion) resolve();
-    });
-    console.log("handleLeer: Promesa de entrada resuelta.");
-    if (Webgoritmo.estadoApp.detenerEjecucion) return true;
-    return true;
-};
-
-// --- MOTOR DE EJECUCIÓN (ACTUALIZADO PARA SI Y LEER) ---
-Webgoritmo.Interprete.ejecutarBloque = async function(lineasBloqueParam, ambitoActual, numLineaOriginalOffset = 0) {
-    if (!Webgoritmo.estadoApp || !Webgoritmo.Interprete || !Webgoritmo.UI || !Webgoritmo.Expresiones) {
-        console.error("ejecutarBloque: Módulos Webgoritmo esenciales no definidos."); return;
-    }
-    let i = 0; // Declarar i fuera para que sea accesible después del bucle si es necesario (ej. handleMientras)
-    while (i < lineasBloqueParam.length) {
-        if (Webgoritmo.estadoApp.detenerEjecucion) { console.log("Ejecución detenida en ejecutarBloque."); break; }
-        const lineaOriginal = lineasBloqueParam[i];
-        const lineaTrimmed = lineaOriginal.trim();
-        const numLineaGlobal = numLineaOriginalOffset + i + 1;
-
-        console.log(`MOTOR DEBUG: Procesando línea ${numLineaGlobal}: "${lineaTrimmed}"`);
-
-        if (lineaTrimmed === '' || lineaTrimmed.startsWith('//')) { i++; continue; }
         let instruccionManejada = false;
         try {
-            const lineaLower = lineaTrimmed.toLowerCase();
-            console.log(`MOTOR DEBUG: lineaLower para match: "${lineaLower}"`);
-
-            // Intentar un match más específico y loguearlo directamente
-            const matchEscribirDirecto = lineaLower.match(/^escribir\s+.+/);
-            // const matchEscribirAlternativo = lineaLower.match(/^(escribir|imprimir|mostrar)\s/); // Mantenemos el original para comparar si es necesario
-            console.log(`MOTOR DEBUG: Match directo con /^escribir\\s+.+/: `, matchEscribirDirecto);
-            // console.log(`MOTOR DEBUG: Match alternativo con /^(escribir|imprimir|mostrar)\\s/: `, matchEscribirAlternativo);
-
-
-            if (lineaLower.startsWith('definir ')) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleDefinir(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (matchEscribirDirecto) { // Usar el resultado del match directo simplificado
-                 console.log("MOTOR DEBUG: DETECTADO 'escribir' por match directo.");
-                 instruccionManejada = await Webgoritmo.Interprete.handleEscribir(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.startsWith('leer ')) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleLeer(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.startsWith('si ') && lineaLower.includes(' entonces')) {
-                    const nuevoIndiceRelativoAlBloque = await Webgoritmo.Interprete.handleSi(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                    i = nuevoIndiceRelativoAlBloque;
-                    instruccionManejada = true;
-            } else if (lineaLower.startsWith('mientras ') && lineaLower.includes(' hacer')) {
-                const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handleMientras(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque;
+            if (Webgoritmo.Interprete.regexSiEntonces.test(lineaMinusculas)) {
+                const matchSi = lineaMinusculas.match(Webgoritmo.Interprete.regexSiEntonces);
+                const exprCond = limpiarComentariosYEspaciosInternos(matchSi[1]);
+                if (exprCond === "") throw new Error("Condición 'Si' vacía.");
+                const resCond = await Webgoritmo.Expresiones.evaluarExpresion(exprCond, ambitoEjecucion, numeroLineaActualGlobal);
+                if (typeof resCond !== 'boolean') throw new Error(`Condición 'Si' debe ser lógica, obtuvo ${typeof resCond}.`);
+                const { indiceSinoRelativo, indiceFinSiRelativo } = Webgoritmo.Interprete.escanearBloqueSiLogico(lineasDelBloque, i, numeroLineaActualGlobal);
+                Webgoritmo.estadoApp.pilaControl.push({ tipo: "SI", lineaSiRelativa: i, condicionOriginalFueVerdadera: resCond, indiceSinoRelativo, indiceFinSiRelativo, seHaProcesadoElSino: false });
+                console.log(`[DEBUG Si L${numeroLineaActualGlobal}] Cond:${resCond}. Sino:L${indiceSinoRelativo!==-1?numeroLineaOffset+indiceSinoRelativo:'N/A'}. FinSi:L${numeroLineaOffset+indiceFinSiRelativo}. Pila:`,JSON.stringify(Webgoritmo.estadoApp.pilaControl));
                 instruccionManejada = true;
-                if (ejecutarSiguienteIteracion) {
-                    continue;
+            } else if (Webgoritmo.Interprete.regexSino.test(lineaMinusculas)) {
+                const pila = Webgoritmo.estadoApp.pilaControl;
+                if (pila.length === 0 || pila[pila.length-1].tipo !== "SI") throw new Error(`'Sino' inesperado L${numeroLineaActualGlobal}.`);
+                const siCtx = pila[pila.length-1];
+                if (i !== siCtx.indiceSinoRelativo) throw new Error(`Error estructura: 'Sino' L${numeroLineaActualGlobal} no esperado.`);
+                siCtx.seHaProcesadoElSino = true;
+                if (siCtx.condicionOriginalFueVerdadera) console.log(`[DEBUG Sino L${numeroLineaActualGlobal}] Cond Si V. Saltando Sino.`); else console.log(`[DEBUG Sino L${numeroLineaActualGlobal}] Cond Si F. Ejecutando Sino.`);
+                instruccionManejada = true;
+            } else if (Webgoritmo.Interprete.regexFinSi.test(lineaMinusculas)) {
+                const pila = Webgoritmo.estadoApp.pilaControl;
+                if (pila.length === 0 || pila[pila.length-1].tipo !== "SI") throw new Error(`'FinSi' inesperado L${numeroLineaActualGlobal}.`);
+                const siCtx = pila[pila.length-1];
+                if (i !== siCtx.indiceFinSiRelativo) throw new Error(`Error estructura: 'FinSi' L${numeroLineaActualGlobal} no esperado.`);
+                pila.pop(); console.log(`[DEBUG FinSi L${numeroLineaActualGlobal}] Popeado Si de L${numeroLineaOffset+siCtx.lineaSiRelativa}. Pila:`,JSON.stringify(pila));
+                instruccionManejada = true;
+            } else if (Webgoritmo.Interprete.regexParaHacer.test(lineaMinusculas) || Webgoritmo.Interprete.regexParaConPasoHacer.test(lineaMinusculas)) {
+                let matchPara = lineaMinusculas.match(Webgoritmo.Interprete.regexParaConPasoHacer);
+                let conPaso = true; if (!matchPara) { matchPara = lineaMinusculas.match(Webgoritmo.Interprete.regexParaHacer); conPaso = false; }
+                const vcNombre = limpiarComentariosYEspaciosInternos(matchPara[1]); const exprIniStr = limpiarComentariosYEspaciosInternos(matchPara[2]);
+                const exprFinStr = limpiarComentariosYEspaciosInternos(matchPara[3]); const exprPasoStr = conPaso ? limpiarComentariosYEspaciosInternos(matchPara[4]) : "1";
+                if (!vcNombre || !exprIniStr || !exprFinStr) throw new Error(`Sintaxis 'Para' incompleta L${numeroLineaActualGlobal}.`);
+                const vcNombreLc = vcNombre.toLowerCase();
+                if (!ambitoEjecucion.hasOwnProperty(vcNombreLc)) throw new Error(`Var control '${vcNombre}' no definida L${numeroLineaActualGlobal}.`);
+                const descVC = ambitoEjecucion[vcNombreLc];
+                if (descVC.esArreglo || !['entero','real','numero'].includes(descVC.tipoDeclarado)) throw new Error(`Var control '${vcNombre}' debe ser numérica L${numeroLineaActualGlobal}.`);
+                const valIni = await Webgoritmo.Expresiones.evaluarExpresion(exprIniStr, ambitoEjecucion, numeroLineaActualGlobal);
+                const valFin = await Webgoritmo.Expresiones.evaluarExpresion(exprFinStr, ambitoEjecucion, numeroLineaActualGlobal);
+                const valPaso = await Webgoritmo.Expresiones.evaluarExpresion(exprPasoStr, ambitoEjecucion, numeroLineaActualGlobal);
+                if (typeof valIni !== 'number' || typeof valFin !== 'number' || typeof valPaso !== 'number') throw new Error(`Valores 'Para' deben ser numéricos L${numeroLineaActualGlobal}.`);
+                if (valPaso === 0) throw new Error(`Paso 'Para' no puede ser cero L${numeroLineaActualGlobal}.`);
+                descVC.valor = valIni;
+                if(Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: Var '${descVC.nombreOriginal}' (control Para) <- ${descVC.valor}`, 'debug');
+                let contBucle = (valPaso > 0) ? (descVC.valor <= valFin) : (descVC.valor >= valFin);
+                const idxFinParaRel = Webgoritmo.Interprete.escanearParaFinPara(lineasDelBloque, i, numeroLineaActualGlobal);
+                Webgoritmo.estadoApp.pilaControl.push({ tipo: "PARA", lineaParaRelativa: i, variableControlNombreLc: vcNombreLc, valorFinal: valFin, paso: valPaso, indiceFinParaRelativo: idxFinParaRel, saltarBloquePara: !contBucle });
+                console.log(`[DEBUG Para L${numeroLineaActualGlobal}] VC:${vcNombre}, Ini:${valIni}, Fin:${valFin}, Paso:${valPaso}. CondEntrada:${contBucle}. FinParaRel:${idxFinParaRel}. Pila:`, JSON.stringify(Webgoritmo.estadoApp.pilaControl));
+                instruccionManejada = true;
+            } else if (Webgoritmo.Interprete.regexFinPara.test(lineaMinusculas)) {
+                const pila = Webgoritmo.estadoApp.pilaControl;
+                if (pila.length === 0 || pila[pila.length-1].tipo !== "PARA") throw new Error(`'FinPara' inesperado L${numeroLineaActualGlobal}.`);
+                const paraCtx = pila[pila.length-1];
+                if (i !== paraCtx.indiceFinParaRelativo) throw new Error(`Error estructura: 'FinPara' L${numeroLineaActualGlobal} no esperado.`);
+                const descVC = ambitoEjecucion[paraCtx.variableControlNombreLc];
+                descVC.valor += paraCtx.paso;
+                if(Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: Var '${descVC.nombreOriginal}' (control Para) actualizada a ${descVC.valor}`, 'debug');
+                let contBucle = (paraCtx.paso > 0) ? (descVC.valor <= paraCtx.valorFinal) : (descVC.valor >= paraCtx.valorFinal);
+                if (contBucle) {
+                    i = paraCtx.lineaParaRelativa;
+                    console.log(`[DEBUG FinPara L${numeroLineaActualGlobal}] Continuando bucle. Saltando a L rel ${i + 1}. VC: ${descVC.valor}`);
+                } else {
+                    pila.pop(); console.log(`[DEBUG FinPara L${numeroLineaActualGlobal}] Bucle Para (L${numeroLineaOffset+paraCtx.lineaParaRelativa}) finalizado. Popeado. Pila:`,JSON.stringify(pila));
                 }
-            } else if (lineaTrimmed.includes('<-')) {
-                 instruccionManejada = await Webgoritmo.Interprete.handleAsignacion(lineaTrimmed, ambitoActual, numLineaGlobal);
-            } else if (lineaLower.startsWith('para ') && lineaLower.includes(' hacer')) {
-                const { nuevoIndiceRelativoAlBloque, ejecutarSiguienteIteracion } = await Webgoritmo.Interprete.handlePara(lineaTrimmed, ambitoActual, numLineaGlobal, lineasBloqueParam, i);
-                i = nuevoIndiceRelativoAlBloque;
                 instruccionManejada = true;
-                if (ejecutarSiguienteIteracion) {
-                    continue;
+            }
+            else {
+                const regexAsignacion = /^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?\s*(?:<-|=)/;
+                const esPotencialAsignacion = regexAsignacion.test(lineaProcesada);
+
+                if (lineaMinusculas.startsWith("definir ")) {
+                    instruccionManejada = await Webgoritmo.Interprete.procesarDefinicion(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
+                } else if (lineaMinusculas.startsWith("escribir ") || lineaMinusculas.startsWith("imprimir ") || lineaMinusculas.startsWith("mostrar ")) {
+                    instruccionManejada = await Webgoritmo.Interprete.procesarSalidaConsola(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
+                } else if (lineaMinusculas.startsWith("leer ")) {
+                    instruccionManejada = await Webgoritmo.Interprete.procesarEntradaUsuario(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
+                } else if (esPotencialAsignacion) {
+                    instruccionManejada = await Webgoritmo.Interprete.procesarAsignacion(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
+                } else {
+                    const primeraPalabra = lineaMinusculas.split(" ")[0];
+                    const palabrasClaveConocidas = ["algoritmo","proceso","finalgoritmo","finproceso", "si", "entonces", "sino", "finsi", "para", "hacer", "con", "paso", "finpara"];
+                    if (!palabrasClaveConocidas.includes(primeraPalabra) && lineaProcesada) {
+                        throw new Error(`Instrucción no reconocida: '${lineaProcesada}'`);
+                    }
                 }
             }
+        } catch (error) { Webgoritmo.estadoApp.errorEnEjecucion = error.message.startsWith(`Error en línea ${numeroLineaActualGlobal}`) ? error.message : `Error en línea ${numeroLineaActualGlobal}: ${error.message}`; Webgoritmo.estadoApp.detenerEjecucion = true; if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEnEjecucion, "error"); break;  }
 
-            if (!instruccionManejada && lineaTrimmed &&
-                !lineaLower.startsWith("finsi") &&
-                !lineaLower.startsWith("sino") &&
-                !lineaLower.startsWith("sinosi") &&
-                !lineaLower.startsWith("finmientras") &&
-                !lineaLower.startsWith("finpara")) {
-                 // Las palabras clave de cierre de bloque son manejadas por sus respectivos handlers (Si, Mientras, Para)
-                 // y no deben ser tratadas como instrucciones no reconocidas aquí.
-                throw new Error(`Instrucción no reconocida o mal ubicada: '${lineaTrimmed}'`);
-            }
-        } catch (e) {
-            Webgoritmo.estadoApp.errorEjecucion = `Error en línea ${numLineaGlobal}: ${e.message}`;
-            Webgoritmo.estadoApp.detenerEjecucion = true;
-            if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error');
-            else console.error(Webgoritmo.estadoApp.errorEjecucion);
-            break;
-        }
-
-        i++; // Incrementar i para la siguiente línea del bloque
-
-        if (Webgoritmo.estadoApp.esperandoEntrada && !Webgoritmo.estadoApp.detenerEjecucion) {
-            console.log("ejecutarBloque: Pausando por 'Leer'.");
-            // No rompemos el bucle 'while' aquí directamente.
-            // Si 'Leer' está dentro de 'Mientras', 'handleMientras' devolverá 'ejecutarSiguienteIteracion = true'
-            // y el 'continue' de arriba se activará.
-            // Si 'Leer' está fuera de 'Mientras', la ejecución se pausará y se reanudará desde este punto.
-            // La promesa en handleLeer detendrá el flujo hasta que se resuelva.
-            await Webgoritmo.estadoApp.promesaEntradaPendiente; // Espera aquí si la promesa se creó
-            Webgoritmo.estadoApp.promesaEntradaPendiente = null; // Limpia la promesa
-            if(Webgoritmo.estadoApp.detenerEjecucion) break; // Si la entrada causó una detención
-        }
+        if (Webgoritmo.estadoApp.detenerEjecucion) break;
+        i++;
     }
+    Webgoritmo.estadoApp.lineaEnEjecucion = null;
 };
 
-Webgoritmo.Interprete.handleMientras = async function(lineaActual, ambitoActual, numLineaOriginalMientras, lineasBloqueCompleto, indiceMientrasEnBloque) {
-    if (!Webgoritmo.estadoApp || !Webgoritmo.Expresiones || !Webgoritmo.Interprete) {
-        throw new Error("Error interno: Módulos no disponibles para 'Mientras'.");
+Webgoritmo.Interprete.obtenerIndiceSiOriginal = function(pilaControl) {
+    if (!pilaControl || pilaControl.length === 0) return "desconocida";
+    for (let i = pilaControl.length - 1; i >= 0; i--) {
+        if (pilaControl[i].tipo === "SI" && pilaControl[i].hasOwnProperty('lineaSiRelativa')) {
+            return pilaControl[i].lineaSiRelativa;
+        }
     }
+    return "desconocida";
+};
 
-    const mientrasMatch = lineaActual.match(/^Mientras\s+(.+?)\s+Hacer$/i);
-    if (!mientrasMatch) throw new Error(`Sintaxis 'Mientras' incorrecta en línea ${numLineaOriginalMientras}.`);
+Webgoritmo.Interprete.regexSiEntonces = /^\s*si\s+(.+?)\s+entonces\s*$/i;
+Webgoritmo.Interprete.regexSino = /^\s*sino\s*$/i;
+Webgoritmo.Interprete.regexFinSi = /^\s*finsi\s*$/i;
+Webgoritmo.Interprete.regexParaHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+hacer\s*$/i;
+Webgoritmo.Interprete.regexParaConPasoHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+con\s+paso\s+(.+?)\s+hacer\s*$/i;
+Webgoritmo.Interprete.regexFinPara = /^\s*finpara\s*$/i;
 
-    const condicionStr = mientrasMatch[1];
-    let cuerpoMientras = [];
-    let finMientrasEncontrado = false;
-    let anidamientoMientras = 0;
-    let i = indiceMientrasEnBloque + 1;
-
-    for (; i < lineasBloqueCompleto.length; i++) {
-        const lineaIter = lineasBloqueCompleto[i].trim().toLowerCase();
-        if (lineaIter.startsWith("mientras ") && lineaIter.includes(" hacer")) {
-            anidamientoMientras++;
-            cuerpoMientras.push(lineasBloqueCompleto[i]);
-        } else if (lineaIter === "finmientras") {
-            if (anidamientoMientras === 0) {
-                finMientrasEncontrado = true;
+Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) {
+    let nivelAnidamiento = 0;
+    let indiceSinoEncontrado = -1;
+    let indiceFinSiEncontrado = -1;
+    for (let j = indiceSiRelativoActual + 1; j < lineasDelBloque.length; j++) {
+        const lineaActual = limpiarComentariosYEspacios(lineasDelBloque[j]).toLowerCase();
+        if (Webgoritmo.Interprete.regexSiEntonces.test(lineaActual)) {
+            nivelAnidamiento++;
+        } else if (Webgoritmo.Interprete.regexSino.test(lineaActual)) {
+            if (nivelAnidamiento === 0) {
+                if (indiceSinoEncontrado !== -1) {
+                    throw new Error(`Error de sintaxis: Múltiples 'Sino' para el 'Si' de la línea ${numeroLineaGlobalSi}. Segundo 'Sino' en línea ${numeroLineaGlobalSi - indiceSiRelativoActual + j}.`);
+                }
+                indiceSinoEncontrado = j;
+            }
+        } else if (Webgoritmo.Interprete.regexFinSi.test(lineaActual)) {
+            if (nivelAnidamiento === 0) {
+                indiceFinSiEncontrado = j;
                 break;
             } else {
-                anidamientoMientras--;
-                cuerpoMientras.push(lineasBloqueCompleto[i]);
+                nivelAnidamiento--;
             }
-        } else {
-            cuerpoMientras.push(lineasBloqueCompleto[i]);
         }
     }
-
-    if (!finMientrasEncontrado) {
-        throw new Error(`Se esperaba 'FinMientras' para cerrar el bucle 'Mientras' iniciado en la línea ${numLineaOriginalMientras}.`);
+    if (indiceFinSiEncontrado === -1) {
+        throw new Error(`Error de sintaxis: La estructura 'Si' iniciada en la línea ${numeroLineaGlobalSi} no tiene un 'FinSi' correspondiente.`);
     }
-
-    const indiceDespuesFinMientras = i + 1;
-    let ejecutarSiguienteIteracionDelBloquePrincipal = false;
-
-    // Bucle de ejecución del Mientras
-    let primeraIteracion = true;
-    let condicionVal;
-    try {
-        condicionVal = Webgoritmo.Expresiones.evaluarExpresion(condicionStr, ambitoActual);
-    } catch (e) {
-        throw new Error(`Evaluando condición 'Mientras' ("${condicionStr}") en línea ${numLineaOriginalMientras}: ${e.message}`);
+    if (indiceSinoEncontrado !== -1 && indiceSinoEncontrado >= indiceFinSiEncontrado) {
+        throw new Error(`Error de sintaxis: 'Sino' en línea ${numeroLineaGlobalSi - indiceSiRelativoActual + indiceSinoEncontrado} debe aparecer antes del 'FinSi' (L${numeroLineaGlobalSi - indiceSiRelativoActual + indiceFinSiEncontrado}) para el 'Si' de la línea ${numeroLineaGlobalSi}.`);
     }
-    if (typeof condicionVal !== 'boolean') {
-        throw new Error(`Condición 'Mientras' ("${condicionStr}") en línea ${numLineaOriginalMientras} debe ser lógica, se obtuvo: ${condicionVal}.`);
-    }
-
-    while (condicionVal && !Webgoritmo.estadoApp.detenerEjecucion) {
-        // El offset para las líneas dentro del Mientras es relativo al inicio del bloque completo + offset del Mientras + 1
-        const offsetLineasCuerpo = numLineaOriginalMientras - indiceMientrasEnBloque -1 + indiceMientrasEnBloque +1;
-        await Webgoritmo.Interprete.ejecutarBloque(cuerpoMientras, ambitoActual, offsetLineasCuerpo);
-
-        if (Webgoritmo.estadoApp.detenerEjecucion) break;
-
-        if (Webgoritmo.estadoApp.esperandoEntrada) {
-            console.log("handleMientras: Pausando debido a 'Leer' dentro del bucle.");
-            // Guardamos el estado para reanudar el bucle Mientras después de la entrada.
-            Webgoritmo.estadoApp.estadoBuclePendiente = {
-                tipo: 'Mientras',
-                lineaOriginalMientras,
-                condicionStr,
-                cuerpoMientras,
-                ambitoActual,
-                indiceDespuesFinMientras,
-                offsetLineasCuerpo
-            };
-            ejecutarSiguienteIteracionDelBloquePrincipal = true;
-            return { nuevoIndiceRelativoAlBloque: indiceMientrasEnBloque, ejecutarSiguienteIteracion: true };
-        }
-
-        // Re-evaluar condición
-        try {
-            condicionVal = Webgoritmo.Expresiones.evaluarExpresion(condicionStr, ambitoActual);
-        } catch (e) {
-            throw new Error(`Re-evaluando condición 'Mientras' ("${condicionStr}") en línea ${numLineaOriginalMientras}: ${e.message}`);
-        }
-        if (typeof condicionVal !== 'boolean') {
-            throw new Error(`Condición 'Mientras' ("${condicionStr}") en línea ${numLineaOriginalMientras} debe ser lógica, se obtuvo: ${condicionVal}.`);
-        }
-    }
-
-    return { nuevoIndiceRelativoAlBloque: indiceDespuesFinMientras -1 , ejecutarSiguienteIteracion: ejecutarSiguienteIteracionDelBloquePrincipal };
+    return {
+        indiceSinoRelativo: indiceSinoEncontrado,
+        indiceFinSiRelativo: indiceFinSiEncontrado
+    };
 };
 
-
-Webgoritmo.Interprete.reanudarBuclePendiente = async function() {
-    if (!Webgoritmo.estadoApp.estadoBuclePendiente) return;
-
-    const estado = Webgoritmo.estadoApp.estadoBuclePendiente;
-    Webgoritmo.estadoApp.estadoBuclePendiente = null; // Limpiar estado
-
-    if (estado.tipo === 'Mientras') {
-        console.log(`Reanudando bucle Mientras de línea ${estado.lineaOriginalMientras}`);
-        let condicionVal;
-        try {
-            condicionVal = Webgoritmo.Expresiones.evaluarExpresion(estado.condicionStr, estado.ambitoActual);
-        } catch (e) {
-            throw new Error(`Re-evaluando condición 'Mientras' ("${estado.condicionStr}") al reanudar: ${e.message}`);
-        }
-
-        while (condicionVal && !Webgoritmo.estadoApp.detenerEjecucion) {
-            await Webgoritmo.Interprete.ejecutarBloque(estado.cuerpoMientras, estado.ambitoActual, estado.offsetLineasCuerpo);
-            if (Webgoritmo.estadoApp.detenerEjecucion) break;
-
-            if (Webgoritmo.estadoApp.esperandoEntrada) {
-                console.log("handleMientras (reanudar): Pausando de nuevo por 'Leer'.");
-                Webgoritmo.estadoApp.estadoBuclePendiente = estado; // Guardar de nuevo para la próxima reanudación
-                return; // Salir, la ejecución principal se detendrá
-            }
-
-            try {
-                condicionVal = Webgoritmo.Expresiones.evaluarExpresion(estado.condicionStr, estado.ambitoActual);
-            } catch (e) {
-                 throw new Error(`Re-evaluando condición 'Mientras' ("${estado.condicionStr}") al reanudar: ${e.message}`);
-            }
-        }
-        // Si el bucle terminó o se detuvo, necesitamos continuar la ejecución *después* del FinMientras.
-        // Esto es un poco más complejo porque ejecutarBloque ya avanzó.
-        // La forma en que está estructurado ahora, la reanudación ocurre *antes* de que ejecutarBloque avance su 'i'.
-        // Así que al terminar aquí, ejecutarBloque continuará desde donde se pausó, que es la instrucción Leer.
-        // Necesitamos que salte al final del Mientras.
-        // Esto sugiere que la reanudación debe ser manejada más centralmente en app.js o que ejecutarBloque
-        // necesita saber si una reanudación de bucle acaba de ocurrir.
-
-        // Por ahora, la lógica en app.js que llama a reanudarBuclePendiente y luego
-        // potencialmente reanuda ejecutarBloque (si no hay más bucles pendientes)
-        // debería funcionar, ya que ejecutarBloque continuará.
-        // El problema es que el índice `i` de `ejecutarBloque` no se actualiza al `indiceDespuesFinMientras`.
-        // Esto necesita una revisión más profunda de cómo se maneja el flujo de control post-reanudación.
-
-        // Solución temporal: si el bucle termina, la ejecución continuará después de la línea 'Leer'.
-        // Si la línea 'Leer' era la última del bloque 'Mientras', entonces 'ejecutarBloque'
-        // pasará a la siguiente línea *después* del 'FinMientras' si `handleMientras` devolvió
-        // el índice correcto la primera vez.
-    } else if (estado.tipo === 'Para') {
-        console.log(`Reanudando bucle Para de línea ${estado.lineaOriginalPara}`);
-        let variableControl = estado.ambitoActual[estado.variableControlNombre];
-
-        // El valor de variableControl.value ya fue actualizado por Leer y la asignación.
-        // Ahora solo necesitamos continuar el bucle desde donde se quedó.
-        // El incremento/decremento y la re-evaluación de la condición ocurrirán al final de esta iteración reanudada.
-
-        while ((estado.paso > 0 && variableControl.value <= estado.valorFinal) || (estado.paso < 0 && variableControl.value >= estado.valorFinal)) {
-            if (Webgoritmo.estadoApp.detenerEjecucion) break;
-
-            // Ejecutar el cuerpo. Si esta es la iteración que fue interrumpida, solo ejecutamos desde la línea siguiente al Leer.
-            // Esto es complejo. Para simplificar, re-ejecutamos el cuerpo. Si el Leer está al principio, no hay problema.
-            // Si está en medio, las líneas anteriores a Leer en esa iteración se re-ejecutarán.
-            // Una solución más precisa requeriría guardar el punto exacto de interrupción dentro del cuerpo.
-            await Webgoritmo.Interprete.ejecutarBloque(estado.cuerpoPara, estado.ambitoActual, estado.offsetLineasCuerpo);
-
-            if (Webgoritmo.estadoApp.detenerEjecucion) break;
-
-            if (Webgoritmo.estadoApp.esperandoEntrada) {
-                console.log("handlePara (reanudar): Pausando de nuevo por 'Leer'.");
-                // Necesitamos actualizar el valor de la variable de control en el estado guardado
-                // por si el Leer cambió otra variable que afecta a la variable de control indirectamente (poco probable pero posible)
-                // O si el Leer era sobre la propia variable de control (más probable).
-                estado.ambitoActual[estado.variableControlNombre].value = variableControl.value;
-                Webgoritmo.estadoApp.estadoBuclePendiente = estado;
-                return;
-            }
-
-            variableControl.value += estado.paso;
-
-            // Re-evaluar condición (implícita en el while)
+Webgoritmo.Interprete.escanearParaFinPara = function(lineasDelBloque, indiceParaRelativoActual, numeroLineaGlobalPara) {
+    let nivelAnidamiento = 0;
+    for (let j = indiceParaRelativoActual + 1; j < lineasDelBloque.length; j++) {
+        const lineaActual = limpiarComentariosYEspacios(lineasDelBloque[j]).toLowerCase();
+        if (Webgoritmo.Interprete.regexParaHacer.test(lineaActual) || Webgoritmo.Interprete.regexParaConPasoHacer.test(lineaActual)) {
+            nivelAnidamiento++;
+        } else if (Webgoritmo.Interprete.regexFinPara.test(lineaActual)) {
+            if (nivelAnidamiento === 0) return j;
+            else nivelAnidamiento--;
         }
     }
+    throw new Error(`Error de sintaxis: La estructura 'Para' iniciada en la línea ${numeroLineaGlobalPara} no tiene un 'FinPara' correspondiente.`);
 };
 
+Webgoritmo.Interprete.procesarDimensionArreglo = async function(l,a,nL) { console.warn("Dimension no implementada"); return false;};
+Webgoritmo.Interprete.procesarSiEntoncesSino = async function(lA,aA,nLSi,lBC,iSiB) { console.warn("Si-Entonces-Sino aún no implementado"); return iSiB;};
+Webgoritmo.Interprete.llamarSubProceso = async function(nFO,lEAStr,aL,nLL) { console.warn("llamarSubProceso no implementado"); return undefined;};
+Webgoritmo.Interprete.parsearDefinicionSubProceso = function(lI,idxI,tLs){ console.warn("parsearDefinicionSubProceso no implementado"); return null;};
 
-Webgoritmo.Interprete.handlePara = async function(lineaActual, ambitoActual, numLineaOriginalPara, lineasBloqueCompleto, indiceParaEnBloque) {
-    if (!Webgoritmo.estadoApp || !Webgoritmo.Expresiones || !Webgoritmo.Interprete) {
-        throw new Error("Error interno: Módulos no disponibles para 'Para'.");
-    }
-
-    const paraMatch = lineaActual.match(/^Para\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*<-\s*(.+?)\s+Hasta\s+(.+?)(?:\s+Con\s+Paso\s+(.+?))?\s+Hacer$/i);
-    if (!paraMatch) throw new Error(`Sintaxis 'Para' incorrecta en línea ${numLineaOriginalPara}.`);
-
-    const variableControlNombre = paraMatch[1];
-    const valorInicialExpr = paraMatch[2];
-    const valorFinalExpr = paraMatch[3];
-    const valorPasoExpr = paraMatch[4]; // Puede ser undefined
-
-    let valorInicial, valorFinal, paso;
-    try {
-        valorInicial = Webgoritmo.Expresiones.evaluarExpresion(valorInicialExpr, ambitoActual);
-        valorFinal = Webgoritmo.Expresiones.evaluarExpresion(valorFinalExpr, ambitoActual);
-        paso = valorPasoExpr ? Webgoritmo.Expresiones.evaluarExpresion(valorPasoExpr, ambitoActual) : (valorFinal >= valorInicial ? 1 : -1);
-    } catch (e) {
-        throw new Error(`Error evaluando límites/paso del bucle 'Para' en línea ${numLineaOriginalPara}: ${e.message}`);
-    }
-
-    if (typeof valorInicial !== 'number' || typeof valorFinal !== 'number' || typeof paso !== 'number') {
-        throw new Error(`Los límites y el paso del bucle 'Para' deben ser numéricos (en línea ${numLineaOriginalPara}).`);
-    }
-    if (paso === 0) {
-        throw new Error(`El paso del bucle 'Para' no puede ser cero (en línea ${numLineaOriginalPara}).`);
-    }
-
-    // Definir o actualizar la variable de control en el ámbito actual
-    if (!ambitoActual.hasOwnProperty(variableControlNombre)) {
-        // PSeInt permite definición implícita. Asumimos Entero si todos son enteros, sino Real.
-        const tipoImplicito = (Number.isInteger(valorInicial) && Number.isInteger(valorFinal) && Number.isInteger(paso)) ? 'Entero' : 'Real';
-        ambitoActual[variableControlNombre] = { value: valorInicial, type: tipoImplicito };
-         if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`[INFO en línea ${numLineaOriginalPara}]: Variable de control '${variableControlNombre}' definida implícitamente como ${tipoImplicito}.`, 'normal');
-    } else {
-        // Si ya existe, solo actualizamos su valor. PSeInt es flexible con el tipo aquí.
-        ambitoActual[variableControlNombre].value = valorInicial;
-    }
-    let variableControl = ambitoActual[variableControlNombre]; // Referencia al objeto de la variable
-
-    let cuerpoPara = [];
-    let finParaEncontrado = false;
-    let anidamientoPara = 0;
-    let i = indiceParaEnBloque + 1;
-
-    for (; i < lineasBloqueCompleto.length; i++) {
-        const lineaIter = lineasBloqueCompleto[i].trim().toLowerCase();
-        if (lineaIter.startsWith("para ") && lineaIter.includes(" hacer")) {
-            anidamientoPara++;
-            cuerpoPara.push(lineasBloqueCompleto[i]);
-        } else if (lineaIter === "finpara") {
-            if (anidamientoPara === 0) {
-                finParaEncontrado = true;
-                break;
-            } else {
-                anidamientoPara--;
-                cuerpoPara.push(lineasBloqueCompleto[i]);
-            }
-        } else {
-            cuerpoPara.push(lineasBloqueCompleto[i]);
-        }
-    }
-
-    if (!finParaEncontrado) {
-        throw new Error(`Se esperaba 'FinPara' para cerrar el bucle 'Para' iniciado en la línea ${numLineaOriginalPara}.`);
-    }
-
-    const indiceDespuesFinPara = i + 1;
-    let ejecutarSiguienteIteracionDelBloquePrincipal = false;
-
-    // Asignación inicial ya hecha arriba al definir/actualizar variableControl.
-    // variableControl.value = valorInicial; // No es necesario reasignar aquí.
-
-    while ((paso > 0 && variableControl.value <= valorFinal) || (paso < 0 && variableControl.value >= valorFinal)) {
-        if (Webgoritmo.estadoApp.detenerEjecucion) break;
-
-        const offsetLineasCuerpo = numLineaOriginalPara - indiceParaEnBloque -1 + indiceParaEnBloque +1;
-        await Webgoritmo.Interprete.ejecutarBloque(cuerpoPara, ambitoActual, offsetLineasCuerpo);
-
-        if (Webgoritmo.estadoApp.detenerEjecucion) break;
-
-        if (Webgoritmo.estadoApp.esperandoEntrada) {
-            console.log("handlePara: Pausando debido a 'Leer' dentro del bucle.");
-            Webgoritmo.estadoApp.estadoBuclePendiente = {
-                tipo: 'Para',
-                lineaOriginalPara,
-                variableControlNombre, // Nombre de la variable
-                // valorInicial, // No es necesario, ya que el valor actual está en la variable
-                valorFinal,
-                paso,
-                cuerpoPara,
-                ambitoActual, // El ámbito donde está la variable de control
-                indiceDespuesFinPara,
-                offsetLineasCuerpo
-            };
-            ejecutarSiguienteIteracionDelBloquePrincipal = true;
-            return { nuevoIndiceRelativoAlBloque: indiceParaEnBloque, ejecutarSiguienteIteracion: true };
-        }
-
-        variableControl.value += paso;
-    }
-
-    return { nuevoIndiceRelativoAlBloque: indiceDespuesFinPara - 1, ejecutarSiguienteIteracion: ejecutarSiguienteIteracionDelBloquePrincipal };
-};
-
-
-Webgoritmo.Interprete.llamarFuncion = async function(nombreFunc, args, numLineaLlamada) { /* ... (código MVP, sin cambios en este paso) ... */ };
-
-Webgoritmo.Interprete.ejecutarPseudocodigo = async function() {
-    if (!Webgoritmo.Editor || !Webgoritmo.Editor.editorCodigo) { /* ... error ... */ return; }
-    if (!Webgoritmo.estadoApp || !Webgoritmo.UI || !Webgoritmo.Expresiones || !Webgoritmo.Interprete) { /* ... error ... */ return; }
-
-    // restablecerEstado es llamado desde app.js
-    if (Webgoritmo.UI.añadirSalida) {
-        if(Webgoritmo.DOM && Webgoritmo.DOM.consolaSalida) Webgoritmo.DOM.consolaSalida.innerHTML = '';
-        Webgoritmo.UI.añadirSalida("--- Iniciando ejecución ---", "normal");
-    }
-
-    Webgoritmo.estadoApp.lineasCodigo = Webgoritmo.Editor.editorCodigo.getValue().split('\n');
-    let lineasDelPrincipal = Webgoritmo.estadoApp.lineasCodigo;
-    let inicioBloquePrincipalLineaNum = 1;
-    let enBloquePrincipalDetectado = false;
-
-    for (let i = 0; i < Webgoritmo.estadoApp.lineasCodigo.length; i++) {
-        const linea = Webgoritmo.estadoApp.lineasCodigo[i].trim().toLowerCase();
-        if (linea.startsWith("proceso") || linea.startsWith("algoritmo")) {
-            if (enBloquePrincipalDetectado) { Webgoritmo.estadoApp.errorEjecucion = "Múltiples bloques Proceso/Algoritmo."; Webgoritmo.estadoApp.detenerEjecucion = true; break; }
-            enBloquePrincipalDetectado = true;
-            lineasDelPrincipal = []; // Empezar a recolectar desde aquí
-            inicioBloquePrincipalLineaNum = i + 1;
-            continue;
-        }
-        if (linea.startsWith("finproceso") || linea.startsWith("finalgoritmo")) {
-            if (!enBloquePrincipalDetectado) { Webgoritmo.estadoApp.errorEjecucion = "FinProceso/Algoritmo sin bloque."; Webgoritmo.estadoApp.detenerEjecucion = true; break; }
-            enBloquePrincipalDetectado = false; // Fin del bloque
-            break;
-        }
-        if (enBloquePrincipalDetectado) {
-            lineasDelPrincipal.push(Webgoritmo.estadoApp.lineasCodigo[i]);
-        }
-    }
-
-    if (enBloquePrincipalDetectado && Webgoritmo.estadoApp.lineasCodigo.length > 0) { // Si terminó el for y seguía en bloque (no hubo FinProceso)
-        Webgoritmo.estadoApp.errorEjecucion = "Bloque Proceso/Algoritmo no cerrado."; Webgoritmo.estadoApp.detenerEjecucion = true;
-    }
-
-    if (Webgoritmo.estadoApp.errorEjecucion) { // Si hubo error de parseo de bloque principal
-         if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error');
-    } else if (lineasDelPrincipal.length === 0 && Webgoritmo.estadoApp.lineasCodigo.some(l => l.trim() !== '')) {
-        // Si no se usó Proceso/Algoritmo pero hay código, ejecutarlo todo (comportamiento anterior del MVP)
-        // O decidir lanzar error si Proceso/Algoritmo es obligatorio. Por ahora, mantenemos ejecución.
-        // Para ser más estrictos, esto debería ser un error:
-        // Webgoritmo.estadoApp.errorEjecucion = "No se encontró bloque Proceso/Algoritmo.";
-        // Webgoritmo.UI.añadirSalida(Webgoritmo.estadoApp.errorEjecucion, 'error');
-        // Webgoritmo.estadoApp.detenerEjecucion = true;
-        // Por ahora, ejecutamos todo si no hay bloque explícito:
-        await Webgoritmo.Interprete.ejecutarBloque(Webgoritmo.estadoApp.lineasCodigo, Webgoritmo.estadoApp.variables, 0);
-    } else if (lineasDelPrincipal.length > 0) {
-        await Webgoritmo.Interprete.ejecutarBloque(lineasDelPrincipal, Webgoritmo.estadoApp.variables, inicioBloquePrincipalLineaNum -1);
-    }
-
-
-    if (Webgoritmo.UI.añadirSalida) {
-        if (Webgoritmo.estadoApp.errorEjecucion) { Webgoritmo.UI.añadirSalida("--- Ejecución con errores ---", "error"); }
-        else if (Webgoritmo.estadoApp.detenerEjecucion) { Webgoritmo.UI.añadirSalida("--- Ejecución interrumpida ---", "warning"); }
-        else { Webgoritmo.UI.añadirSalida("--- Ejecución finalizada ---", "normal"); }
-    }
-};
-
-console.log("motorInterprete.js cargado y Webgoritmo.Interprete inicializado (con handleSi y handleLeer).");
+Webgoritmo.Interprete.ejecutarPseudocodigo = Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal;
+console.log("motorInterprete.js (Revertido a pre-Mientras, funcional con Si y Para) cargado.");

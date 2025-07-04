@@ -1,89 +1,77 @@
-// uiManager.js
+// uiManager.js (ESTADO ESTABLE REVERTIDO)
 // Funciones de UI, incluyendo manejo para 'Leer'.
 
 window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.UI = Webgoritmo.UI || {};
 
-/**
- * Añade un mensaje a la consola de salida de la UI.
- * @param {string} mensaje El mensaje a mostrar.
- * @param {string} [tipo='normal'] El tipo de mensaje ('normal', 'error', 'warning', 'user-input', 'input-prompt').
- */
 Webgoritmo.UI.añadirSalida = function(mensaje, tipo = 'normal') {
     if (!Webgoritmo.DOM || !Webgoritmo.DOM.consolaSalida) {
-        console.error("uiManager.js: Webgoritmo.DOM.consolaSalida no está definido. No se puede añadir salida.");
+        console.error("uiManager.js: Webgoritmo.DOM.consolaSalida no está definido.");
         return;
     }
     const elementoLinea = document.createElement('div');
     elementoLinea.textContent = mensaje;
     elementoLinea.classList.add('console-line');
-    if (tipo) {
-        elementoLinea.classList.add(tipo);
-    }
+    if (tipo) elementoLinea.classList.add(tipo);
     Webgoritmo.DOM.consolaSalida.appendChild(elementoLinea);
     Webgoritmo.DOM.consolaSalida.scrollTop = Webgoritmo.DOM.consolaSalida.scrollHeight;
 };
 
-// Las funciones Webgoritmo.UI.prepararParaEntrada y Webgoritmo.UI.finalizarEntrada
-// han sido eliminadas. Su lógica será manejada directamente en app.js.
-
-// Aquí se reincorporarían las otras funciones de UI que teníamos conceptualizadas
-// en la refactorización anterior, adaptadas al namespace Webgoritmo.
-// Por ejemplo: añadirAlertaSintaxis, mostrarConfirmacion, cargarPlantillaInicial, etc.
-// Por ahora, solo las necesarias para el flujo de Leer y la salida básica.
-
-Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) { // Acepta dom y datos como parámetros
-    // const dom = Webgoritmo.DOM; // Ya no se toma de global
-    // const datos = Webgoritmo.Datos; // Ya no se toma de global
+Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) {
     const ejemplosSelectEl = dom ? dom.ejemplosSelect : null;
-    const exampleCodesObj = datos ? datos.exampleCodes : null;
+    const codigosEjemploObj = datos ? datos.codigosEjemplo : null;
 
-    // DEBUGGING:
-    console.log("DEBUG: Entrando a poblarSelectorEjemplos");
-    console.log("DEBUG: Parámetro dom:", dom);
-    console.log("DEBUG: Parámetro datos:", datos);
-    console.log("DEBUG: ejemplosSelectEl (de param dom):", ejemplosSelectEl);
-    console.log("DEBUG: exampleCodesObj (de param datos):", exampleCodesObj);
-
-
-    if (!ejemplosSelectEl || !exampleCodesObj) {
-        console.error("poblarSelectorEjemplos: Elemento select o datos de ejemplos (desde parámetros) no disponibles.");
-        if (!ejemplosSelectEl) console.error("DEBUG: ejemplosSelectEl (desde param dom) es null/undefined.");
-        if (!exampleCodesObj) console.error("DEBUG: exampleCodesObj (desde param datos) es null/undefined.");
+    if (!ejemplosSelectEl || !codigosEjemploObj) {
+        console.error("poblarSelectorEjemplos: Elemento select o datos.codigosEjemplo no disponibles.");
         return;
     }
 
-    // Limpiar opciones existentes (excepto la primera "-- Seleccione --")
     while (ejemplosSelectEl.options.length > 1) {
         ejemplosSelectEl.remove(1);
     }
 
-    for (const clave in exampleCodesObj) {
-        if (exampleCodesObj.hasOwnProperty(clave)) { // Usar la copia local exampleCodesObj
+    // Nombres en el estado en que estaban cuando las expresiones con arreglos funcionaban
+    const nombresParaSelector = {
+        expresiones_f4: "Expresiones: Arit/Lóg", // Este era el nombre que tenía
+        prueba_acceso_arreglos_expresion: "Test: Arreglos en Expr.",
+        entrada_leer_f3: "Test: Leer Básico",
+        // Aquí podrían faltar los ejemplos de F1, F2 si no estaban en ese commit específico.
+        // Por ahora, nos enfocamos en los que estaban al momento de la estabilidad.
+    };
+
+    for (const clave in codigosEjemploObj) {
+        if (codigosEjemploObj.hasOwnProperty(clave)) {
             const option = document.createElement('option');
             option.value = clave;
-            let textoOpcion = clave.replace(/_/g, ' ');
-            textoOpcion = textoOpcion.charAt(0).toUpperCase() + textoOpcion.slice(1);
-            option.textContent = textoOpcion;
-            ejemplosSelectEl.appendChild(option); // Usar la copia local ejemplosSelectEl
+            option.textContent = nombresParaSelector[clave] || clave.replace(/_/g, ' ').charAt(0).toUpperCase() + clave.replace(/_/g, ' ').slice(1);
+            ejemplosSelectEl.appendChild(option);
         }
     }
-    console.log("uiManager.js: Selector de ejemplos poblado.");
+    console.log("uiManager.js: Selector de ejemplos poblado (ESTADO ESTABLE REVERTIDO).");
 };
 
-
 Webgoritmo.UI.cargarPlantillaInicial = function() {
-    if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo && Webgoritmo.Datos && Webgoritmo.Datos.exampleCodes && Webgoritmo.Datos.exampleCodes.simple_io) {
-        // Cargar el ejemplo 'simple_io' por defecto o el que se decida
-        let codigoInicial = Webgoritmo.Datos.exampleCodes.simple_io;
-        // Si la estructura de exampleCodes cambió a {titulo, codigo}, ajustar aquí:
-        // codigoInicial = Webgoritmo.Datos.exampleCodes.simple_io.codigo;
+    // Cargar el ejemplo de prueba de acceso a arreglos por defecto, ya que ese funcionaba
+    const claveEjemploPorDefecto = 'prueba_acceso_arreglos_expresion';
+    if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo &&
+        Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo &&
+        Webgoritmo.Datos.codigosEjemplo[claveEjemploPorDefecto]) {
+
+        let codigoInicial = Webgoritmo.Datos.codigosEjemplo[claveEjemploPorDefecto];
         Webgoritmo.Editor.editorCodigo.setValue(codigoInicial);
-        console.log("uiManager.js: Plantilla inicial cargada en el editor.");
+        console.log(`uiManager.js: Plantilla inicial '${claveEjemploPorDefecto}' cargada (ESTADO ESTABLE REVERTIDO).`);
     } else {
-        console.warn("uiManager.js: No se pudo cargar la plantilla inicial (editor o datos no listos).");
+        console.warn(`uiManager.js: No se pudo cargar plantilla inicial '${claveEjemploPorDefecto}'. Verifique datosEjemplos.js.`);
+        if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo && Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo) {
+            const primeraClaveDisponible = Object.keys(Webgoritmo.Datos.codigosEjemplo)[0];
+            if (primeraClaveDisponible) {
+                Webgoritmo.Editor.editorCodigo.setValue(Webgoritmo.Datos.codigosEjemplo[primeraClaveDisponible]);
+                console.log(`uiManager.js: Fallback: Plantilla inicial '${primeraClaveDisponible}' cargada.`);
+            } else {
+                 console.warn("uiManager.js: No hay ejemplos disponibles para cargar como fallback.");
+            }
+        }
     }
 };
 
-
-console.log("uiManager.js cargado y Webgoritmo.UI actualizado con funciones para Leer, añadirSalida y poblarSelectorEjemplos.");
+console.log("uiManager.js cargado y Webgoritmo.UI actualizado (ESTADO ESTABLE REVERTIDO).");
