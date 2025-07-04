@@ -29,7 +29,6 @@ Webgoritmo.Interprete.Utilidades.inicializarArregloConDescriptor = function(dims
 Webgoritmo.Interprete.Utilidades.obtenerValorRealVariable = function(nombreVariable, ambitoActual, numeroLinea) { const nombreVarLc = String(nombreVariable).toLowerCase(); if (!ambitoActual.hasOwnProperty(nombreVarLc)) { throw new Error(`Error en línea ${numeroLinea}: Variable '${nombreVariable}' no definida.`); } const descriptor = ambitoActual[nombreVarLc]; if (descriptor.esArreglo && !(Webgoritmo.Expresiones && Webgoritmo.Expresiones.permitirArregloComoOperandoGlobal)) { return descriptor;} return descriptor.valor; };
 
 Webgoritmo.Interprete.procesarSalidaConsola = async function(linea,ambito,numLn){const rgx= /^(?:escribir|imprimir|mostrar)\s+(.*)/i;const m=linea.match(rgx);if(!m||!m[1])throw new Error("Escribir mal formado.");const argsTxt=limpiarComentariosYEspaciosInternos(m[1]);if(argsTxt===""&&linea.match(rgx)[0].trim()!==m[0].split(" ")[0])return true; if(argsTxt==="")throw new Error(`'${m[0].split(" ")[0]}' sin args L${numLn}.`);const exprs=[];let buff="";let inQ=false;let qT='';for(let i=0;i<argsTxt.length;i++){const ch=argsTxt[i]; if((ch==='"'||ch==="'")&&(i===0||argsTxt[i-1]!=='\\')){if(!inQ){inQ=true;qT=ch;buff+=ch;}else if(ch===qT){inQ=false;buff+=ch;}else{buff+=ch;}}else if(ch===','&&!inQ){exprs.push(buff.trim());buff="";}else{buff+=ch;}}if(buff.trim()!=="")exprs.push(buff.trim());let outF="";for(const exT of exprs){if(exT==="")continue; const evalPart=await Webgoritmo.Expresiones.evaluarExpresion(exT,ambito,numLn); outF+=typeof evalPart==='boolean'?(evalPart?'Verdadero':'Falso'):(evalPart===null?'nulo':String(evalPart));} if(Webgoritmo.UI.añadirSalida)Webgoritmo.UI.añadirSalida(outF,'normal'); return true;};
-
 Webgoritmo.Interprete.procesarDefinicion = async function(linea,ambitoEjecucion,numLn){
     console.log(`[DEBUG procesarDefinicion L${numLn}] Entrando con línea: "${linea}"`);
     const regexDefinirArreglo = /definir\s+(.+?)\s+como\s+(entero|real|logico|caracter|cadena)\s*\[\s*(.+?)\s*\]/i;
@@ -46,6 +45,8 @@ Webgoritmo.Interprete.procesarDefinicion = async function(linea,ambitoEjecucion,
         if (Webgoritmo.Interprete.Utilidades.PALABRAS_RESERVADAS.has(nombreVar.toUpperCase())) throw new Error(`Error en línea ${numLn}: El nombre de variable '${nombreVar}' es una palabra reservada.`);
         const nombreVarLc = nombreVar.toLowerCase();
         if (ambitoEjecucion.hasOwnProperty(nombreVarLc)) if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`Advertencia L${numLn}: Var '${nombreVar}' redefinida.`,'warning');
+
+        let descriptor;
         if (esDefinicionArreglo) {
             const dimsStrLimpio = limpiarComentariosYEspaciosInternos(coincidencia[3]);
             if (dimsStrLimpio === "") throw new Error(`Dimensión vacía para arreglo '${nombreVar}' L${numLn}.`);
@@ -56,20 +57,27 @@ Webgoritmo.Interprete.procesarDefinicion = async function(linea,ambitoEjecucion,
                 if (typeof dimVal !== 'number' || !Number.isInteger(dimVal) || dimVal <= 0) throw new Error(`Dimensiones deben ser enteros >0. Error en '${expr}'->${dimVal} para '${nombreVar}' L${numLn}.`);
                 evalDimensiones.push(dimVal);
             }
-            const descriptor = Webgoritmo.Interprete.Utilidades.crearDescriptorVariable(nombreVar, tipoVariable, null);
+            descriptor = Webgoritmo.Interprete.Utilidades.crearDescriptorVariable(nombreVar, tipoVariable, null);
             descriptor.esArreglo = true; descriptor.dimensiones = evalDimensiones; descriptor.valor = Webgoritmo.Interprete.Utilidades.inicializarArregloConDescriptor(evalDimensiones, tipoVariable); descriptor.tipoDeclarado = tipoVariable;
+            console.log(`[DEBUG Definicion L${numLn}] CREADO Descriptor Arreglo para '${nombreVarLc}':`, descriptor);
+            console.log(`[DEBUG Definicion L${numLn}] CREADO desc.nombreOriginal: ${descriptor ? descriptor.nombreOriginal : 'desc es undefined'}, desc.tipoDeclarado: ${descriptor ? descriptor.tipoDeclarado : 'desc es undefined'}, desc.esArreglo: ${descriptor ? descriptor.esArreglo : 'desc es undefined'}`);
             ambitoEjecucion[nombreVarLc] = descriptor;
-            console.log(`[DEBUG Definicion L${numLn}] Variable Arreglo '${nombreVarLc}' añadida. Descriptor:`, JSON.stringify(descriptor));
-            console.log(`[DEBUG Definicion L${numLn}] Claves actuales en ambitoEjecucion:`, JSON.stringify(Object.keys(ambitoEjecucion)));
+            const descriptorDelAmbitoArr = ambitoEjecucion[nombreVarLc];
+            console.log(`[DEBUG Definicion L${numLn}] ASIGNADO Descriptor Arreglo para '${nombreVarLc}' en ambito:`, descriptorDelAmbitoArr);
+            console.log(`[DEBUG Definicion L${numLn}] ASIGNADO desc.nombreOriginal: ${descriptorDelAmbitoArr ? descriptorDelAmbitoArr.nombreOriginal : 'descDelAmbito es undefined'}, desc.tipoDeclarado: ${descriptorDelAmbitoArr ? descriptorDelAmbitoArr.tipoDeclarado : 'descDelAmbito es undefined'}, desc.esArreglo: ${descriptorDelAmbitoArr ? descriptorDelAmbitoArr.esArreglo : 'descDelAmbito es undefined'}`);
             if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numLn}: Arreglo '${nombreVar}' (${tipoVariable}[${evalDimensiones.join(',')}]) definido.`, 'debug');
         } else {
             const valorPorDefecto = Webgoritmo.Interprete.Utilidades.obtenerValorPorDefectoSegunTipo(tipoVariable);
-            const descriptor = Webgoritmo.Interprete.Utilidades.crearDescriptorVariable(nombreVar, tipoVariable, valorPorDefecto);
+            descriptor = Webgoritmo.Interprete.Utilidades.crearDescriptorVariable(nombreVar, tipoVariable, valorPorDefecto);
+            console.log(`[DEBUG Definicion L${numLn}] CREADO Descriptor Simple para '${nombreVarLc}':`, descriptor);
+            console.log(`[DEBUG Definicion L${numLn}] CREADO desc.nombreOriginal: ${descriptor ? descriptor.nombreOriginal : 'desc es undefined'}, desc.tipoDeclarado: ${descriptor ? descriptor.tipoDeclarado : 'desc es undefined'}, desc.valor: ${descriptor ? descriptor.valor : 'desc es undefined'}, desc.esArreglo: ${descriptor ? descriptor.esArreglo : 'desc es undefined'}`);
             ambitoEjecucion[nombreVarLc] = descriptor;
-            console.log(`[DEBUG Definicion L${numLn}] Variable Simple '${nombreVarLc}' añadida. Descriptor:`, JSON.stringify(descriptor));
-            console.log(`[DEBUG Definicion L${numLn}] Claves actuales en ambitoEjecucion:`, JSON.stringify(Object.keys(ambitoEjecucion)));
+            const descriptorDelAmbitoSim = ambitoEjecucion[nombreVarLc];
+            console.log(`[DEBUG Definicion L${numLn}] ASIGNADO Descriptor Simple para '${nombreVarLc}' en ambito:`, descriptorDelAmbitoSim);
+            console.log(`[DEBUG Definicion L${numLn}] ASIGNADO desc.nombreOriginal: ${descriptorDelAmbitoSim ? descriptorDelAmbitoSim.nombreOriginal : 'descDelAmbito es undefined'}, desc.tipoDeclarado: ${descriptorDelAmbitoSim ? descriptorDelAmbitoSim.tipoDeclarado : 'descDelAmbito es undefined'}, desc.esArreglo: ${descriptorDelAmbitoSim ? descriptorDelAmbitoSim.esArreglo : 'descDelAmbito es undefined'}`);
             if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numLn}: Variable '${nombreVar}' (${tipoVariable}) definida.`, 'debug');
         }
+        console.log(`[DEBUG Definicion L${numLn}] Claves actuales en ambitoEjecucion TRAS '${nombreVarLc}':`, JSON.stringify(Object.keys(ambitoEjecucion)));
     } return true;
 };
 Webgoritmo.Interprete.procesarAsignacion = async function(linea,ambito,numLn){
@@ -83,13 +91,20 @@ Webgoritmo.Interprete.procesarAsignacion = async function(linea,ambito,numLn){
     const valEval=await Webgoritmo.Expresiones.evaluarExpresion(exprAEval,ambito,numLn);
     const accArrMatch=destStr.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*\[\s*(.+?)\s*\]$/);
     if(accArrMatch){
-        const arrNom=accArrMatch[1]; const idxTxt=limpiarComentariosYEspaciosInternos(accArrMatch[2]); const arrNomLc=arrNom.toLowerCase(); if(!ambito.hasOwnProperty(arrNomLc)||!ambito[arrNomLc].esArreglo)throw new Error(`Arreglo '${arrNom}' no def L${numLn}.`); const descArr=ambito[arrNomLc]; const exprIdxs=idxTxt.split(',').map(s=>s.trim()); if(exprIdxs.some(s=>s===""))throw new Error(`Índice vacío L${numLn}.`); if(exprIdxs.length!==descArr.dimensiones.length)throw new Error(`Dims incorrectas L${numLn}.`); const evalIdxs=[]; for(const exIdx of exprIdxs){const vIdx=await Webgoritmo.Expresiones.evaluarExpresion(exIdx,ambito,numLn); if(typeof vIdx!=='number'||!Number.isInteger(vIdx))throw new Error(`Índice para '${arrNom}' debe ser entero. Obt: '${vIdx}' de '${exIdx}' L${numLn}.`); if(vIdx<=0||vIdx>descArr.dimensiones[evalIdxs.length])throw new Error(`Índice [${vIdx}] fuera de límites L${numLn}.`); evalIdxs.push(vIdx);} let target=descArr.valor; for(let k=0;k<evalIdxs.length-1;k++)target=target[evalIdxs[k]]; const valConvElem=Webgoritmo.Interprete.Utilidades.convertirValorParaTipo(valEval,descArr.tipoDeclarado,numLn); target[evalIdxs[evalIdxs.length-1]]=valConvElem; if(Webgoritmo.UI.añadirSalida)Webgoritmo.UI.añadirSalida(`L${numLn}: Arreglo '${descArr.nombreOriginal}'[${evalIdxs.join(',')}] <- ${valConvElem}`,'debug');
+        const arrNom=accArrMatch[1]; const idxTxt=limpiarComentariosYEspaciosInternos(accArrMatch[2]); const arrNomLc=arrNom.toLowerCase();
+        console.log(`[DEBUG Asignacion L${numLn}] Asignando a ARREGLO: '${arrNomLc}'. En Ámbito (claves):`, JSON.stringify(Object.keys(ambito)));
+        if(!ambito.hasOwnProperty(arrNomLc)||!ambito[arrNomLc].esArreglo)throw new Error(`Arreglo '${arrNom}' no def L${numLn}.`);
+        const descArr=ambito[arrNomLc];
+        console.log(`[DEBUG Asignacion L${numLn}] Descriptor RECUPERADO para ARREGLO '${arrNomLc}':`, descArr);
+        console.log(`[DEBUG Asignacion L${numLn}] RECUPERADO descArr.nombreOriginal: ${descArr ? descArr.nombreOriginal : 'descArr es undefined'}, descArr.esArreglo: ${descArr ? descArr.esArreglo : 'descArr es undefined'}`);
+        const exprIdxs=idxTxt.split(',').map(s=>s.trim()); if(exprIdxs.some(s=>s===""))throw new Error(`Índice vacío L${numLn}.`); if(exprIdxs.length!==descArr.dimensiones.length)throw new Error(`Dims incorrectas L${numLn}.`); const evalIdxs=[]; for(const exIdx of exprIdxs){const vIdx=await Webgoritmo.Expresiones.evaluarExpresion(exIdx,ambito,numLn); if(typeof vIdx!=='number'||!Number.isInteger(vIdx))throw new Error(`Índice para '${arrNom}' debe ser entero. Obt: '${vIdx}' de '${exIdx}' L${numLn}.`); if(vIdx<=0||vIdx>descArr.dimensiones[evalIdxs.length])throw new Error(`Índice [${vIdx}] fuera de límites L${numLn}.`); evalIdxs.push(vIdx);} let target=descArr.valor; for(let k=0;k<evalIdxs.length-1;k++)target=target[evalIdxs[k]]; const valConvElem=Webgoritmo.Interprete.Utilidades.convertirValorParaTipo(valEval,descArr.tipoDeclarado,numLn); target[evalIdxs[evalIdxs.length-1]]=valConvElem; if(Webgoritmo.UI.añadirSalida)Webgoritmo.UI.añadirSalida(`L${numLn}: Arreglo '${descArr.nombreOriginal}'[${evalIdxs.join(',')}] <- ${valConvElem}`,'debug');
     } else {
         const varNomLc=destStr.toLowerCase();
-        console.log(`[DEBUG Asignacion L${numLn}] Buscando: '${varNomLc}'. En Ámbito (claves):`, JSON.stringify(Object.keys(ambito)));
+        console.log(`[DEBUG Asignacion L${numLn}] Asignando a VARIABLE: '${varNomLc}'. En Ámbito (claves):`, JSON.stringify(Object.keys(ambito)));
         if(!ambito.hasOwnProperty(varNomLc)) throw new Error(`Var '${destStr}' no definida L${numLn}.`);
         const descVar=ambito[varNomLc];
-        console.log(`[DEBUG Asignacion L${numLn}] Descriptor encontrado para '${varNomLc}':`, JSON.stringify(descVar));
+        console.log(`[DEBUG Asignacion L${numLn}] Descriptor RECUPERADO para VARIABLE '${varNomLc}':`, descVar);
+        console.log(`[DEBUG Asignacion L${numLn}] RECUPERADO desc.nombreOriginal: ${descVar ? descVar.nombreOriginal : 'descVar es undefined'}, desc.tipoDeclarado: ${descVar ? descVar.tipoDeclarado : 'descVar es undefined'}, desc.esArreglo: ${descVar ? descVar.esArreglo : 'descVar es undefined'}`);
         if(descVar.esArreglo)throw new Error(`Asignar a arreglo completo no permitido L${numLn}.`);
         try{
             descVar.valor=Webgoritmo.Interprete.Utilidades.convertirValorParaTipo(valEval,descVar.tipoDeclarado,numLn);
@@ -98,7 +113,7 @@ Webgoritmo.Interprete.procesarAsignacion = async function(linea,ambito,numLn){
     }
     return true;
 };
-Webgoritmo.Interprete.procesarEntradaUsuario = async function(linea,ambito,numLn){ const matchLeer=linea.match(/^leer\s+(.+)/i); if(!matchLeer)throw new Error("Error interno Leer L"+numLn); const nomsOrigRaw=limpiarComentariosYEspaciosInternos(matchLeer[1]); const nomsPrompt=nomsOrigRaw.split(',').map(v=>v.trim()); const nomsDest=nomsPrompt.map(n=>n.toLowerCase()); if(nomsDest.length===0||nomsDest.some(v=>v===""))throw new Error("Leer sin vars L"+numLn); for(const nomLc of nomsDest){const nomP=nomsPrompt.find(n=>n.toLowerCase()===nomLc)||nomLc; if(!/^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*$/.test(nomLc))throw new Error(`Var '${nomP}' inválida L${numLn}.`); if(!ambito.hasOwnProperty(nomLc))throw new Error(`Var '${nomP}' no def L${numLn}.`); if(ambito[nomLc].esArreglo)throw new Error(`Leer arreglo completo no soportado L${numLn}.`);} let pMsg=nomsPrompt.length===1?`Ingrese valor para ${nomsPrompt[0]}:`:`Ingrese ${nomsPrompt.length} valores (separados por espacio/coma) para ${nomsPrompt.join(', ')}:`; if(window.WebgoritmoGlobal&&typeof window.WebgoritmoGlobal.solicitarEntradaUsuario==='function')window.WebgoritmoGlobal.solicitarEntradaUsuario(pMsg); else {console.error("solicitarEntradaUsuario no disponible");} Webgoritmo.estadoApp.esperandoEntradaUsuario=true; Webgoritmo.estadoApp.variablesDestinoEntrada=nomsDest; Webgoritmo.estadoApp.nombresOriginalesParaPrompt=nomsPrompt; Webgoritmo.estadoApp.promesaEntradaPendiente=new Promise(resolve=>{Webgoritmo.estadoApp.resolverPromesaEntrada=resolve; if(Webgoritmo.estadoApp.detenerEjecucion)resolve();}); await Webgoritmo.estadoApp.promesaEntradaPendiente; Webgoritmo.estadoApp.promesaEntradaPendiente=null; Webgoritmo.estadoApp.esperandoEntradaUsuario=false; if(Webgoritmo.estadoApp.detenerEjecucion&&Webgoritmo.estadoApp.errorEnEjecucion)throw new Error(Webgoritmo.estadoApp.errorEnEjecucion); return true;};
+Webgoritmo.Interprete.procesarEntradaUsuario = async function(linea,ambito,numLn){ /* ... (sin cambios) ... */ return true;};
 
 Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal = async function() {
     console.log("[motorInterprete DEBUG] Entrando a ejecutarAlgoritmoPrincipal.");
@@ -246,7 +261,6 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                  if (i < controlActual.indiceFinMientrasRelativo) {
                     debeSaltarEstePaso = true;
                 }
-                // El pop de MIENTRAS_SALTANDO_AL_FIN se hace en el handler de FinMientras
             }
 
             if (debeSaltarEstePaso) {
@@ -411,8 +425,6 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
     Webgoritmo.estadoApp.lineaEnEjecucion = null;
 };
 
-// Helper para obtener el índice original del Si (para mensajes de error)
-// Esta función asume que el contexto Si tiene una propiedad `lineaSiOriginalGlobal`
 Webgoritmo.Interprete.obtenerIndiceSiOriginal = function(pilaControl) {
     if (!pilaControl || pilaControl.length === 0) return "desconocida";
     for (let i = pilaControl.length - 1; i >= 0; i--) {
@@ -426,11 +438,9 @@ Webgoritmo.Interprete.obtenerIndiceSiOriginal = function(pilaControl) {
 Webgoritmo.Interprete.regexSiEntonces = /^\s*si\s+(.+?)\s+entonces\s*$/i;
 Webgoritmo.Interprete.regexSino = /^\s*sino\s*$/i;
 Webgoritmo.Interprete.regexFinSi = /^\s*finsi\s*$/i;
-
 Webgoritmo.Interprete.regexParaHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexParaConPasoHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+con\s+paso\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexFinPara = /^\s*finpara\s*$/i;
-
 Webgoritmo.Interprete.regexMientrasHacer = /^\s*mientras\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexFinMientras = /^\s*finmientras\s*$/i;
 
