@@ -5,6 +5,46 @@ window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Datos = Webgoritmo.Datos || {};
 
 Webgoritmo.Datos.codigosEjemplo = {
+    prueba_mientras_simple: `Algoritmo PruebaMientrasSimple
+    Definir contador Como Entero
+    Definir limite Como Entero
+
+    Escribir "--- Prueba 1: Bucle Mientras que se ejecuta varias veces ---"
+    contador <- 0
+    limite <- 3
+    Mientras contador < limite Hacer
+        Escribir "Contador: ", contador
+        contador <- contador + 1
+    FinMientras
+    Escribir "Bucle Mientras finalizado. Contador final: ", contador // Esperado: 3
+
+    Escribir "---------------------------------------------"
+    Escribir "--- Prueba 2: Bucle Mientras cuya condición es falsa inicialmente ---"
+    contador <- 5
+    limite <- 3
+    // Condición (5 < 3) es Falsa, el bloque no debería ejecutarse
+    Mientras contador < limite Hacer
+        Escribir "DENTRO DEL BUCLE MIENTRAS (NO DEBERIA APARECER) - Contador: ", contador
+        contador <- contador + 100
+    FinMientras
+    Escribir "Bucle Mientras (condición falsa) finalizado. Contador final: ", contador // Esperado: 5
+
+    Escribir "---------------------------------------------"
+    // Prueba 3 (Corregida para terminar)
+    Escribir "--- Prueba 3 (Corregida): Bucle Mientras que termina ---"
+    contador <- 0
+    Definir seguirEnBucle Como Logico
+    seguirEnBucle <- Verdadero
+    Mientras seguirEnBucle Hacer
+        Escribir "Iteración Mientras (Prueba 3): ", contador
+        contador <- contador + 1
+        Si contador >= 2 Entonces
+            seguirEnBucle <- Falso
+        FinSi
+    FinMientras
+    Escribir "Bucle Mientras (Prueba 3) finalizado. Contador: ", contador // Esperado: 2
+
+FinAlgoritmo`,
     prueba_para_simple: `Algoritmo PruebaParaComplejo
     Definir i, j, k, suma Como Entero
     Definir x, varY, z, p Como Entero // 'y' cambiada a 'varY'
@@ -297,4 +337,4 @@ FinAlgoritmo`,
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Actualizado con prueba Para complejo y otros) cargado.");
+console.log("datosEjemplos.js (Actualizado con prueba Mientras y otros) cargado.");
