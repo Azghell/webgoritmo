@@ -47,10 +47,9 @@ Webgoritmo.Datos.codigosEjemplo = {
 
 FinAlgoritmo`,
     */
-    /* REVERTIDO - Ejemplo Para Complejo (Fase 2) comentado tras reversión del motor.
     prueba_para_simple: `Algoritmo PruebaParaComplejo
     Definir i, j, k, suma Como Entero
-    Definir x, varY, z, p Como Entero // 'y' cambiada a 'varY'
+    Definir x, varY, z, p Como Entero // 'y' fue cambiada a 'varY' para no ser palabra reservada
 
     Escribir "CASO 1: Bucle Para simple (1 a 3, paso 1)"
     suma <- 0
@@ -81,12 +80,12 @@ FinAlgoritmo`,
     Escribir "-------------------------------------"
     Escribir "CASO 4: Bucle Para con expresiones en límites y paso"
     x <- 1
-    varY <- 2 // 'y' cambiada a 'varY'
-    z <- 3 // paso será z-1 = 2
-    p <- 5 // fin será varY+p = 2+5 = 7
-    // Bucle de x=1 hasta varY+p=7 con paso z-1=2  => i = 1, 3, 5, 7
+    varY <- 2
+    z <- 3
+    p <- 5
+    // Bucle de x=1 hasta varY+p=(2+5)=7 con paso z-1=(3-1)=2  => i = 1, 3, 5, 7
     suma <- 0
-    Para i <- x Hasta varY+p Con Paso z-1 Hacer // 'y' cambiada a 'varY'
+    Para i <- x Hasta varY+p Con Paso z-1 Hacer
         Escribir "Iteración i con expresiones: ", i
         suma <- suma + i
     FinPara
@@ -125,7 +124,6 @@ FinAlgoritmo`,
     Escribir "Bucle Para con Si-Entonces-Sino anidado finalizado."
 
 FinAlgoritmo`,
-    */
     prueba_si_entonces_simple: `Algoritmo PruebaSiEntoncesSinoCompleto
     Definir a, b, c Como Entero
     Definir mensaje Como Cadena
@@ -161,15 +159,14 @@ FinAlgoritmo`,
     Escribir "Resultado Caso 2: a=", a, ", b=", b, ", mensaje='", mensaje, "'"
 
     Escribir "--- Caso 3: Si Anidado con Sino ---"
-    // Si V Entonces (Si V Entonces ... Sino ...) FinSi
     a <- 1
     b <- 2
     c <- 3
     mensaje <- "Anidado Ini"
-    Si a < b Entonces // Verdadero
+    Si a < b Entonces
         mensaje <- "Exterior V"
         Escribir "Exterior Si (V). Mensaje: ", mensaje
-        Si b < c Entonces // Verdadero
+        Si b < c Entonces
             mensaje <- "Interior V"
             Escribir "Interior Si (V). Mensaje: ", mensaje
             a <- 10
@@ -188,15 +185,14 @@ FinAlgoritmo`,
     Escribir "Resultado Caso 3: a=",a,", b=",b,", c=",c,", mensaje='",mensaje,"'"
 
     Escribir "--- Caso 4: Si Anidado con Sino (Interior Falso) ---"
-    // Si V Entonces (Si F Entonces ... Sino ...) FinSi
     a <- 1
     b <- 3
-    c <- 2  // b > c para que Si interno sea Falso
+    c <- 2
     mensaje <- "Anidado Ini 2"
-    Si a < b Entonces // Verdadero
+    Si a < b Entonces
         mensaje <- "Exterior V (2)"
         Escribir "Exterior Si (V) (2). Mensaje: ", mensaje
-        Si b < c Entonces // Falso (3 < 2 es F)
+        Si b < c Entonces
             mensaje <- "Interior V - ERROR (2)"
             Escribir "Interior Si (ERROR) (2). Mensaje: ", mensaje
             a <- 10
@@ -215,20 +211,18 @@ FinAlgoritmo`,
     Escribir "Resultado Caso 4: a=",a,", b=",b,", c=",c,", mensaje='",mensaje,"'"
 
     Escribir "--- Caso 5: Si Anidado (Exterior Falso) ---"
-    // Si F Entonces (...) Sino (...) FinSi
     a <- 3
     b <- 1
-    c <- 2 // a > b para que Si exterior sea Falso
+    c <- 2
     mensaje <- "Anidado Ini 3"
-    Si a < b Entonces // Falso
+    Si a < b Entonces
         mensaje <- "Exterior V - ERROR (3)"
         Escribir "Exterior Si (ERROR) (3). Mensaje: ", mensaje
         a <- 10
     Sino
         mensaje <- "Exterior F (3)"
         Escribir "Exterior Sino (3). Mensaje: ", mensaje
-        // Si anidado dentro de este Sino
-        Si b < c Entonces // Verdadero (1 < 2)
+        Si b < c Entonces
              mensaje <- "Interior (en Exterior F) V (3)"
              Escribir "Interior (en Ext F) Si (V) (3). Mensaje: ", mensaje
              b <- 200
@@ -249,51 +243,34 @@ FinAlgoritmo`,
     Definir esVerdadero, esFalso Como Logico
     Definir condicionA, condicionB, condicionFinal Como Logico
 
-    // Asignar valores iniciales
     notas[1] <- 10.0
     notas[2] <- 20.0
-    notas[3] <- 10.0 // notas[3] igual a notas[1] para algunas pruebas
+    notas[3] <- 10.0
     idx <- 1
-
     Escribir "Valores iniciales: notas[1]=", notas[1], ", notas[2]=", notas[2], ", notas[3]=", notas[3], ", idx=", idx
-
-    // Pruebas Relacionales
-    esVerdadero <- notas[idx+1] > notas[idx]  // 20.0 > 10.0 -> Verdadero
+    esVerdadero <- notas[idx+1] > notas[idx]
     Escribir "notas[idx+1] > notas[idx] (20.0 > 10.0) es: ", esVerdadero
-
-    esFalso <- notas[idx] > notas[idx+1]    // 10.0 > 20.0 -> Falso
+    esFalso <- notas[idx] > notas[idx+1]
     Escribir "notas[idx] > notas[idx+1] (10.0 > 20.0) es: ", esFalso
-
-    condicionA <- notas[idx] = notas[3]      // 10.0 = 10.0 -> Verdadero
+    condicionA <- notas[idx] = notas[3]
     Escribir "notas[idx] = notas[3] (10.0 = 10.0) es: ", condicionA
-
-    condicionB <- notas[1] <> notas[3]     // 10.0 <> 10.0 -> Falso
+    condicionB <- notas[1] <> notas[3]
     Escribir "notas[1] <> notas[3] (10.0 <> 10.0) es: ", condicionB
-
-    // Pruebas Lógicas
     Escribir "--- Pruebas Lógicas ---"
-    condicionFinal <- esVerdadero Y condicionA  // Verdadero Y Verdadero -> Verdadero
+    condicionFinal <- esVerdadero Y condicionA
     Escribir "esVerdadero Y condicionA (V Y V) es: ", condicionFinal
-
-    condicionFinal <- esVerdadero Y esFalso     // Verdadero Y Falso -> Falso
+    condicionFinal <- esVerdadero Y esFalso
     Escribir "esVerdadero Y esFalso (V Y F) es: ", condicionFinal
-
-    condicionFinal <- esFalso O condicionA      // Falso O Verdadero -> Verdadero
+    condicionFinal <- esFalso O condicionA
     Escribir "esFalso O condicionA (F O V) es: ", condicionFinal
-
-    condicionFinal <- NO esFalso               // NO Falso -> Verdadero
+    condicionFinal <- NO esFalso
     Escribir "NO esFalso es: ", condicionFinal
-
-    // Combinada más compleja
-    idx <- 2 // notas[idx] es notas[2] = 20.0
-             // notas[idx-1] es notas[1] = 10.0
-    condicionA <- (notas[idx] > 15.0) Y (notas[idx-1] < 15.0) // (20.0 > 15.0) Y (10.0 < 15.0) -> V Y V -> V
+    idx <- 2
+    condicionA <- (notas[idx] > 15.0) Y (notas[idx-1] < 15.0)
     Escribir "(notas[idx] > 15.0) Y (notas[idx-1] < 15.0) es: ", condicionA
-
-    condicionB <- (notas[1] = 10.0) O (notas[3] < 5.0)       // (10.0 = 10.0) O (10.0 < 5.0) -> V O F -> V
+    condicionB <- (notas[1] = 10.0) O (notas[3] < 5.0)
     Escribir "(notas[1] = 10.0) O (notas[3] < 5.0) es: ", condicionB
-
-    condicionFinal <- NO (condicionA Y condicionB) Y ( (notas[1]+notas[3])/2 = 10.0 ) // NO(V Y V) Y ( (10+10)/2 = 10 ) -> NO(V) Y (V) -> F Y V -> F
+    condicionFinal <- NO (condicionA Y condicionB) Y ( (notas[1]+notas[3])/2 = 10.0 )
     Escribir "NO(condA Y condB) Y ((notas[1]+notas[3])/2 = 10.0) es: ", condicionFinal
 FinAlgoritmo`,
     expresiones_f4: `Algoritmo PruebaExpresiones
@@ -301,19 +278,15 @@ FinAlgoritmo`,
     Definir resultado Como Real
     Definir esValido Como Logico
     Definir mensaje Como Cadena
-
     a <- 10
     b <- 4
     c <- 2
     mensaje <- "Resultado: "
-
-    resultado <- (a + b) * c / (b - c) + (a MOD b) // Esperado: 16
+    resultado <- (a + b) * c / (b - c) + (a MOD b)
     Escribir mensaje, resultado
-
-    esValido <- (a > b Y b > c) O (a < 5) // Esperado: Verdadero
+    esValido <- (a > b Y b > c) O (a < 5)
     Escribir "La condición es: ", esValido
-
-    Escribir "Negación de esValido: ", NO esValido // Esperado: Falso
+    Escribir "Negación de esValido: ", NO esValido
 FinAlgoritmo`,
     entrada_leer_f3: `Algoritmo PruebaLeerBasico
     Definir nombre Como Cadena
@@ -333,7 +306,7 @@ FinAlgoritmo`,
     Escribir "Esta línea no debería alcanzarse si hay error"
 FinAlgoritmo`,
     prueba_error_finsi_huerfano: `Algoritmo ErrorFinSiHuerfano
-    Definir i Como Entero // Cambiado de 'y' a 'i' para evitar colisión con palabra reservada Y
+    Definir i Como Entero
     i <- 20
     Escribir "Valor de i: ", i
     FinSi // FinSi sin un Si previo
@@ -341,4 +314,4 @@ FinAlgoritmo`,
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Revertido: comentados ejemplos Mientras y Para complejo) cargado.");
+console.log("datosEjemplos.js (Restaurado PruebaParaComplejo, Mientras comentado) cargado.");
