@@ -1,4 +1,4 @@
-// motorInterprete.js (Revertido a la versión estable pre-Mientras)
+// motorInterprete.js (Revertido a post Si-Entonces-Sino y Para Fase 1)
 
 window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Interprete = {};
@@ -11,7 +11,7 @@ Webgoritmo.Interprete.Utilidades = {
         "PROCESO", "FINPROCESO", "ALGORITMO", "FINALGORITMO",
         "DEFINIR", "COMO", "LEER", "ESCRIBIR", "IMPRIMIR", "MOSTRAR",
         "SI", "ENTONCES", "SINO", "FINSI",
-        "MIENTRAS", "HACER", "FINMIENTRAS", // Se mantiene por si acaso, pero el motor no la usará
+        "MIENTRAS", "HACER", "FINMIENTRAS",
         "PARA", "HASTA", "CON", "PASO", "FINPARA",
         "SEGUN", "DE", "OTRO", "MODO", "FINSEGUN",
         "FUNCION", "FINFUNCION", "SUBPROCESO", "FINSUBPROCESO",
@@ -27,7 +27,6 @@ Webgoritmo.Interprete.Utilidades.convertirValorParaTipo = function(val,tipoDest,
 Webgoritmo.Interprete.Utilidades.inicializarArregloConDescriptor = function(dims,baseT){const defV=this.obtenerValorPorDefectoSegunTipo(baseT);function cD(dI){const dS=dims[dI];if(typeof dS!=='number'||!Number.isInteger(dS)||dS<=0)throw new Error("Dim inválida.");let arr=new Array(dS+1);if(dI===dims.length-1){for(let i=1;i<=dS;i++)arr[i]=defV;}else{for(let i=1;i<=dS;i++)arr[i]=cD(dI+1);}return arr;}if(!dims||dims.length===0)throw new Error("No dims.");return cD(0);};
 Webgoritmo.Interprete.Utilidades.obtenerValorRealVariable = function(nombreVariable, ambitoActual, numeroLinea) { const nombreVarLc = String(nombreVariable).toLowerCase(); if (!ambitoActual.hasOwnProperty(nombreVarLc)) { throw new Error(`Error en línea ${numeroLinea}: Variable '${nombreVariable}' no definida.`); } const descriptor = ambitoActual[nombreVarLc]; if (descriptor.esArreglo && !(Webgoritmo.Expresiones && Webgoritmo.Expresiones.permitirArregloComoOperandoGlobal)) { return descriptor;} return descriptor.valor; };
 
-// --- FUNCIONES DE PROCESAMIENTO DE INSTRUCCIONES ---
 Webgoritmo.Interprete.procesarSalidaConsola = async function(linea,ambito,numLn){const rgx= /^(?:escribir|imprimir|mostrar)\s+(.*)/i;const m=linea.match(rgx);if(!m||!m[1])throw new Error("Escribir mal formado.");const argsTxt=limpiarComentariosYEspaciosInternos(m[1]);if(argsTxt===""&&linea.match(rgx)[0].trim()!==m[0].split(" ")[0])return true; if(argsTxt==="")throw new Error(`'${m[0].split(" ")[0]}' sin args L${numLn}.`);const exprs=[];let buff="";let inQ=false;let qT='';for(let i=0;i<argsTxt.length;i++){const ch=argsTxt[i]; if((ch==='"'||ch==="'")&&(i===0||argsTxt[i-1]!=='\\')){if(!inQ){inQ=true;qT=ch;buff+=ch;}else if(ch===qT){inQ=false;buff+=ch;}else{buff+=ch;}}else if(ch===','&&!inQ){exprs.push(buff.trim());buff="";}else{buff+=ch;}}if(buff.trim()!=="")exprs.push(buff.trim());let outF="";for(const exT of exprs){if(exT==="")continue; const evalPart=await Webgoritmo.Expresiones.evaluarExpresion(exT,ambito,numLn); outF+=typeof evalPart==='boolean'?(evalPart?'Verdadero':'Falso'):(evalPart===null?'nulo':String(evalPart));} if(Webgoritmo.UI.añadirSalida)Webgoritmo.UI.añadirSalida(outF,'normal'); return true;};
 Webgoritmo.Interprete.procesarDefinicion = async function(linea,ambitoEjecucion,numLn){
     console.log(`[DEBUG procesarDefinicion L${numLn}] Entrando con línea: "${linea}"`);
@@ -69,7 +68,6 @@ Webgoritmo.Interprete.procesarDefinicion = async function(linea,ambitoEjecucion,
 Webgoritmo.Interprete.procesarAsignacion = async function(linea,ambito,numLn){ const regexAsignacion = /^\s*([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?)\s*(?:<-|=)\s*(.+)\s*$/; const m=linea.match(regexAsignacion); if(!m)throw new Error("Sintaxis asignación incorrecta L"+numLn); const destStr=m[1].trim(); const exprStrCruda=m[2]; const exprAEval=limpiarComentariosYEspaciosInternos(exprStrCruda); if(exprAEval==="")throw new Error(`Expresión vacía L${numLn}.`); const valEval=await Webgoritmo.Expresiones.evaluarExpresion(exprAEval,ambito,numLn); const accArrMatch=destStr.match(/^([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*\[\s*(.+?)\s*\]$/); if(accArrMatch){const arrNom=accArrMatch[1]; const idxTxt=limpiarComentariosYEspaciosInternos(accArrMatch[2]); const arrNomLc=arrNom.toLowerCase(); if(!ambito.hasOwnProperty(arrNomLc)||!ambito[arrNomLc].esArreglo)throw new Error(`Arreglo '${arrNom}' no def L${numLn}.`); const descArr=ambito[arrNomLc]; const exprIdxs=idxTxt.split(',').map(s=>s.trim()); if(exprIdxs.some(s=>s===""))throw new Error(`Índice vacío L${numLn}.`); if(exprIdxs.length!==descArr.dimensiones.length)throw new Error(`Dims incorrectas L${numLn}.`); const evalIdxs=[]; for(const exIdx of exprIdxs){const vIdx=await Webgoritmo.Expresiones.evaluarExpresion(exIdx,ambito,numLn); if(typeof vIdx!=='number'||!Number.isInteger(vIdx))throw new Error(`Índice para '${arrNom}' debe ser entero. Obt: '${vIdx}' de '${exIdx}' L${numLn}.`); if(vIdx<=0||vIdx>descArr.dimensiones[evalIdxs.length])throw new Error(`Índice [${vIdx}] fuera de límites L${numLn}.`); evalIdxs.push(vIdx);} let target=descArr.valor; for(let k=0;k<evalIdxs.length-1;k++)target=target[evalIdxs[k]]; const valConvElem=Webgoritmo.Interprete.Utilidades.convertirValorParaTipo(valEval,descArr.tipoDeclarado,numLn); target[evalIdxs[evalIdxs.length-1]]=valConvElem; if(Webgoritmo.UI.añadirSalida)Webgoritmo.UI.añadirSalida(`L${numLn}: Arreglo '${descArr.nombreOriginal}'[${evalIdxs.join(',')}] <- ${valConvElem}`,'debug');} else {const varNomLc=destStr.toLowerCase(); if(!ambito.hasOwnProperty(varNomLc))throw new Error(`Var '${destStr}' no def L${numLn}.`); const descVar=ambito[varNomLc]; if(descVar.esArreglo)throw new Error(`Asignar a arreglo completo no permitido L${numLn}.`); try{descVar.valor=Webgoritmo.Interprete.Utilidades.convertirValorParaTipo(valEval,descVar.tipoDeclarado,numLn);if(Webgoritmo.UI.añadirSalida)Webgoritmo.UI.añadirSalida(`L${numLn}: Var '${descVar.nombreOriginal}' <- ${descVar.valor}`,'debug');}catch(e){throw e;}} return true;};
 Webgoritmo.Interprete.procesarEntradaUsuario = async function(linea,ambito,numLn){ const matchLeer=linea.match(/^leer\s+(.+)/i); if(!matchLeer)throw new Error("Error interno Leer L"+numLn); const nomsOrigRaw=limpiarComentariosYEspaciosInternos(matchLeer[1]); const nomsPrompt=nomsOrigRaw.split(',').map(v=>v.trim()); const nomsDest=nomsPrompt.map(n=>n.toLowerCase()); if(nomsDest.length===0||nomsDest.some(v=>v===""))throw new Error("Leer sin vars L"+numLn); for(const nomLc of nomsDest){const nomP=nomsPrompt.find(n=>n.toLowerCase()===nomLc)||nomLc; if(!/^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*$/.test(nomLc))throw new Error(`Var '${nomP}' inválida L${numLn}.`); if(!ambito.hasOwnProperty(nomLc))throw new Error(`Var '${nomP}' no def L${numLn}.`); if(ambito[nomLc].esArreglo)throw new Error(`Leer arreglo completo no soportado L${numLn}.`);} let pMsg=nomsPrompt.length===1?`Ingrese valor para ${nomsPrompt[0]}:`:`Ingrese ${nomsPrompt.length} valores (separados por espacio/coma) para ${nomsPrompt.join(', ')}:`; if(window.WebgoritmoGlobal&&typeof window.WebgoritmoGlobal.solicitarEntradaUsuario==='function')window.WebgoritmoGlobal.solicitarEntradaUsuario(pMsg); else {console.error("solicitarEntradaUsuario no disponible");} Webgoritmo.estadoApp.esperandoEntradaUsuario=true; Webgoritmo.estadoApp.variablesDestinoEntrada=nomsDest; Webgoritmo.estadoApp.nombresOriginalesParaPrompt=nomsPrompt; Webgoritmo.estadoApp.promesaEntradaPendiente=new Promise(resolve=>{Webgoritmo.estadoApp.resolverPromesaEntrada=resolve; if(Webgoritmo.estadoApp.detenerEjecucion)resolve();}); await Webgoritmo.estadoApp.promesaEntradaPendiente; Webgoritmo.estadoApp.promesaEntradaPendiente=null; Webgoritmo.estadoApp.esperandoEntradaUsuario=false; if(Webgoritmo.estadoApp.detenerEjecucion&&Webgoritmo.estadoApp.errorEnEjecucion)throw new Error(Webgoritmo.estadoApp.errorEnEjecucion); return true;};
 
-// --- FUNCIONES PRINCIPALES DE EJECUCIÓN ---
 Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal = async function() {
     console.log("[motorInterprete DEBUG] Entrando a ejecutarAlgoritmoPrincipal.");
     if (!Webgoritmo.UI || !Webgoritmo.UI.añadirSalida) { console.error("[motorInterprete DEBUG] UI.añadirSalida no disponible."); return; }
@@ -126,14 +124,12 @@ Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal = async function() {
     }
 };
 
-// Regex globales para estructuras de control
 Webgoritmo.Interprete.regexSiEntonces = /^\s*si\s+(.+?)\s+entonces\s*$/i;
 Webgoritmo.Interprete.regexSino = /^\s*sino\s*$/i;
 Webgoritmo.Interprete.regexFinSi = /^\s*finsi\s*$/i;
 Webgoritmo.Interprete.regexParaHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexParaConPasoHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+con\s+paso\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexFinPara = /^\s*finpara\s*$/i;
-// No hay regex para Mientras ni FinMientras en esta versión revertida
 
 Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) {
     let nivelAnidamiento = 0; let indiceSinoEncontrado = -1; let indiceFinSiEncontrado = -1;
@@ -158,8 +154,6 @@ Webgoritmo.Interprete.escanearParaFinPara = function(lineasDelBloque, indicePara
     throw new Error(`'Para' L${numeroLineaGlobalPara} sin 'FinPara'.`);
 };
 
-// La función escanearParaFinMientras se elimina en esta reversión
-
 Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, ambitoEjecucion, numeroLineaOffset) {
     console.log(`[motorInterprete DEBUG] Entrando a ejecutarBloqueCodigo con ${lineasDelBloque ? lineasDelBloque.length : 'N/A'} líneas. Offset: ${numeroLineaOffset}`);
     if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`ejecutarBloqueCodigo procesando ${lineasDelBloque.length} líneas. Offset: ${numeroLineaOffset}`, 'debug');
@@ -174,7 +168,6 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
         const lineaProcesada = limpiarComentariosYEspacios(lineaOriginalFuente);
         const lineaMinusculas = lineaProcesada.toLowerCase();
 
-        // Lógica de Salto para Estructuras de Control (revertida a Si y Para solamente)
         if (Webgoritmo.estadoApp.pilaControl.length > 0) {
             const controlActual = Webgoritmo.estadoApp.pilaControl[Webgoritmo.estadoApp.pilaControl.length - 1];
             let debeSaltarEstePaso = false;
@@ -264,7 +257,6 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                 }
                 instruccionManejada = true;
             }
-            // La lógica para Mientras y FinMientras se ha eliminado en esta reversión.
             else {
                 const regexAsignacion = /^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?\s*(?:<-|=)/;
                 const esPotencialAsignacion = regexAsignacion.test(lineaProcesada);
@@ -279,7 +271,7 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                     instruccionManejada = await Webgoritmo.Interprete.procesarAsignacion(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
                 } else {
                     const primeraPalabra = lineaMinusculas.split(" ")[0];
-                    const palabrasClaveConocidas = ["algoritmo","proceso","finalgoritmo","finproceso", "si", "entonces", "sino", "finsi", "para", "hacer", "con", "paso", "finpara"]; // Eliminado mientras, finmientras
+                    const palabrasClaveConocidas = ["algoritmo","proceso","finalgoritmo","finproceso", "si", "entonces", "sino", "finsi", "para", "hacer", "con", "paso", "finpara"];
                     if (!palabrasClaveConocidas.includes(primeraPalabra) && lineaProcesada) {
                         throw new Error(`Instrucción no reconocida: '${lineaProcesada}'`);
                     }
@@ -292,14 +284,6 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
     }
     Webgoritmo.estadoApp.lineaEnEjecucion = null;
 };
-
-
-// --- Funciones de utilidad y placeholders (copiadas del estado estable) ---
-// ... (obtenerIndiceSiOriginal se mantiene) ...
-// ... (regex para Si, Sino, FinSi, Para, FinPara se mantienen) ...
-// ... (escanearBloqueSiLogico y escanearParaFinPara se mantienen) ...
-// ... (SE ELIMINAN regexMientrasHacer, regexFinMientras y escanearParaFinMientras) ...
-// ... (resto de funciones de utilidad y procesadores de instrucciones se mantienen) ...
 
 Webgoritmo.Interprete.obtenerIndiceSiOriginal = function(pilaControl) {
     if (!pilaControl || pilaControl.length === 0) return "desconocida";
@@ -314,14 +298,9 @@ Webgoritmo.Interprete.obtenerIndiceSiOriginal = function(pilaControl) {
 Webgoritmo.Interprete.regexSiEntonces = /^\s*si\s+(.+?)\s+entonces\s*$/i;
 Webgoritmo.Interprete.regexSino = /^\s*sino\s*$/i;
 Webgoritmo.Interprete.regexFinSi = /^\s*finsi\s*$/i;
-
 Webgoritmo.Interprete.regexParaHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexParaConPasoHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+con\s+paso\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexFinPara = /^\s*finpara\s*$/i;
-
-// ELIMINADAS:
-// Webgoritmo.Interprete.regexMientrasHacer = /^\s*mientras\s+(.+?)\s+hacer\s*$/i;
-// Webgoritmo.Interprete.regexFinMientras = /^\s*finmientras\s*$/i;
 
 Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) {
     let nivelAnidamiento = 0;
@@ -373,39 +352,10 @@ Webgoritmo.Interprete.escanearParaFinPara = function(lineasDelBloque, indicePara
     throw new Error(`Error de sintaxis: La estructura 'Para' iniciada en la línea ${numeroLineaGlobalPara} no tiene un 'FinPara' correspondiente.`);
 };
 
-// ELIMINADA:
-// Webgoritmo.Interprete.escanearParaFinMientras = function(...)
-
-Webgoritmo.Interprete.Utilidades.obtenerValorPorDefectoSegunTipo = function(tipo) { /* ... */ }; // Mantenida
-Webgoritmo.Interprete.Utilidades.crearDescriptorVariable = function(nom,tipoD,valIni){ /* ... */ }; // Mantenida
-Webgoritmo.Interprete.Utilidades.inferirTipoDesdeValor = function(v){ /* ... */ }; // Mantenida
-Webgoritmo.Interprete.Utilidades.convertirValorParaTipo = function(val,tipoDest,numLn){ /* ... */ }; // Mantenida
-Webgoritmo.Interprete.Utilidades.inicializarArregloConDescriptor = function(dims,baseT){ /* ... */ }; // Mantenida
-Webgoritmo.Interprete.Utilidades.obtenerValorRealVariable = function(nombreVariable, ambitoActual, numeroLinea) { /* ... */ }; // Mantenida
-
-// ... (resto de procesarSalidaConsola, procesarDefinicion, procesarAsignacion, procesarEntradaUsuario se mantienen) ...
-// ... (procesarDimensionArreglo, procesarSiEntoncesSino (placeholders) se mantienen o se eliminan si no estaban antes) ...
-// Los placeholders para SiEntoncesSino, llamarSubProceso, etc., si estaban antes de 'Mientras', se quedan.
-
 Webgoritmo.Interprete.procesarDimensionArreglo = async function(l,a,nL) { console.warn("Dimension no implementada"); return false;};
-Webgoritmo.Interprete.procesarSiEntoncesSino = async function(lA,aA,nLSi,lBC,iSiB) { console.warn("Si-Entonces-Sino aún no implementado"); return iSiB;}; // Este es un placeholder antiguo
+Webgoritmo.Interprete.procesarSiEntoncesSino = async function(lA,aA,nLSi,lBC,iSiB) { console.warn("Si-Entonces-Sino aún no implementado"); return iSiB;};
 Webgoritmo.Interprete.llamarSubProceso = async function(nFO,lEAStr,aL,nLL) { console.warn("llamarSubProceso no implementado"); return undefined;};
 Webgoritmo.Interprete.parsearDefinicionSubProceso = function(lI,idxI,tLs){ console.warn("parsearDefinicionSubProceso no implementado"); return null;};
 
 Webgoritmo.Interprete.ejecutarPseudocodigo = Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal;
-console.log("motorInterprete.js (Revertido a pre-Mientras) cargado.");
-
-// Asegurarse de que las funciones de utilidad se copien correctamente si estaban fuera del objeto Utilidades inicialmente.
-// En este caso, parece que estaban bien.
-// El console.log final también se ajusta.
-```
-
-He preparado el contenido completo de `motorInterprete.js` revertido.
-Los principales cambios son:
-*   Eliminación de `regexMientrasHacer`, `regexFinMientras`.
-*   Eliminación de `escanearParaFinMientras`.
-*   Eliminación de toda la lógica de `MIENTRAS`, `MIENTRAS_SALTANDO_AL_FIN` y `FinMientras` de `ejecutarBloqueCodigo`.
-*   Ajuste de la lista `palabrasClaveConocidas` en `ejecutarBloqueCodigo`.
-*   Ajuste del `console.log` final del archivo.
-
-Procedo con el `overwrite_file_with_block`.
+console.log("motorInterprete.js (Revertido a pre-Mientras, funcional con Si y Para) cargado.");

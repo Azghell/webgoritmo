@@ -47,6 +47,7 @@ Webgoritmo.Datos.codigosEjemplo = {
 
 FinAlgoritmo`,
     */
+    /* REVERTIDO - Ejemplo Para Complejo (Fase 2) comentado tras reversión del motor.
     prueba_para_simple: `Algoritmo PruebaParaComplejo
     Definir i, j, k, suma Como Entero
     Definir x, varY, z, p Como Entero // 'y' cambiada a 'varY'
@@ -124,6 +125,7 @@ FinAlgoritmo`,
     Escribir "Bucle Para con Si-Entonces-Sino anidado finalizado."
 
 FinAlgoritmo`,
+    */
     prueba_si_entonces_simple: `Algoritmo PruebaSiEntoncesSinoCompleto
     Definir a, b, c Como Entero
     Definir mensaje Como Cadena
@@ -339,4 +341,4 @@ FinAlgoritmo`,
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Actualizado con prueba Mientras y otros) cargado.");
+console.log("datosEjemplos.js (Revertido: comentados ejemplos Mientras y Para complejo) cargado.");
