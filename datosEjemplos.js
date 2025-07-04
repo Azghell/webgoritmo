@@ -5,6 +5,7 @@ window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Datos = Webgoritmo.Datos || {};
 
 Webgoritmo.Datos.codigosEjemplo = {
+    /* REVERTIDO - Ejemplo Mientras comentado para evitar errores ya que la funcionalidad no está.
     prueba_mientras_simple: `Algoritmo PruebaMientrasSimple
     Definir contador Como Entero
     Definir limite Como Entero
@@ -45,6 +46,7 @@ Webgoritmo.Datos.codigosEjemplo = {
     Escribir "Bucle Mientras (Prueba 3) finalizado. Contador: ", contador // Esperado: 2
 
 FinAlgoritmo`,
+    */
     prueba_para_simple: `Algoritmo PruebaParaComplejo
     Definir i, j, k, suma Como Entero
     Definir x, varY, z, p Como Entero // 'y' cambiada a 'varY'
