@@ -137,7 +137,44 @@ Webgoritmo.Interprete.procesarAsignacion = async function(linea,ambito,numLn){
 };
 Webgoritmo.Interprete.procesarEntradaUsuario = async function(linea,ambito,numLn){ /* ... (sin cambios) ... */ return true;};
 
-Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal = async function() { /* ... (sin cambios) ... */ };
+Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal = async function() {
+    console.log("[MOTOR DEBUG] INICIO ejecutarAlgoritmoPrincipal");
+    if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Iniciando ejecución del algoritmo principal...", "info");
+
+    Webgoritmo.estadoApp.variables = {};
+    Webgoritmo.estadoApp.funciones = {};
+    Webgoritmo.estadoApp.detenerEjecucion = false;
+    Webgoritmo.estadoApp.esperandoEntrada = false;
+    Webgoritmo.estadoApp.errorEnEjecucion = null;
+    Webgoritmo.estadoApp.lineaEnEjecucion = null;
+    Webgoritmo.estadoApp.pilaControl = [];
+    Webgoritmo.estadoApp.ejecucionEnCurso = true;
+
+    const lineasCodigo = Webgoritmo.estadoApp.lineasCodigo;
+    if (!lineasCodigo || lineasCodigo.length === 0) {
+        if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("No hay código para ejecutar.", "warning");
+        Webgoritmo.estadoApp.ejecucionEnCurso = false;
+        return;
+    }
+
+    try {
+        await Webgoritmo.Interprete.ejecutarBloqueCodigo(lineasCodigo, Webgoritmo.estadoApp.variables, 0);
+    } catch (error) {
+        Webgoritmo.estadoApp.errorEnEjecucion = error.message;
+        if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Error fatal: " + error.message, "error");
+    } finally {
+        Webgoritmo.estadoApp.ejecucionEnCurso = false;
+        Webgoritmo.estadoApp.lineaEnEjecucion = null;
+        if (Webgoritmo.estadoApp.errorEnEjecucion) {
+            if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`Ejecución finalizada con error: ${Webgoritmo.estadoApp.errorEnEjecucion}`, "error");
+        } else if (Webgoritmo.estadoApp.detenerEjecucion && !Webgoritmo.estadoApp.errorEnEjecucion) {
+            if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Ejecución detenida por el usuario.", "info");
+        } else {
+            if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Ejecución finalizada.", "info");
+        }
+        console.log("[MOTOR DEBUG] FIN ejecutarAlgoritmoPrincipal. Estado final:", Webgoritmo.estadoApp);
+    }
+};
 
 Webgoritmo.Interprete.regexSiEntonces = /^\s*si\s+(.+?)\s+entonces\s*$/i;
 Webgoritmo.Interprete.regexSino = /^\s*sino\s*$/i;
@@ -385,5 +422,53 @@ Webgoritmo.Interprete.procesarSiEntoncesSino = async function(lA,aA,nLSi,lBC,iSi
 Webgoritmo.Interprete.llamarSubProceso = async function(nFO,lEAStr,aL,nLL) { console.warn("llamarSubProceso no implementado"); return undefined;};
 Webgoritmo.Interprete.parsearDefinicionSubProceso = function(lI,idxI,tLs){ console.warn("parsearDefinicionSubProceso no implementado"); return null;};
 
-Webgoritmo.Interprete.ejecutarPseudocodigo = Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal;
-console.log("motorInterprete.js (con Mientras y logs detallados para Definicion/Asignacion) cargado.");
+Webgoritmo.Interprete.ejecutarPseudocodigo = async function(lineasCodigo, ambitoGlobal = null) {
+    console.log("[MOTOR DEBUG] INICIO ejecutarPseudocodigo");
+    if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Iniciando ejecución de pseudocodigo (bloque)...", "info");
+
+    // Configuración similar a ejecutarAlgoritmoPrincipal pero para un bloque más genérico
+    // Si no se provee un ámbito, se usa uno nuevo (podría ser el global de estadoApp o uno temporal)
+    const ambitoEjecucion = ambitoGlobal || { ...Webgoritmo.estadoApp.variables }; // Copia para no afectar global si es temporal
+
+    // No se reinicia todo el estadoApp necesariamente, solo lo relevante para este bloque
+    Webgoritmo.estadoApp.detenerEjecucion = false;
+    Webgoritmo.estadoApp.errorEnEjecucion = null;
+    // Webgoritmo.estadoApp.pilaControl = []; // ¿Debería reiniciarse aquí o ser gestionada por el llamador? Por ahora, sí.
+    Webgoritmo.estadoApp.pilaControl = [];
+
+
+    if (!lineasCodigo || lineasCodigo.length === 0) {
+        if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("No hay código en el bloque para ejecutar.", "warning");
+        return;
+    }
+
+    try {
+        // El offset es 0 porque las líneas son relativas al bloque actual
+        await Webgoritmo.Interprete.ejecutarBloqueCodigo(lineasCodigo, ambitoEjecucion, 0);
+    } catch (error) {
+        // Este error debería ser manejado por ejecutarBloqueCodigo y reflejado en estadoApp.errorEnEjecucion
+        // Pero por si acaso, lo capturamos aquí también.
+        if (Webgoritmo.UI.añadirSalida && !Webgoritmo.estadoApp.errorEnEjecucion) {
+             Webgoritmo.UI.añadirSalida("Error fatal en bloque: " + error.message, "error");
+        }
+         Webgoritmo.estadoApp.errorEnEjecucion = Webgoritmo.estadoApp.errorEnEjecucion || error.message;
+    } finally {
+        // No se cambia ejecucionEnCurso global aquí, eso lo maneja el flujo principal
+        if (Webgoritmo.estadoApp.errorEnEjecucion) {
+            if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`Bloque finalizado con error: ${Webgoritmo.estadoApp.errorEnEjecucion}`, "error");
+        } else if (Webgoritmo.estadoApp.detenerEjecucion) {
+            if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Bloque detenido por el usuario.", "info");
+        } else {
+            if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("Bloque finalizado.", "info");
+        }
+        console.log("[MOTOR DEBUG] FIN ejecutarPseudocodigo.");
+    }
+};
+
+// Mantener la asignación si ejecutarAlgoritmoPrincipal es el punto de entrada principal desde la UI
+// Webgoritmo.Interprete.ejecutarPseudocodigo = Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal;
+// Sin embargo, app.js llama a Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal directamente.
+// Si se quiere que ejecutarPseudocodigo sea el único entry point, app.js debería llamar a este.
+// Por ahora, son dos funciones con propósitos ligeramente distintos.
+
+console.log("motorInterprete.js (con Mientras y logs detallados para Definicion/Asignacion y logs en puntos de entrada) cargado.");
