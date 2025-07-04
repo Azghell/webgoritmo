@@ -1,4 +1,4 @@
-// motorInterprete.js (Revertido a post Si-Entonces-Sino y Para Fase 1)
+// motorInterprete.js (Con Mientras implementado y punto y comas revisados)
 
 window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Interprete = {};
@@ -6,20 +6,21 @@ Webgoritmo.Interprete = {};
 function limpiarComentariosYEspacios(linea) { if (typeof linea !== 'string') return ""; let l = linea; const i = l.indexOf('//'); if (i !== -1) l = l.substring(0, i); return l.trim(); }
 function limpiarComentariosYEspaciosInternos(texto) { if (typeof texto !== 'string') return ""; let l = texto; const i = l.indexOf('//'); if (i !== -1) l = l.substring(0, i); return l.trim(); }
 
-Webgoritmo.Interprete.Utilidades = {
-    PALABRAS_RESERVADAS: new Set([
-        "PROCESO", "FINPROCESO", "ALGORITMO", "FINALGORITMO",
-        "DEFINIR", "COMO", "LEER", "ESCRIBIR", "IMPRIMIR", "MOSTRAR",
-        "SI", "ENTONCES", "SINO", "FINSI",
-        "MIENTRAS", "HACER", "FINMIENTRAS",
-        "PARA", "HASTA", "CON", "PASO", "FINPARA",
-        "SEGUN", "DE", "OTRO", "MODO", "FINSEGUN",
-        "FUNCION", "FINFUNCION", "SUBPROCESO", "FINSUBPROCESO",
-        "Y", "O", "NO", "MOD",
-        "VERDADERO", "FALSO",
-        "ENTERO", "REAL", "LOGICO", "CARACTER", "CADENA", "NUMERO", "TEXTO"
-    ])
-};
+Webgoritmo.Interprete.Utilidades = {};
+
+Webgoritmo.Interprete.Utilidades.PALABRAS_RESERVADAS = new Set([
+    "PROCESO", "FINPROCESO", "ALGORITMO", "FINALGORITMO",
+    "DEFINIR", "COMO", "LEER", "ESCRIBIR", "IMPRIMIR", "MOSTRAR",
+    "SI", "ENTONCES", "SINO", "FINSI",
+    "MIENTRAS", "HACER", "FINMIENTRAS",
+    "PARA", "HASTA", "CON", "PASO", "FINPARA",
+    "SEGUN", "DE", "OTRO", "MODO", "FINSEGUN",
+    "FUNCION", "FINFUNCION", "SUBPROCESO", "FINSUBPROCESO",
+    "Y", "O", "NO", "MOD",
+    "VERDADERO", "FALSO",
+    "ENTERO", "REAL", "LOGICO", "CARACTER", "CADENA", "NUMERO", "TEXTO"
+]);
+
 Webgoritmo.Interprete.Utilidades.obtenerValorPorDefectoSegunTipo = function(tipo) { const t = String(tipo).toLowerCase(); switch(t){case 'entero':return 0;case 'real':return 0.0;case 'logico':return false;case 'caracter':return '';case 'cadena':return '';default:return null;}};
 Webgoritmo.Interprete.Utilidades.crearDescriptorVariable = function(nom,tipoD,valIni){const tipoN=String(tipoD).toLowerCase();return{nombreOriginal:nom,tipoDeclarado:tipoN,valor:valIni,esArreglo: (tipoD.includes('[') && tipoD.includes(']')),dimensiones:[]};};
 Webgoritmo.Interprete.Utilidades.inferirTipoDesdeValor = function(v){if(typeof v==='number')return Number.isInteger(v)?'entero':'real';if(typeof v==='boolean')return 'logico';if(typeof v==='string')return 'cadena';return 'desconocido';};
@@ -130,6 +131,9 @@ Webgoritmo.Interprete.regexFinSi = /^\s*finsi\s*$/i;
 Webgoritmo.Interprete.regexParaHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexParaConPasoHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+con\s+paso\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexFinPara = /^\s*finpara\s*$/i;
+Webgoritmo.Interprete.regexMientrasHacer = /^\s*mientras\s+(.+?)\s+hacer\s*$/i;
+Webgoritmo.Interprete.regexFinMientras = /^\s*finmientras\s*$/i;
+
 
 Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) {
     let nivelAnidamiento = 0; let indiceSinoEncontrado = -1; let indiceFinSiEncontrado = -1;
@@ -154,6 +158,23 @@ Webgoritmo.Interprete.escanearParaFinPara = function(lineasDelBloque, indicePara
     throw new Error(`'Para' L${numeroLineaGlobalPara} sin 'FinPara'.`);
 };
 
+Webgoritmo.Interprete.escanearParaFinMientras = function(lineasDelBloque, indiceMientrasRelativoActual, numeroLineaGlobalMientras) {
+    let nivelAnidamiento = 0;
+    for (let j = indiceMientrasRelativoActual + 1; j < lineasDelBloque.length; j++) {
+        const lineaActual = limpiarComentariosYEspacios(lineasDelBloque[j]).toLowerCase();
+        if (Webgoritmo.Interprete.regexMientrasHacer.test(lineaActual)) {
+            nivelAnidamiento++;
+        } else if (Webgoritmo.Interprete.regexFinMientras.test(lineaActual)) {
+            if (nivelAnidamiento === 0) {
+                return j;
+            } else {
+                nivelAnidamiento--;
+            }
+        }
+    }
+    throw new Error(`Error de sintaxis: La estructura 'Mientras' iniciada en la línea ${numeroLineaGlobalMientras} no tiene un 'FinMientras' correspondiente.`);
+};
+
 Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, ambitoEjecucion, numeroLineaOffset) {
     console.log(`[motorInterprete DEBUG] Entrando a ejecutarBloqueCodigo con ${lineasDelBloque ? lineasDelBloque.length : 'N/A'} líneas. Offset: ${numeroLineaOffset}`);
     if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`ejecutarBloqueCodigo procesando ${lineasDelBloque.length} líneas. Offset: ${numeroLineaOffset}`, 'debug');
@@ -168,6 +189,7 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
         const lineaProcesada = limpiarComentariosYEspacios(lineaOriginalFuente);
         const lineaMinusculas = lineaProcesada.toLowerCase();
 
+        // Lógica de Salto para Estructuras de Control
         if (Webgoritmo.estadoApp.pilaControl.length > 0) {
             const controlActual = Webgoritmo.estadoApp.pilaControl[Webgoritmo.estadoApp.pilaControl.length - 1];
             let debeSaltarEstePaso = false;
@@ -180,6 +202,20 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                 }
             } else if (controlActual.tipo === "PARA") {
                 if (controlActual.saltarBloquePara && i < controlActual.indiceFinParaRelativo) debeSaltarEstePaso = true;
+            } else if (controlActual.tipo === "MIENTRAS") {
+                if (controlActual.saltarBloqueMientras) {
+                    if (i < controlActual.indiceFinMientrasRelativo) {
+                        debeSaltarEstePaso = true;
+                    } else if (i === controlActual.indiceFinMientrasRelativo) {
+                        Webgoritmo.estadoApp.pilaControl.pop();
+                        console.log(`[DEBUG Salto-Mientras L${numeroLineaActualGlobal}] Alcanzado FinMientras de bucle no ejecutado. Popeado. Pila:`, JSON.stringify(Webgoritmo.estadoApp.pilaControl));
+                    }
+                }
+            } else if (controlActual.tipo === "MIENTRAS_SALTANDO_AL_FIN") {
+                 if (i < controlActual.indiceFinMientrasRelativo) {
+                    debeSaltarEstePaso = true;
+                }
+                // El pop de MIENTRAS_SALTANDO_AL_FIN se hace en el handler de FinMientras
             }
 
             if (debeSaltarEstePaso) {
@@ -256,8 +292,67 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                     pila.pop(); console.log(`[DEBUG FinPara L${numeroLineaActualGlobal}] Bucle Para (L${numeroLineaOffset+paraCtx.lineaParaRelativa}) finalizado. Popeado. Pila:`,JSON.stringify(pila));
                 }
                 instruccionManejada = true;
-            }
-            else {
+            } else if (Webgoritmo.Interprete.regexMientrasHacer.test(lineaMinusculas)) {
+                const matchMientras = lineaMinusculas.match(Webgoritmo.Interprete.regexMientrasHacer);
+                const expresionCondicionStr = limpiarComentariosYEspaciosInternos(matchMientras[1]);
+                if (expresionCondicionStr === "") throw new Error(`Condición del 'Mientras' vacía L${numeroLineaActualGlobal}.`);
+
+                let resultadoCondicion = false;
+                const pila = Webgoritmo.estadoApp.pilaControl;
+                const esReevaluacion = pila.length > 0 && pila[pila.length - 1].tipo === "MIENTRAS" && pila[pila.length - 1].lineaMientrasRelativa === i;
+
+                if (esReevaluacion) {
+                    const mientrasContext = pila[pila.length - 1];
+                    resultadoCondicion = await Webgoritmo.Expresiones.evaluarExpresion(mientrasContext.condicionOriginalStr, ambitoEjecucion, numeroLineaActualGlobal);
+                    if (typeof resultadoCondicion !== 'boolean') throw new Error(`Condición 'Mientras' L${numeroLineaActualGlobal} debe ser lógica.`);
+
+                    if (!resultadoCondicion) {
+                        pila.pop();
+                        console.log(`[DEBUG Mientras L${numeroLineaActualGlobal}] Cond F (re-eval). Bucle terminado. Popeado. Pila:`, JSON.stringify(pila));
+                        pila.push({
+                            tipo: "MIENTRAS_SALTANDO_AL_FIN",
+                            indiceFinMientrasRelativo: mientrasContext.indiceFinMientrasRelativo
+                        });
+                    } else {
+                        console.log(`[DEBUG Mientras L${numeroLineaActualGlobal}] Cond V (re-eval). Continuando bucle.`);
+                    }
+                } else {
+                    resultadoCondicion = await Webgoritmo.Expresiones.evaluarExpresion(expresionCondicionStr, ambitoEjecucion, numeroLineaActualGlobal);
+                    if (typeof resultadoCondicion !== 'boolean') throw new Error(`Condición 'Mientras' L${numeroLineaActualGlobal} debe ser lógica.`);
+                    const indiceFinMientrasRelativo = Webgoritmo.Interprete.escanearParaFinMientras(lineasDelBloque, i, numeroLineaActualGlobal);
+                    pila.push({
+                        tipo: "MIENTRAS",
+                        lineaMientrasRelativa: i,
+                        indiceFinMientrasRelativo: indiceFinMientrasRelativo,
+                        condicionOriginalStr: expresionCondicionStr,
+                        saltarBloqueMientras: !resultadoCondicion
+                    });
+                    console.log(`[DEBUG Mientras L${numeroLineaActualGlobal}] Cond ${resultadoCondicion} (inicial). FinMientras L${numeroLineaOffset + indiceFinMientrasRelativo}. Pila:`, JSON.stringify(pila));
+                }
+                instruccionManejada = true;
+            } else if (Webgoritmo.Interprete.regexFinMientras.test(lineaMinusculas)) {
+                const pila = Webgoritmo.estadoApp.pilaControl;
+                if (pila.length === 0) throw new Error(`'FinMientras' inesperado L${numeroLineaActualGlobal} (pila vacía).`);
+
+                const contextoTope = pila[pila.length - 1];
+
+                if (contextoTope.tipo === "MIENTRAS_SALTANDO_AL_FIN") {
+                    if (i !== contextoTope.indiceFinMientrasRelativo)  throw new Error(`Error estructura: 'FinMientras' L${numeroLineaActualGlobal} no esperado durante MIENTRAS_SALTANDO_AL_FIN.`);
+                    pila.pop();
+                    console.log(`[DEBUG FinMientras L${numeroLineaActualGlobal}] FinMientras procesado para MIENTRAS_SALTANDO_AL_FIN. Popeado. Pila:`, JSON.stringify(pila));
+                } else if (contextoTope.tipo === "MIENTRAS") {
+                    if (i !== contextoTope.indiceFinMientrasRelativo) {
+                        throw new Error(`Error estructura: 'FinMientras' L${numeroLineaActualGlobal} no esperado para MIENTRAS en L${numeroLineaOffset + contextoTope.lineaMientrasRelativa}.`);
+                    }
+                    i = contextoTope.lineaMientrasRelativa;
+                    console.log(`[DEBUG FinMientras L${numeroLineaActualGlobal}] Re-iterando Mientras. Saltando a L${numeroLineaOffset + i}.`);
+                    instruccionManejada = true;
+                    continue;
+                } else {
+                    throw new Error(`'FinMientras' inesperado L${numeroLineaActualGlobal}. Contexto en pila: ${contextoTope.tipo}.`);
+                }
+                instruccionManejada = true;
+            } else {
                 const regexAsignacion = /^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?\s*(?:<-|=)/;
                 const esPotencialAsignacion = regexAsignacion.test(lineaProcesada);
 
@@ -271,7 +366,7 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                     instruccionManejada = await Webgoritmo.Interprete.procesarAsignacion(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
                 } else {
                     const primeraPalabra = lineaMinusculas.split(" ")[0];
-                    const palabrasClaveConocidas = ["algoritmo","proceso","finalgoritmo","finproceso", "si", "entonces", "sino", "finsi", "para", "hacer", "con", "paso", "finpara"];
+                    const palabrasClaveConocidas = ["algoritmo","proceso","finalgoritmo","finproceso", "si", "entonces", "sino", "finsi", "para", "hacer", "con", "paso", "finpara", "mientras", "finmientras"];
                     if (!palabrasClaveConocidas.includes(primeraPalabra) && lineaProcesada) {
                         throw new Error(`Instrucción no reconocida: '${lineaProcesada}'`);
                     }
@@ -301,6 +396,8 @@ Webgoritmo.Interprete.regexFinSi = /^\s*finsi\s*$/i;
 Webgoritmo.Interprete.regexParaHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexParaConPasoHacer = /^\s*para\s+([a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*)\s*<-\s*(.+?)\s+hasta\s+(.+?)\s+con\s+paso\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexFinPara = /^\s*finpara\s*$/i;
+Webgoritmo.Interprete.regexMientrasHacer = /^\s*mientras\s+(.+?)\s+hacer\s*$/i;
+Webgoritmo.Interprete.regexFinMientras = /^\s*finmientras\s*$/i;
 
 Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) {
     let nivelAnidamiento = 0;
@@ -352,10 +449,34 @@ Webgoritmo.Interprete.escanearParaFinPara = function(lineasDelBloque, indicePara
     throw new Error(`Error de sintaxis: La estructura 'Para' iniciada en la línea ${numeroLineaGlobalPara} no tiene un 'FinPara' correspondiente.`);
 };
 
+Webgoritmo.Interprete.escanearParaFinMientras = function(lineasDelBloque, indiceMientrasRelativoActual, numeroLineaGlobalMientras) {
+    let nivelAnidamiento = 0;
+    for (let j = indiceMientrasRelativoActual + 1; j < lineasDelBloque.length; j++) {
+        const lineaActual = limpiarComentariosYEspacios(lineasDelBloque[j]).toLowerCase();
+        if (Webgoritmo.Interprete.regexMientrasHacer.test(lineaActual)) {
+            nivelAnidamiento++;
+        } else if (Webgoritmo.Interprete.regexFinMientras.test(lineaActual)) {
+            if (nivelAnidamiento === 0) {
+                return j;
+            } else {
+                nivelAnidamiento--;
+            }
+        }
+    }
+    throw new Error(`Error de sintaxis: La estructura 'Mientras' iniciada en la línea ${numeroLineaGlobalMientras} no tiene un 'FinMientras' correspondiente.`);
+};
+
+Webgoritmo.Interprete.Utilidades.obtenerValorPorDefectoSegunTipo = function(tipo) { /* ... */ };
+Webgoritmo.Interprete.Utilidades.crearDescriptorVariable = function(nom,tipoD,valIni){ /* ... */ };
+Webgoritmo.Interprete.Utilidades.inferirTipoDesdeValor = function(v){ /* ... */ };
+Webgoritmo.Interprete.Utilidades.convertirValorParaTipo = function(val,tipoDest,numLn){ /* ... */ };
+Webgoritmo.Interprete.Utilidades.inicializarArregloConDescriptor = function(dims,baseT){ /* ... */ };
+Webgoritmo.Interprete.Utilidades.obtenerValorRealVariable = function(nombreVariable, ambitoActual, numeroLinea) { /* ... */ };
+
 Webgoritmo.Interprete.procesarDimensionArreglo = async function(l,a,nL) { console.warn("Dimension no implementada"); return false;};
-Webgoritmo.Interprete.procesarSiEntoncesSino = async function(lA,aA,nLSi,lBC,iSiB) { console.warn("Si-Entonces-Sino aún no implementado"); return iSiB;};
+Webgoritmo.Interprete.procesarSiEntoncesSino = async function(lA,aA,nLSi,lBC,iSiB) { console.warn("Si-Entonces-Sino aún no implementado"); return iSiB;}; // Placeholder antiguo
 Webgoritmo.Interprete.llamarSubProceso = async function(nFO,lEAStr,aL,nLL) { console.warn("llamarSubProceso no implementado"); return undefined;};
 Webgoritmo.Interprete.parsearDefinicionSubProceso = function(lI,idxI,tLs){ console.warn("parsearDefinicionSubProceso no implementado"); return null;};
 
 Webgoritmo.Interprete.ejecutarPseudocodigo = Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal;
-console.log("motorInterprete.js (Revertido a pre-Mientras, funcional con Si y Para) cargado.");
+console.log("motorInterprete.js (con Mientras y corrección de punto y comas) cargado.");
