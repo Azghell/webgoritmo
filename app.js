@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // EVENT LISTENERS
     if (Webgoritmo.DOM.btnEjecutar) {
-        Webgoritmo.DOM.btnEjecutar.addEventListener('click', async function() {
+        const ejecutarListenerAsync = async function() { // Se define la función listener
             // Logs de depuración para los módulos esenciales
             console.log("APP.JS BTN_EJECUTAR: Verificando módulos...");
             console.log("APP.JS BTN_EJECUTAR: Webgoritmo.estadoApp:", typeof Webgoritmo.estadoApp, Webgoritmo.estadoApp);
@@ -164,29 +164,73 @@ document.addEventListener('DOMContentLoaded', function() {
                     Webgoritmo.DOM.btnEjecutar.innerHTML = '<i class="fas fa-stop"></i> Detener';
                     Webgoritmo.DOM.btnEjecutar.title = "Detener Ejecución";
                 }
+                console.log("APP.JS BTN_EJECUTAR: Después de restablecerEstado y cambiar botón.");
 
-                if (typeof Webgoritmo.Interprete.ejecutarPseudocodigo === "function") {
+                // Obtener el código del editor y guardarlo en el estado
+                console.log("APP.JS BTN_EJECUTAR: Verificando Webgoritmo.Editor:", Webgoritmo.Editor);
+                if (Webgoritmo.Editor) {
+                    console.log("APP.JS BTN_EJECUTAR: Verificando Webgoritmo.Editor.editorCodigo:", Webgoritmo.Editor.editorCodigo);
+                }
+
+                if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo && typeof Webgoritmo.Editor.editorCodigo.getValue === 'function') {
+                    const codigoCompleto = Webgoritmo.Editor.editorCodigo.getValue();
+                    Webgoritmo.estadoApp.lineasCodigo = codigoCompleto.split('\n');
+                    console.log(`APP.JS BTN_EJECUTAR: Código obtenido, ${Webgoritmo.estadoApp.lineasCodigo.length} líneas.`);
+                } else {
+                    console.error("APP.JS BTN_EJECUTAR: Editor o editorCodigo.getValue no disponible para obtener código.");
+                    if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo) {
+                        console.error("APP.JS BTN_EJECUTAR: typeof Webgoritmo.Editor.editorCodigo.getValue:", typeof Webgoritmo.Editor.editorCodigo.getValue);
+                    }
+                    if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) {
+                         Webgoritmo.UI.añadirSalida("[ERROR]: Editor no encontrado o no funcional para leer el código.", "error");
+                    } else {
+                        console.error("APP.JS BTN_EJECUTAR: Webgoritmo.UI.añadirSalida no disponible para mensaje de error del editor.");
+                    }
+                    // Webgoritmo.restablecerEstado(); // Ya se hizo antes, y si falla aquí, mejor no limpiar la consola para ver otros errores.
+                    // Mantener el estado de ejecucionEnCurso y el botón como si fuera a ejecutar, para evitar bucles si hay reintentos.
+                    return;
+                }
+
+                console.log("APP.JS BTN_EJECUTAR: Verificando Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal:", typeof Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal);
+                if (typeof Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal === "function") {
                     try {
-                        await Webgoritmo.Interprete.ejecutarPseudocodigo();
+                        // Ahora ejecutarAlgoritmoPrincipal usará Webgoritmo.estadoApp.lineasCodigo
+                        await Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal();
                     } catch (e) {
-                        console.error("Error no capturado en ejecutarPseudocodigo:", e);
+                        console.error("Error no capturado en ejecutarAlgoritmoPrincipal:", e);
                         if(Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`Error fatal en ejecución: ${e.message}`, "error");
                     } finally {
-                        Webgoritmo.estadoApp.ejecucionEnCurso = false;
-                        if (Webgoritmo.DOM.btnEjecutar) {
-                            Webgoritmo.DOM.btnEjecutar.innerHTML = '<i class="fas fa-play"></i> Ejecutar';
-                            Webgoritmo.DOM.btnEjecutar.title = "Ejecutar Código";
-                        }
-                        // if (Webgoritmo.UI.actualizarPanelVariables) Webgoritmo.UI.actualizarPanelVariables();
+                        // La lógica de finally ya está dentro de ejecutarAlgoritmoPrincipal,
+                        // por lo que aquí solo necesitamos asegurarnos de que el estado de ejecucionEnCurso
+                        // y el botón se manejen si la llamada a ejecutarAlgoritmoPrincipal falla catastróficamente
+                        // o si no entra a su propio finally (lo cual no debería ocurrir).
+                        // De hecho, ejecutarAlgoritmoPrincipal ya maneja esto.
+                        // Webgoritmo.estadoApp.ejecucionEnCurso = false; // Gestionado por el intérprete
+                        // if (Webgoritmo.DOM.btnEjecutar) { // Gestionado por el intérprete
+                        //     Webgoritmo.DOM.btnEjecutar.innerHTML = '<i class="fas fa-play"></i> Ejecutar';
+                        //     Webgoritmo.DOM.btnEjecutar.title = "Ejecutar Código";
+                        // }
                     }
                 } else {
-                    console.error("app.js: Webgoritmo.Interprete.ejecutarPseudocodigo no definido.");
-                    if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("[ERROR]: Motor de ejecución no encontrado.", "error");
-                    Webgoritmo.estadoApp.ejecucionEnCurso = false;
-                    if (Webgoritmo.DOM.btnEjecutar) { /* Resetear botón */ }
+                    console.error("app.js: Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal no definido.");
+                    if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("[ERROR]: Motor de ejecución principal no encontrado.", "error");
+                    Webgoritmo.estadoApp.ejecucionEnCurso = false; // Asegurar reseteo si la función no existe
+                    if (Webgoritmo.DOM.btnEjecutar) {
+                         Webgoritmo.DOM.btnEjecutar.innerHTML = '<i class="fas fa-play"></i> Ejecutar';
+                         Webgoritmo.DOM.btnEjecutar.title = "Ejecutar Código";
+                    }
                 }
             }
-        });
+        }; // Fin de ejecutarListenerAsync
+
+        // Lógica para añadir el listener solo una vez usando una bandera
+        if (!Webgoritmo.DOM.btnEjecutar.hasWebgoritmoListener) {
+            Webgoritmo.DOM.btnEjecutar.addEventListener('click', ejecutarListenerAsync);
+            Webgoritmo.DOM.btnEjecutar.hasWebgoritmoListener = true;
+            console.log("APP.JS: Event listener AÑADIDO a btnEjecutar.");
+        } else {
+            console.warn("APP.JS: Event listener para btnEjecutar YA HABÍA SIDO AÑADIDO. Evitando duplicación.");
+        }
     }
 
     // Listener para la entrada de la consola (actualizado para Leer)

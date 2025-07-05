@@ -5,7 +5,6 @@ window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Datos = Webgoritmo.Datos || {};
 
 Webgoritmo.Datos.codigosEjemplo = {
-    /* REVERTIDO - Ejemplo Mientras comentado para evitar errores ya que la funcionalidad no está.
     prueba_mientras_simple: `Algoritmo PruebaMientrasSimple
     Definir contador Como Entero
     Definir limite Como Entero
@@ -46,10 +45,10 @@ Webgoritmo.Datos.codigosEjemplo = {
     Escribir "Bucle Mientras (Prueba 3) finalizado. Contador: ", contador // Esperado: 2
 
 FinAlgoritmo`,
-    */
+    /* REVERTIDO - Ejemplo Para Complejo (Fase 2) comentado tras reversión del motor.
     prueba_para_simple: `Algoritmo PruebaParaComplejo
     Definir i, j, k, suma Como Entero
-    Definir x, varY, z, p Como Entero // 'y' fue cambiada a 'varY' para no ser palabra reservada
+    Definir x, varY, z, p Como Entero // 'y' fue cambiada a 'varY'
 
     Escribir "CASO 1: Bucle Para simple (1 a 3, paso 1)"
     suma <- 0
@@ -80,12 +79,12 @@ FinAlgoritmo`,
     Escribir "-------------------------------------"
     Escribir "CASO 4: Bucle Para con expresiones en límites y paso"
     x <- 1
-    varY <- 2
-    z <- 3
-    p <- 5
-    // Bucle de x=1 hasta varY+p=(2+5)=7 con paso z-1=(3-1)=2  => i = 1, 3, 5, 7
+    varY <- 2 // 'y' cambiada a 'varY'
+    z <- 3 // paso será z-1 = 2
+    p <- 5 // fin será varY+p = 2+5 = 7
+    // Bucle de x=1 hasta varY+p=7 con paso z-1=2  => i = 1, 3, 5, 7
     suma <- 0
-    Para i <- x Hasta varY+p Con Paso z-1 Hacer
+    Para i <- x Hasta varY+p Con Paso z-1 Hacer // 'y' cambiada a 'varY'
         Escribir "Iteración i con expresiones: ", i
         suma <- suma + i
     FinPara
@@ -124,6 +123,7 @@ FinAlgoritmo`,
     Escribir "Bucle Para con Si-Entonces-Sino anidado finalizado."
 
 FinAlgoritmo`,
+    */
     prueba_si_entonces_simple: `Algoritmo PruebaSiEntoncesSinoCompleto
     Definir a, b, c Como Entero
     Definir mensaje Como Cadena
@@ -314,4 +314,4 @@ FinAlgoritmo`,
 FinAlgoritmo`
 };
 
-console.log("datosEjemplos.js (Restaurado PruebaParaComplejo, Mientras comentado) cargado.");
+console.log("datosEjemplos.js (Descomentado Mientras, Para complejo aún comentado) cargado.");
