@@ -1,6 +1,8 @@
 // app.js (Punto de Entrada Principal para MVP Fase 2, actualizado para Leer)
+console.log("APP.JS VERSIÓN CHECK: fix/prevent-double-event-listener - " + new Date().toISOString());
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log("APP.JS DOMContentLoaded VERSIÓN CHECK: fix/prevent-double-event-listener - " + new Date().toISOString());
     window.Webgoritmo = window.Webgoritmo || {};
     Webgoritmo.DOM = Webgoritmo.DOM || {};
 
