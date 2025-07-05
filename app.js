@@ -1,8 +1,6 @@
 // app.js (Punto de Entrada Principal para MVP Fase 2, actualizado para Leer)
-console.log("APP.JS VERSIÓN CHECK: fix/prevent-double-event-listener - " + new Date().toISOString());
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("APP.JS DOMContentLoaded VERSIÓN CHECK: fix/prevent-double-event-listener - " + new Date().toISOString());
     window.Webgoritmo = window.Webgoritmo || {};
     Webgoritmo.DOM = Webgoritmo.DOM || {};
 
@@ -77,8 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
         if (Webgoritmo.DOM.consolaSalida) {
-            const timestamp = new Date().toLocaleTimeString();
-            Webgoritmo.DOM.consolaSalida.innerHTML = `<div class="console-line normal placeholder">VERSIÓN DE PRUEBA VISIBLE - ${timestamp}</div>`;
+            Webgoritmo.DOM.consolaSalida.innerHTML = '<div class="console-line normal placeholder">Bienvenido a Webgoritmo.</div>';
             Webgoritmo.DOM.consolaSalida.scrollTop = Webgoritmo.DOM.consolaSalida.scrollHeight;
         }
 
