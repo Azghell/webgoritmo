@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // EVENT LISTENERS
     if (Webgoritmo.DOM.btnEjecutar) {
-        Webgoritmo.DOM.btnEjecutar.addEventListener('click', async function() {
+        const ejecutarListenerAsync = async function() { // Se define la función listener
             // Logs de depuración para los módulos esenciales
             console.log("APP.JS BTN_EJECUTAR: Verificando módulos...");
             console.log("APP.JS BTN_EJECUTAR: Webgoritmo.estadoApp:", typeof Webgoritmo.estadoApp, Webgoritmo.estadoApp);
@@ -164,19 +164,34 @@ document.addEventListener('DOMContentLoaded', function() {
                     Webgoritmo.DOM.btnEjecutar.innerHTML = '<i class="fas fa-stop"></i> Detener';
                     Webgoritmo.DOM.btnEjecutar.title = "Detener Ejecución";
                 }
+                console.log("APP.JS BTN_EJECUTAR: Después de restablecerEstado y cambiar botón.");
 
                 // Obtener el código del editor y guardarlo en el estado
-                if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo) {
+                console.log("APP.JS BTN_EJECUTAR: Verificando Webgoritmo.Editor:", Webgoritmo.Editor);
+                if (Webgoritmo.Editor) {
+                    console.log("APP.JS BTN_EJECUTAR: Verificando Webgoritmo.Editor.editorCodigo:", Webgoritmo.Editor.editorCodigo);
+                }
+
+                if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo && typeof Webgoritmo.Editor.editorCodigo.getValue === 'function') {
                     const codigoCompleto = Webgoritmo.Editor.editorCodigo.getValue();
                     Webgoritmo.estadoApp.lineasCodigo = codigoCompleto.split('\n');
                     console.log(`APP.JS BTN_EJECUTAR: Código obtenido, ${Webgoritmo.estadoApp.lineasCodigo.length} líneas.`);
                 } else {
-                    console.error("APP.JS BTN_EJECUTAR: Editor no disponible para obtener código.");
-                    if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida("[ERROR]: Editor no encontrado para leer el código.", "error");
-                    Webgoritmo.restablecerEstado(); // Restablecer si no podemos ni leer el código
-                    return; // Salir si no hay código
+                    console.error("APP.JS BTN_EJECUTAR: Editor o editorCodigo.getValue no disponible para obtener código.");
+                    if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo) {
+                        console.error("APP.JS BTN_EJECUTAR: typeof Webgoritmo.Editor.editorCodigo.getValue:", typeof Webgoritmo.Editor.editorCodigo.getValue);
+                    }
+                    if (Webgoritmo.UI && Webgoritmo.UI.añadirSalida) {
+                         Webgoritmo.UI.añadirSalida("[ERROR]: Editor no encontrado o no funcional para leer el código.", "error");
+                    } else {
+                        console.error("APP.JS BTN_EJECUTAR: Webgoritmo.UI.añadirSalida no disponible para mensaje de error del editor.");
+                    }
+                    // Webgoritmo.restablecerEstado(); // Ya se hizo antes, y si falla aquí, mejor no limpiar la consola para ver otros errores.
+                    // Mantener el estado de ejecucionEnCurso y el botón como si fuera a ejecutar, para evitar bucles si hay reintentos.
+                    return;
                 }
 
+                console.log("APP.JS BTN_EJECUTAR: Verificando Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal:", typeof Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal);
                 if (typeof Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal === "function") {
                     try {
                         // Ahora ejecutarAlgoritmoPrincipal usará Webgoritmo.estadoApp.lineasCodigo
@@ -206,7 +221,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
             }
-        });
+        }; // Fin de ejecutarListenerAsync
+
+        // Lógica para añadir el listener solo una vez usando una bandera
+        if (!Webgoritmo.DOM.btnEjecutar.hasWebgoritmoListener) {
+            Webgoritmo.DOM.btnEjecutar.addEventListener('click', ejecutarListenerAsync);
+            Webgoritmo.DOM.btnEjecutar.hasWebgoritmoListener = true;
+            console.log("APP.JS: Event listener AÑADIDO a btnEjecutar.");
+        } else {
+            console.warn("APP.JS: Event listener para btnEjecutar YA HABÍA SIDO AÑADIDO. Evitando duplicación.");
+        }
     }
 
     // Listener para la entrada de la consola (actualizado para Leer)
