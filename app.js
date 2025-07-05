@@ -77,7 +77,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
         if (Webgoritmo.DOM.consolaSalida) {
-            Webgoritmo.DOM.consolaSalida.innerHTML = '<div class="console-line normal placeholder">Bienvenido a Webgoritmo.</div>';
+            const timestamp = new Date().toLocaleTimeString();
+            Webgoritmo.DOM.consolaSalida.innerHTML = `<div class="console-line normal placeholder">VERSIÓN DE PRUEBA VISIBLE - ${timestamp}</div>`;
             Webgoritmo.DOM.consolaSalida.scrollTop = Webgoritmo.DOM.consolaSalida.scrollHeight;
         }
 

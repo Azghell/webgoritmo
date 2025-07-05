@@ -237,7 +237,9 @@ FinAlgoritmo`,
     Escribir "Resultado Caso 5: a=",a,", b=",b,", c=",c,", mensaje='",mensaje,"'"
 
 FinAlgoritmo`,
-    prueba_acceso_arreglos_expresion: `Algoritmo PruebaArregloLogicoRelacional
+    prueba_acceso_arreglos_expresion: `// ---- ¡VERSIÓN MODIFICADA PARA PRUEBA DE CARGA! ----
+// ---- Si ves esto, el datosEjemplos.js nuevo está cargando. ----
+Algoritmo PruebaArregloLogicoRelacional
     Definir notas Como Real[3]
     Definir idx Como Entero
     Definir esVerdadero, esFalso Como Logico
