@@ -357,7 +357,11 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                 } else {
                     resultadoCondicion = await Webgoritmo.Expresiones.evaluarExpresion(expresionCondicionStr, ambitoEjecucion, numeroLineaActualGlobal);
                     if (typeof resultadoCondicion !== 'boolean') throw new Error(`Condición 'Mientras' L${numeroLineaActualGlobal} debe ser lógica.`);
+
+                    console.log(`[DEBUG ejecutarBloqueCodigo L${numeroLineaActualGlobal}] ANTES de llamar a escanearParaFinMientras. Línea actual (i): ${i}, Total líneas bloque: ${lineasDelBloque.length}`);
                     const indiceFinMientrasRelativo = Webgoritmo.Interprete.escanearParaFinMientras(lineasDelBloque, i, numeroLineaActualGlobal);
+                    console.log(`[DEBUG ejecutarBloqueCodigo L${numeroLineaActualGlobal}] DESPUÉS de llamar a escanearParaFinMientras. Índice devuelto: ${indiceFinMientrasRelativo}`);
+
                     pila.push({
                         tipo: "MIENTRAS",
                         lineaMientrasRelativa: i,
