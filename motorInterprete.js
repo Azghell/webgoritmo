@@ -188,7 +188,31 @@ Webgoritmo.Interprete.regexFinMientras = /^\s*finmientras\s*$/i;
 
 Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) { /* ... (sin cambios) ... */ };
 Webgoritmo.Interprete.escanearParaFinPara = function(lineasDelBloque, indiceParaRelativoActual, numeroLineaGlobalPara) { /* ... (sin cambios) ... */ };
-Webgoritmo.Interprete.escanearParaFinMientras = function(lineasDelBloque, indiceMientrasRelativoActual, numeroLineaGlobalMientras) { /* ... (sin cambios) ... */ };
+
+Webgoritmo.Interprete.escanearParaFinMientras = function(lineasDelBloque, indiceMientrasRelativoActual, numeroLineaGlobalMientras) {
+    console.log(`[DEBUG escanearParaFinMientras L${numeroLineaGlobalMientras}] INICIO. Buscando FinMientras para Mientras en L${numeroLineaGlobalMientras} (índice relativo ${indiceMientrasRelativoActual}). Total líneas en bloque: ${lineasDelBloque.length}`);
+    let contadorMientrasAnidados = 0;
+    for (let i = indiceMientrasRelativoActual + 1; i < lineasDelBloque.length; i++) {
+        const linea = limpiarComentariosYEspacios(lineasDelBloque[i]);
+        const lineaMinusculas = linea.toLowerCase();
+        console.log(`[DEBUG escanearParaFinMientras L${numeroLineaGlobalMientras}] Escaneando L${numeroLineaGlobalMientras + (i - indiceMientrasRelativoActual)} (índice relativo ${i}): "${linea}"`);
+
+        if (Webgoritmo.Interprete.regexMientrasHacer.test(lineaMinusculas)) {
+            contadorMientrasAnidados++;
+            console.log(`[DEBUG escanearParaFinMientras L${numeroLineaGlobalMientras}] Encontrado Mientras anidado en L${numeroLineaGlobalMientras + (i - indiceMientrasRelativoActual)}. Contador anidado: ${contadorMientrasAnidados}`);
+        } else if (Webgoritmo.Interprete.regexFinMientras.test(lineaMinusculas)) {
+            if (contadorMientrasAnidados === 0) {
+                console.log(`[DEBUG escanearParaFinMientras L${numeroLineaGlobalMientras}] FIN. FinMientras encontrado en L${numeroLineaGlobalMientras + (i - indiceMientrasRelativoActual)} (índice relativo ${i}).`);
+                return i; // Devuelve el índice relativo al bloque actual
+            } else {
+                contadorMientrasAnidados--;
+                console.log(`[DEBUG escanearParaFinMientras L${numeroLineaGlobalMientras}] Encontrado FinMientras de bucle anidado en L${numeroLineaGlobalMientras + (i - indiceMientrasRelativoActual)}. Contador anidado restante: ${contadorMientrasAnidados}`);
+            }
+        }
+    }
+    console.error(`[DEBUG escanearParaFinMientras L${numeroLineaGlobalMientras}] ERROR: No se encontró FinMientras para el Mientras en L${numeroLineaGlobalMientras}.`);
+    throw new Error(`Error de sintaxis: Falta FinMientras para el Mientras iniciado en línea ${numeroLineaGlobalMientras}.`);
+};
 
 Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, ambitoEjecucion, numeroLineaOffset) { /* ... (sin cambios en la estructura principal, solo los logs dentro de procesarDefinicion y procesarAsignacion que ya están arriba) ... */
     console.log(`[motorInterprete DEBUG] Entrando a ejecutarBloqueCodigo con ${lineasDelBloque ? lineasDelBloque.length : 'N/A'} líneas. Offset: ${numeroLineaOffset}`);
@@ -333,7 +357,11 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                 } else {
                     resultadoCondicion = await Webgoritmo.Expresiones.evaluarExpresion(expresionCondicionStr, ambitoEjecucion, numeroLineaActualGlobal);
                     if (typeof resultadoCondicion !== 'boolean') throw new Error(`Condición 'Mientras' L${numeroLineaActualGlobal} debe ser lógica.`);
+
+                    console.log(`[DEBUG ejecutarBloqueCodigo L${numeroLineaActualGlobal}] ANTES de llamar a escanearParaFinMientras. Línea actual (i): ${i}, Total líneas bloque: ${lineasDelBloque.length}`);
                     const indiceFinMientrasRelativo = Webgoritmo.Interprete.escanearParaFinMientras(lineasDelBloque, i, numeroLineaActualGlobal);
+                    console.log(`[DEBUG ejecutarBloqueCodigo L${numeroLineaActualGlobal}] DESPUÉS de llamar a escanearParaFinMientras. Índice devuelto: ${indiceFinMientrasRelativo}`);
+
                     pila.push({
                         tipo: "MIENTRAS",
                         lineaMientrasRelativa: i,
