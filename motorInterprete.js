@@ -556,15 +556,9 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
             } else if (Webgoritmo.Interprete.regexCaso.test(lineaMinusculas) || Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas)) {
                 const pila = Webgoritmo.estadoApp.pilaControl;
                 if (pila.length === 0 || pila[pila.length - 1].tipo !== "SEGUN") throw new Error(`'Caso' o 'De Otro Modo' inesperado L${numeroLineaActualGlobal}.`);
-                const segunCtx = pila[pila.length - 1];
-
-                if (segunCtx.casoEncontrado) {
-                    // Si ya se ejecutó un caso, saltar directamente al FinSegun
-                    i = segunCtx.indiceFinSegunRelativo -1; // -1 porque el bucle incrementará i
-                    console.log(`[DEBUG Caso/DeOtroModo L${numeroLineaActualGlobal}] Caso ya ejecutado. Saltando a FinSegun L${numeroLineaOffset + segunCtx.indiceFinSegunRelativo}.`);
-                }
-                // Este bloque se deja intencionadamente vacío. La lógica de salto se maneja en el siguiente ciclo del while.
-                // Aquí solo validamos que la estructura sea correcta.
+                // Este bloque ahora solo sirve para validar la estructura.
+                // La lógica de salto y ejecución se maneja completamente en la sección de "Salto"
+                // al principio del bucle while. Dejar este bloque vacío previene el doble procesamiento.
                 instruccionManejada = true;
 
             } else if (Webgoritmo.Interprete.regexFinSegun.test(lineaMinusculas)) {
