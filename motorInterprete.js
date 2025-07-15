@@ -135,7 +135,7 @@ Webgoritmo.Interprete.procesarAsignacion = async function(linea,ambito,numLn){
     }
     return true;
 };
-Webgoritmo.Interprete.procesarEntradaUsuario = async function(linea, ambito, numLn) {
+Webgoritmo.Interprete.procesarEntradaUsuario = function(linea, ambito, numLn) {
     console.log(`[procesarEntradaUsuario L${numLn}] INICIO. Línea: "${linea}"`);
     const regexLeer = /^\s*leer\s+(.*)/i;
     const match = linea.match(regexLeer);
