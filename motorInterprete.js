@@ -363,20 +363,18 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                     debeSaltarEstePaso = true;
                 }
             } else if (controlActual.tipo === "SEGUN") {
+                const lineaActualEsCaso = Webgoritmo.Interprete.regexCaso.test(lineaMinusculas);
+                const lineaActualEsDeOtroModo = Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas);
+
                 if (controlActual.casoEncontrado) {
-                    if (i < controlActual.indiceFinSegunRelativo) {
+                    // Si ya encontramos nuestro caso, y la línea actual es un nuevo caso o el de otro modo, debemos saltar.
+                    if (lineaActualEsCaso || lineaActualEsDeOtroModo) {
                         debeSaltarEstePaso = true;
                     }
                 } else {
-                    const lineaActualEsCaso = Webgoritmo.Interprete.regexCaso.test(lineaMinusculas);
-                    const lineaActualEsDeOtroModo = Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas);
-
                     if (lineaActualEsCaso) {
                         const matchCaso = lineaProcesada.match(Webgoritmo.Interprete.regexCaso);
                         const exprCaso = matchCaso[1].trim();
-                        // Evaluar la expresión del caso en el ámbito actual.
-                        // Esto es una simplificación; lo ideal sería parsear y evaluar la lista de valores.
-                        // Por ahora, asumimos un solo valor.
                         const valorCaso = await Webgoritmo.Expresiones.evaluarExpresion(exprCaso, ambitoEjecucion, numeroLineaActualGlobal);
 
                         if (valorCaso === controlActual.valorEvaluado) {
