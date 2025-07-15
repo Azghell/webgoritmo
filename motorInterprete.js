@@ -363,15 +363,15 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                     debeSaltarEstePaso = true;
                 }
             } else if (controlActual.tipo === "SEGUN") {
-                const lineaActualEsCaso = Webgoritmo.Interprete.regexCaso.test(lineaMinusculas);
-                const lineaActualEsDeOtroModo = Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas);
-
                 if (controlActual.casoEncontrado) {
-                    // Si ya encontramos nuestro caso, y la línea actual es un nuevo caso o el de otro modo, debemos saltar.
-                    if (lineaActualEsCaso || lineaActualEsDeOtroModo) {
+                    // Si ya se ejecutó un caso, saltar directamente hasta el FinSegun.
+                    if (i < controlActual.indiceFinSegunRelativo) {
                         debeSaltarEstePaso = true;
                     }
                 } else {
+                    const lineaActualEsCaso = Webgoritmo.Interprete.regexCaso.test(lineaMinusculas);
+                    const lineaActualEsDeOtroModo = Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas);
+
                     if (lineaActualEsCaso) {
                         const matchCaso = lineaProcesada.match(Webgoritmo.Interprete.regexCaso);
                         const exprCaso = matchCaso[1].trim();
