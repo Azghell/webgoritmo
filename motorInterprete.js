@@ -247,10 +247,55 @@ Webgoritmo.Interprete.regexParaConPasoHacer = /^\s*para\s+([a-zA-Z_áéíóúÁ�
 Webgoritmo.Interprete.regexFinPara = /^\s*finpara\s*$/i;
 Webgoritmo.Interprete.regexMientrasHacer = /^\s*mientras\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexFinMientras = /^\s*finmientras\s*$/i;
+Webgoritmo.Interprete.regexSegunHacer = /^\s*segun\s+(.+?)\s+hacer\s*$/i;
+Webgoritmo.Interprete.regexCaso = /^\s*caso\s+(.+?)\s*:\s*$/i;
+Webgoritmo.Interprete.regexDeOtroModo = /^\s*de\s+otro\s+modo\s*:\s*$/i;
+Webgoritmo.Interprete.regexFinSegun = /^\s*finsegun\s*$/i;
 
 
 Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) { /* ... (sin cambios) ... */ };
 Webgoritmo.Interprete.escanearParaFinPara = function(lineasDelBloque, indiceParaRelativoActual, numeroLineaGlobalPara) { /* ... (sin cambios) ... */ };
+
+Webgoritmo.Interprete.escanearBloqueSegun = function(lineasDelBloque, indiceSegunRelativo, numeroLineaGlobalSegun) {
+    console.log(`[DEBUG escanearBloqueSegun L${numeroLineaGlobalSegun}] INICIO. Buscando estructura para Segun.`);
+    let indiceFinSegunRelativo = -1;
+    const casos = []; // { valorExpr: string, indiceRelativo: number }
+    let indiceDeOtroModoRelativo = -1;
+    let contadorSegunAnidados = 0;
+
+    for (let i = indiceSegunRelativo + 1; i < lineasDelBloque.length; i++) {
+        const linea = limpiarComentariosYEspacios(lineasDelBloque[i]);
+        const lineaMinusculas = linea.toLowerCase();
+
+        if (Webgoritmo.Interprete.regexSegunHacer.test(lineaMinusculas)) {
+            contadorSegunAnidados++;
+        } else if (Webgoritmo.Interprete.regexFinSegun.test(lineaMinusculas)) {
+            if (contadorSegunAnidados === 0) {
+                indiceFinSegunRelativo = i;
+                break; // Fin de la estructura
+            } else {
+                contadorSegunAnidados--;
+            }
+        } else if (contadorSegunAnidados === 0) {
+            if (Webgoritmo.Interprete.regexCaso.test(lineaMinusculas)) {
+                const matchCaso = linea.match(Webgoritmo.Interprete.regexCaso);
+                casos.push({ valorExpr: matchCaso[1].trim(), indiceRelativo: i });
+            } else if (Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas)) {
+                if (indiceDeOtroModoRelativo !== -1) {
+                    throw new Error(`Error de sintaxis: Múltiples 'De Otro Modo' para el 'Segun' en línea ${numeroLineaGlobalSegun}.`);
+                }
+                indiceDeOtroModoRelativo = i;
+            }
+        }
+    }
+
+    if (indiceFinSegunRelativo === -1) {
+        throw new Error(`Error de sintaxis: Falta 'FinSegun' para el 'Segun' iniciado en línea ${numeroLineaGlobalSegun}.`);
+    }
+
+    console.log(`[DEBUG escanearBloqueSegun L${numeroLineaGlobalSegun}] FIN. FinSegun: L${numeroLineaGlobalSegun + (indiceFinSegunRelativo - indiceSegunRelativo)}, Casos: ${casos.length}, DeOtroModo: ${indiceDeOtroModoRelativo !== -1}`);
+    return { indiceFinSegunRelativo, casos, indiceDeOtroModoRelativo };
+};
 
 Webgoritmo.Interprete.escanearParaFinMientras = function(lineasDelBloque, indiceMientrasRelativoActual, numeroLineaGlobalMientras) {
     console.log(`[DEBUG escanearParaFinMientras L${numeroLineaGlobalMientras}] INICIO. Buscando FinMientras para Mientras en L${numeroLineaGlobalMientras} (índice relativo ${indiceMientrasRelativoActual}). Total líneas en bloque: ${lineasDelBloque.length}`);
@@ -317,7 +362,38 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                  if (i < controlActual.indiceFinMientrasRelativo) {
                     debeSaltarEstePaso = true;
                 }
+            } else if (controlActual.tipo === "SEGUN") {
+                if (controlActual.casoEncontrado) {
+                    if (i < controlActual.indiceFinSegunRelativo) {
+                        debeSaltarEstePaso = true;
+                    }
+                } else {
+                    const lineaActualEsCaso = Webgoritmo.Interprete.regexCaso.test(lineaMinusculas);
+                    const lineaActualEsDeOtroModo = Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas);
+
+                    if (lineaActualEsCaso) {
+                        const matchCaso = linea.match(Webgoritmo.Interprete.regexCaso);
+                        const exprCaso = matchCaso[1].trim();
+                        // Evaluar la expresión del caso en el ámbito actual.
+                        // Esto es una simplificación; lo ideal sería parsear y evaluar la lista de valores.
+                        // Por ahora, asumimos un solo valor.
+                        const valorCaso = await Webgoritmo.Expresiones.evaluarExpresion(exprCaso, ambitoEjecucion, numeroLineaActualGlobal);
+
+                        if (valorCaso === controlActual.valorEvaluado) {
+                            controlActual.casoEncontrado = true;
+                            console.log(`[DEBUG Salto-Segun L${numeroLineaActualGlobal}] Coincidencia encontrada. Ejecutando caso.`);
+                        } else {
+                            debeSaltarEstePaso = true;
+                        }
+                    } else if (lineaActualEsDeOtroModo) {
+                        controlActual.casoEncontrado = true;
+                        console.log(`[DEBUG Salto-Segun L${numeroLineaActualGlobal}] Ningún caso coincidió. Ejecutando 'De Otro Modo'.`);
+                    } else if (!Webgoritmo.Interprete.regexFinSegun.test(lineaMinusculas)) {
+                        debeSaltarEstePaso = true;
+                    }
+                }
             }
+
 
             if (debeSaltarEstePaso) {
                 if (Webgoritmo.UI.añadirSalida) Webgoritmo.UI.añadirSalida(`L${numeroLineaActualGlobal}: [SALTANDO] ${lineaProcesada}`, 'debug-skip');
@@ -457,6 +533,49 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                     throw new Error(`'FinMientras' inesperado L${numeroLineaActualGlobal}. Contexto en pila: ${contextoTope.tipo}.`);
                 }
                 instruccionManejada = true;
+            } else if (Webgoritmo.Interprete.regexSegunHacer.test(lineaMinusculas)) {
+                const matchSegun = linea.match(Webgoritmo.Interprete.regexSegunHacer);
+                const exprVariable = limpiarComentariosYEspaciosInternos(matchSegun[1]);
+                if (exprVariable === "") throw new Error(`Expresión vacía en 'Segun' L${numeroLineaActualGlobal}.`);
+
+                const valorVariable = await Webgoritmo.Expresiones.evaluarExpresion(exprVariable, ambitoEjecucion, numeroLineaActualGlobal);
+                const { indiceFinSegunRelativo, casos, indiceDeOtroModoRelativo } = Webgoritmo.Interprete.escanearBloqueSegun(lineasDelBloque, i, numeroLineaActualGlobal);
+
+                Webgoritmo.estadoApp.pilaControl.push({
+                    tipo: "SEGUN",
+                    lineaSegunRelativa: i,
+                    valorEvaluado: valorVariable,
+                    casos: casos,
+                    indiceDeOtroModoRelativo: indiceDeOtroModoRelativo,
+                    indiceFinSegunRelativo: indiceFinSegunRelativo,
+                    casoEncontrado: false // Para saltar al FinSegun después de un caso
+                });
+                console.log(`[DEBUG Segun L${numeroLineaActualGlobal}] Valor: ${valorVariable}. FinSegun: L${numeroLineaOffset + indiceFinSegunRelativo}. Pila:`, JSON.stringify(Webgoritmo.estadoApp.pilaControl));
+                instruccionManejada = true;
+
+            } else if (Webgoritmo.Interprete.regexCaso.test(lineaMinusculas) || Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas)) {
+                const pila = Webgoritmo.estadoApp.pilaControl;
+                if (pila.length === 0 || pila[pila.length - 1].tipo !== "SEGUN") throw new Error(`'Caso' o 'De Otro Modo' inesperado L${numeroLineaActualGlobal}.`);
+                const segunCtx = pila[pila.length - 1];
+
+                if (segunCtx.casoEncontrado) {
+                    // Si ya se ejecutó un caso, saltar directamente al FinSegun
+                    i = segunCtx.indiceFinSegunRelativo -1; // -1 porque el bucle incrementará i
+                    console.log(`[DEBUG Caso/DeOtroModo L${numeroLineaActualGlobal}] Caso ya ejecutado. Saltando a FinSegun L${numeroLineaOffset + segunCtx.indiceFinSegunRelativo}.`);
+                }
+                // Este bloque se deja intencionadamente vacío. La lógica de salto se maneja en el siguiente ciclo del while.
+                // Aquí solo validamos que la estructura sea correcta.
+                instruccionManejada = true;
+
+            } else if (Webgoritmo.Interprete.regexFinSegun.test(lineaMinusculas)) {
+                const pila = Webgoritmo.estadoApp.pilaControl;
+                if (pila.length === 0 || pila[pila.length - 1].tipo !== "SEGUN") throw new Error(`'FinSegun' inesperado L${numeroLineaActualGlobal}.`);
+                const segunCtx = pila[pila.length - 1];
+                if (i !== segunCtx.indiceFinSegunRelativo) throw new Error(`Error estructura: 'FinSegun' L${numeroLineaActualGlobal} no esperado.`);
+                pila.pop();
+                console.log(`[DEBUG FinSegun L${numeroLineaActualGlobal}] Popeado Segun de L${numeroLineaOffset + segunCtx.lineaSegunRelativa}. Pila:`, JSON.stringify(pila));
+                instruccionManejada = true;
+
             } else {
                 const regexAsignacion = /^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?\s*(?:<-|=)/;
                 const esPotencialAsignacion = regexAsignacion.test(lineaProcesada);
