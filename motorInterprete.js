@@ -3,7 +3,7 @@
 window.Webgoritmo = window.Webgoritmo || {};
 Webgoritmo.Interprete = {};
 
-function limpiarComentariosYEspacios(linea) { if (typeof linea !== 'string') return ""; let l = linea; const i = l.indexOf('//'); if (i !== -1) l = l.substring(0, i); return l.trim(); }
+function limpiarComentariosYEspacios(linea) { if (typeof linea !== 'string') return ""; let l = linea; const i = l.indexOf('//'); if (i !== -1) l = l.substring(0, i); return l.trim().replace(/;$/, "").trim(); }
 function limpiarComentariosYEspaciosInternos(texto) { if (typeof texto !== 'string') return ""; let l = texto; const i = l.indexOf('//'); if (i !== -1) l = l.substring(0, i); return l.trim(); }
 
 Webgoritmo.Interprete.Utilidades = {};
@@ -372,7 +372,7 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                     const lineaActualEsDeOtroModo = Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas);
 
                     if (lineaActualEsCaso) {
-                        const matchCaso = linea.match(Webgoritmo.Interprete.regexCaso);
+                        const matchCaso = lineaProcesada.match(Webgoritmo.Interprete.regexCaso);
                         const exprCaso = matchCaso[1].trim();
                         // Evaluar la expresión del caso en el ámbito actual.
                         // Esto es una simplificación; lo ideal sería parsear y evaluar la lista de valores.
@@ -534,7 +534,7 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                 }
                 instruccionManejada = true;
             } else if (Webgoritmo.Interprete.regexSegunHacer.test(lineaMinusculas)) {
-                const matchSegun = linea.match(Webgoritmo.Interprete.regexSegunHacer);
+                const matchSegun = lineaProcesada.match(Webgoritmo.Interprete.regexSegunHacer);
                 const exprVariable = limpiarComentariosYEspaciosInternos(matchSegun[1]);
                 if (exprVariable === "") throw new Error(`Expresión vacía en 'Segun' L${numeroLineaActualGlobal}.`);
 
