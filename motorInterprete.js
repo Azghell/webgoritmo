@@ -135,7 +135,70 @@ Webgoritmo.Interprete.procesarAsignacion = async function(linea,ambito,numLn){
     }
     return true;
 };
-Webgoritmo.Interprete.procesarEntradaUsuario = async function(linea,ambito,numLn){ /* ... (sin cambios) ... */ return true;};
+Webgoritmo.Interprete.procesarEntradaUsuario = async function(linea, ambito, numLn) {
+    console.log(`[procesarEntradaUsuario L${numLn}] INICIO. Línea: "${linea}"`);
+    const regexLeer = /^\s*leer\s+(.*)/i;
+    const match = linea.match(regexLeer);
+
+    if (!match || !match[1]) {
+        throw new Error(`Sintaxis de 'Leer' incorrecta en línea ${numLn}.`);
+    }
+
+    const nombresVariablesStr = limpiarComentariosYEspaciosInternos(match[1]);
+    if (nombresVariablesStr.trim() === "") {
+        throw new Error(`'Leer' sin variables especificadas en línea ${numLn}.`);
+    }
+
+    const nombresVariables = nombresVariablesStr.split(',').map(v => v.trim());
+    const nombresOriginales = [];
+    const nombresVarLc = [];
+
+    for (const nombreVar of nombresVariables) {
+        const nombreVarLc = nombreVar.toLowerCase();
+        if (!ambito.hasOwnProperty(nombreVarLc)) {
+            throw new Error(`Variable '${nombreVar}' no ha sido definida antes de 'Leer' en línea ${numLn}.`);
+        }
+        const descriptor = ambito[nombreVarLc];
+        if (descriptor.esArreglo) {
+            // Por ahora, no permitimos leer arreglos completos directamente.
+            // Se podría extender para leer en un índice específico si la sintaxis lo permite.
+            throw new Error(`No se puede usar 'Leer' directamente sobre un arreglo completo ('${nombreVar}') en línea ${numLn}.`);
+        }
+        nombresOriginales.push(descriptor.nombreOriginal);
+        nombresVarLc.push(nombreVarLc);
+    }
+
+    // Configurar el estado de la aplicación para esperar la entrada del usuario
+    Webgoritmo.estadoApp.esperandoEntradaUsuario = true;
+    Webgoritmo.estadoApp.variablesDestinoEntrada = nombresVarLc;
+    Webgoritmo.estadoApp.nombresOriginalesParaPrompt = nombresOriginales;
+    Webgoritmo.estadoApp.variablesGlobales = ambito; // Guardar referencia al ámbito actual
+
+    // Mostrar el prompt de entrada en la UI
+    const promptMsg = `Esperando entrada para: ${nombresOriginales.join(', ')}...`;
+    if (window.WebgoritmoGlobal && typeof window.WebgoritmoGlobal.solicitarEntradaUsuario === 'function') {
+        window.WebgoritmoGlobal.solicitarEntradaUsuario(promptMsg);
+    } else {
+        console.error("La función global para solicitar entrada de usuario no está disponible.");
+        // Fallback: usar un prompt simple del navegador, aunque esto detiene el hilo principal
+        // y no es ideal para una app asíncrona. Solo como último recurso.
+        // alert(promptMsg);
+        // Esta línea anterior es un mal fallback. Lo mejor es lanzar un error si la UI no está lista.
+        throw new Error("El mecanismo de entrada de la interfaz de usuario no está conectado.");
+    }
+
+    // Devolver una promesa que se resolverá cuando el usuario haya ingresado los datos
+    return new Promise(resolve => {
+        Webgoritmo.estadoApp.resolverPromesaEntrada = () => {
+            console.log(`[procesarEntradaUsuario L${numLn}] Promesa resuelta. Reanudando ejecución.`);
+            Webgoritmo.estadoApp.esperandoEntradaUsuario = false;
+            Webgoritmo.estadoApp.variablesDestinoEntrada = [];
+            Webgoritmo.estadoApp.nombresOriginalesParaPrompt = [];
+            // No limpiar variablesGlobales aquí, podría ser usado por el manejador de entrada.
+            resolve(true); // Resuelve la promesa para que el bucle del intérprete continúe.
+        };
+    });
+};
 
 Webgoritmo.Interprete.ejecutarAlgoritmoPrincipal = async function() {
     console.log("[MOTOR DEBUG] INICIO ejecutarAlgoritmoPrincipal");
