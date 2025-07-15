@@ -363,32 +363,36 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                     debeSaltarEstePaso = true;
                 }
             } else if (controlActual.tipo === "SEGUN") {
+                const lineaActualEsCaso = Webgoritmo.Interprete.regexCaso.test(lineaMinusculas);
+                const lineaActualEsDeOtroModo = Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas);
+
                 if (controlActual.casoEncontrado) {
-                    // Si ya se ejecutó un caso, saltar directamente hasta el FinSegun.
-                    if (i < controlActual.indiceFinSegunRelativo) {
-                        debeSaltarEstePaso = true;
-                    }
-                } else {
-                    const lineaActualEsCaso = Webgoritmo.Interprete.regexCaso.test(lineaMinusculas);
-                    const lineaActualEsDeOtroModo = Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas);
+                    // Si ya encontramos nuestro caso, saltamos hasta el FinSegun.
+                    i = controlActual.indiceFinSegunRelativo - 1; // -1 por el i++ del bucle
+                    console.log(`[DEBUG Salto-Segun L${numeroLineaActualGlobal}] Caso ya procesado. Saltando a FinSegun L${numeroLineaOffset + controlActual.indiceFinSegunRelativo}.`);
+                    continue; // Continuar al siguiente ciclo para que el i++ nos posicione correctamente.
+                }
 
-                    if (lineaActualEsCaso) {
-                        const matchCaso = lineaProcesada.match(Webgoritmo.Interprete.regexCaso);
-                        const exprCaso = matchCaso[1].trim();
-                        const valorCaso = await Webgoritmo.Expresiones.evaluarExpresion(exprCaso, ambitoEjecucion, numeroLineaActualGlobal);
+                // Si aún no hemos encontrado un caso que coincida
+                if (lineaActualEsCaso) {
+                    const matchCaso = lineaProcesada.match(Webgoritmo.Interprete.regexCaso);
+                    const exprCaso = matchCaso[1].trim();
+                    const valorCaso = await Webgoritmo.Expresiones.evaluarExpresion(exprCaso, ambitoEjecucion, numeroLineaActualGlobal);
 
-                        if (valorCaso === controlActual.valorEvaluado) {
-                            controlActual.casoEncontrado = true;
-                            console.log(`[DEBUG Salto-Segun L${numeroLineaActualGlobal}] Coincidencia encontrada. Ejecutando caso.`);
-                        } else {
-                            debeSaltarEstePaso = true;
-                        }
-                    } else if (lineaActualEsDeOtroModo) {
+                    if (valorCaso === controlActual.valorEvaluado) {
                         controlActual.casoEncontrado = true;
-                        console.log(`[DEBUG Salto-Segun L${numeroLineaActualGlobal}] Ningún caso coincidió. Ejecutando 'De Otro Modo'.`);
-                    } else if (!Webgoritmo.Interprete.regexFinSegun.test(lineaMinusculas)) {
-                        debeSaltarEstePaso = true;
+                        console.log(`[DEBUG Salto-Segun L${numeroLineaActualGlobal}] Coincidencia encontrada. Ejecutando caso.`);
+                        // No saltar, dejar que se ejecuten las siguientes líneas.
+                    } else {
+                        debeSaltarEstePaso = true; // No es el caso, saltar esta línea y las siguientes.
                     }
+                } else if (lineaActualEsDeOtroModo) {
+                    controlActual.casoEncontrado = true;
+                    console.log(`[DEBUG Salto-Segun L${numeroLineaActualGlobal}] Ningún caso coincidió. Ejecutando 'De Otro Modo'.`);
+                    // No saltar.
+                } else {
+                    // Si no es un 'Caso' ni 'De Otro Modo', es una línea que hay que saltar porque no hemos encontrado coincidencia.
+                    debeSaltarEstePaso = true;
                 }
             }
 
