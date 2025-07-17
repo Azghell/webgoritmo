@@ -135,7 +135,7 @@ Webgoritmo.Interprete.procesarAsignacion = async function(linea,ambito,numLn){
     }
     return true;
 };
-Webgoritmo.Interprete.procesarEntradaUsuario = function(linea, ambito, numLn) {
+Webgoritmo.Interprete.procesarEntradaUsuario = async function(linea, ambito, numLn) {
     console.log(`[procesarEntradaUsuario L${numLn}] INICIO. Línea: "${linea}"`);
     const regexLeer = /^\s*leer\s+(.*)/i;
     const match = linea.match(regexLeer);
@@ -580,7 +580,10 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                 } else if (lineaMinusculas.startsWith("escribir ") || lineaMinusculas.startsWith("imprimir ") || lineaMinusculas.startsWith("mostrar ")) {
                     instruccionManejada = await Webgoritmo.Interprete.procesarSalidaConsola(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
                 } else if (lineaMinusculas.startsWith("leer ")) {
-                    instruccionManejada = Webgoritmo.Interprete.procesarEntradaUsuario(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
+                    await Webgoritmo.Interprete.procesarEntradaUsuario(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
+                    instruccionManejada = true; // La instrucción fue manejada.
+                    i++; // Forzar el avance a la siguiente línea
+                    continue; // Saltar al siguiente ciclo del bucle while
                 } else if (esPotencialAsignacion) {
                     instruccionManejada = await Webgoritmo.Interprete.procesarAsignacion(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
                 } else {
