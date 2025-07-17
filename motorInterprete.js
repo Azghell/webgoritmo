@@ -251,10 +251,29 @@ Webgoritmo.Interprete.regexSegunHacer = /^\s*segun\s+(.+?)\s+hacer\s*$/i;
 Webgoritmo.Interprete.regexCaso = /^\s*caso\s+(.+?)\s*:\s*$/i;
 Webgoritmo.Interprete.regexDeOtroModo = /^\s*de\s+otro\s+modo\s*:\s*$/i;
 Webgoritmo.Interprete.regexFinSegun = /^\s*finsegun\s*$/i;
+Webgoritmo.Interprete.regexRepetir = /^\s*repetir\s*$/i;
+Webgoritmo.Interprete.regexHastaQue = /^\s*hasta\s+que\s+(.+)/i;
 
 
 Webgoritmo.Interprete.escanearBloqueSiLogico = function(lineasDelBloque, indiceSiRelativoActual, numeroLineaGlobalSi) { /* ... (sin cambios) ... */ };
 Webgoritmo.Interprete.escanearParaFinPara = function(lineasDelBloque, indiceParaRelativoActual, numeroLineaGlobalPara) { /* ... (sin cambios) ... */ };
+
+Webgoritmo.Interprete.escanearBloqueRepetir = function(lineasDelBloque, indiceRepetirRelativo, numeroLineaGlobalRepetir) {
+    let contadorAnidado = 0;
+    for (let i = indiceRepetirRelativo + 1; i < lineasDelBloque.length; i++) {
+        const linea = limpiarComentariosYEspacios(lineasDelBloque[i]).toLowerCase();
+        if (Webgoritmo.Interprete.regexRepetir.test(linea)) {
+            contadorAnidado++;
+        } else if (Webgoritmo.Interprete.regexHastaQue.test(linea)) {
+            if (contadorAnidado === 0) {
+                return i; // Devuelve el índice relativo del "Hasta Que"
+            } else {
+                contadorAnidado--;
+            }
+        }
+    }
+    throw new Error(`Error de sintaxis: Falta 'Hasta Que' para el 'Repetir' iniciado en línea ${numeroLineaGlobalRepetir}.`);
+};
 
 Webgoritmo.Interprete.escanearBloqueSegun = function(lineasDelBloque, indiceSegunRelativo, numeroLineaGlobalSegun) {
     console.log(`[DEBUG escanearBloqueSegun L${numeroLineaGlobalSegun}] INICIO. Buscando estructura para Segun.`);
@@ -575,7 +594,39 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                 const regexAsignacion = /^[a-zA-Z_áéíóúÁÉÍÓÚñÑ][a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]*(?:\s*\[.+?\])?\s*(?:<-|=)/;
                 const esPotencialAsignacion = regexAsignacion.test(lineaProcesada);
 
-                if (lineaMinusculas.startsWith("definir ")) {
+                if (Webgoritmo.Interprete.regexRepetir.test(lineaMinusculas)) {
+                    const indiceHastaQue = Webgoritmo.Interprete.escanearBloqueRepetir(lineasDelBloque, i, numeroLineaActualGlobal);
+                    Webgoritmo.estadoApp.pilaControl.push({
+                        tipo: "REPETIR",
+                        lineaRepetirRelativa: i,
+                        indiceHastaQueRelativo: indiceHastaQue
+                    });
+                    instruccionManejada = true;
+                } else if (Webgoritmo.Interprete.regexHastaQue.test(lineaMinusculas)) {
+                    const pila = Webgoritmo.estadoApp.pilaControl;
+                    if (pila.length === 0 || pila[pila.length - 1].tipo !== "REPETIR") {
+                        throw new Error(`'Hasta Que' inesperado en línea ${numeroLineaActualGlobal}.`);
+                    }
+                    const repetirCtx = pila[pila.length - 1];
+                    if (i !== repetirCtx.indiceHastaQueRelativo) {
+                        throw new Error(`Error de estructura: 'Hasta Que' en línea ${numeroLineaActualGlobal} no corresponde al 'Repetir' de la línea ${numeroLineaOffset + repetirCtx.lineaRepetirRelativa}.`);
+                    }
+                    const matchHastaQue = lineaProcesada.match(Webgoritmo.Interprete.regexHastaQue);
+                    const exprCondicion = limpiarComentariosYEspaciosInternos(matchHastaQue[1]);
+                    const resultadoCondicion = await Webgoritmo.Expresiones.evaluarExpresion(exprCondicion, ambitoEjecucion, numeroLineaActualGlobal);
+                    if (typeof resultadoCondicion !== 'boolean') {
+                        throw new Error(`La condición de 'Hasta Que' debe ser lógica, pero se obtuvo ${typeof resultadoCondicion} en línea ${numeroLineaActualGlobal}.`);
+                    }
+
+                    if (!resultadoCondicion) {
+                        // La condición es falsa, volver al inicio del bucle Repetir.
+                        i = repetirCtx.lineaRepetirRelativa;
+                    } else {
+                        // La condición es verdadera, el bucle termina. Sacar de la pila.
+                        pila.pop();
+                    }
+                    instruccionManejada = true;
+                } else if (lineaMinusculas.startsWith("definir ")) {
                     instruccionManejada = await Webgoritmo.Interprete.procesarDefinicion(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);
                 } else if (lineaMinusculas.startsWith("escribir ") || lineaMinusculas.startsWith("imprimir ") || lineaMinusculas.startsWith("mostrar ")) {
                     instruccionManejada = await Webgoritmo.Interprete.procesarSalidaConsola(lineaProcesada, ambitoEjecucion, numeroLineaActualGlobal);

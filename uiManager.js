@@ -51,26 +51,17 @@ Webgoritmo.UI.poblarSelectorEjemplos = function(dom, datos) {
 };
 
 Webgoritmo.UI.cargarPlantillaInicial = function() {
-    // Cargar el ejemplo de prueba de acceso a arreglos por defecto, ya que ese funcionaba
-    const claveEjemploPorDefecto = 'prueba_acceso_arreglos_expresion';
-    if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo &&
+    const claveEjemploPorDefecto = Webgoritmo.Datos.ejemploPorDefecto || Object.keys(Webgoritmo.Datos.codigosEjemplo)[0];
+
+    if (claveEjemploPorDefecto && Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo &&
         Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo &&
         Webgoritmo.Datos.codigosEjemplo[claveEjemploPorDefecto]) {
 
         let codigoInicial = Webgoritmo.Datos.codigosEjemplo[claveEjemploPorDefecto];
         Webgoritmo.Editor.editorCodigo.setValue(codigoInicial);
-        console.log(`uiManager.js: Plantilla inicial '${claveEjemploPorDefecto}' cargada (ESTADO ESTABLE REVERTIDO).`);
+        console.log(`uiManager.js: Plantilla inicial '${claveEjemploPorDefecto}' cargada.`);
     } else {
-        console.warn(`uiManager.js: No se pudo cargar plantilla inicial '${claveEjemploPorDefecto}'. Verifique datosEjemplos.js.`);
-        if (Webgoritmo.Editor && Webgoritmo.Editor.editorCodigo && Webgoritmo.Datos && Webgoritmo.Datos.codigosEjemplo) {
-            const primeraClaveDisponible = Object.keys(Webgoritmo.Datos.codigosEjemplo)[0];
-            if (primeraClaveDisponible) {
-                Webgoritmo.Editor.editorCodigo.setValue(Webgoritmo.Datos.codigosEjemplo[primeraClaveDisponible]);
-                console.log(`uiManager.js: Fallback: Plantilla inicial '${primeraClaveDisponible}' cargada.`);
-            } else {
-                 console.warn("uiManager.js: No hay ejemplos disponibles para cargar como fallback.");
-            }
-        }
+        console.warn(`uiManager.js: No se pudo cargar la plantilla inicial. Clave por defecto: '${claveEjemploPorDefecto}'.`);
     }
 };
 
