@@ -386,10 +386,10 @@ Webgoritmo.Interprete.ejecutarBloqueCodigo = async function(lineasDelBloque, amb
                 const lineaActualEsDeOtroModo = Webgoritmo.Interprete.regexDeOtroModo.test(lineaMinusculas);
 
                 if (controlActual.casoEncontrado) {
-                    // Si ya encontramos nuestro caso, saltamos hasta el FinSegun.
-                    i = controlActual.indiceFinSegunRelativo - 1; // -1 por el i++ del bucle
-                    console.log(`[DEBUG Salto-Segun L${numeroLineaActualGlobal}] Caso ya procesado. Saltando a FinSegun L${numeroLineaOffset + controlActual.indiceFinSegunRelativo}.`);
-                    continue; // Continuar al siguiente ciclo para que el i++ nos posicione correctamente.
+                    // Si ya se procesó un caso, saltar todas las líneas hasta el FinSegun.
+                    i = controlActual.indiceFinSegunRelativo;
+                    console.log(`[DEBUG Salto-Segun L${numeroLineaActualGlobal}] Caso procesado. Saltando a FinSegun L${numeroLineaOffset + i}.`);
+                    continue;
                 }
 
                 // Si aún no hemos encontrado un caso que coincida
